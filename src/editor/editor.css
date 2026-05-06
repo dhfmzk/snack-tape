@@ -1,0 +1,272 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f8f7f3;
+  color: #202124;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.editor-shell {
+  display: grid;
+  gap: 16px;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.topbar p,
+.muted-text {
+  margin: 4px 0 0;
+  color: #6f6a62;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.sidebar,
+.main-panel,
+.json-panel,
+.segment-card {
+  border: 1px solid #dedbd3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sidebar,
+.main-panel {
+  padding: 16px;
+}
+
+.sidebar h2,
+.main-panel h2,
+.json-panel h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.create-row,
+.sequence-tools,
+.sequence-list,
+.segment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.create-row,
+.sequence-tools {
+  margin-top: 12px;
+}
+
+.sequence-list {
+  margin-top: 14px;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #c8c5bd;
+  border-radius: 7px;
+  background: #fff;
+  color: #202124;
+}
+
+input {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+textarea {
+  min-height: 170px;
+  margin-top: 10px;
+  padding: 10px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+button {
+  min-height: 36px;
+  border: 1px solid #c8c5bd;
+  border-radius: 7px;
+  background: #fff;
+  color: #202124;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #f0f3ef;
+}
+
+button:disabled {
+  color: #9aa0a6;
+  cursor: not-allowed;
+}
+
+.sequence-button {
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.sequence-button.active {
+  border-color: #1f6f52;
+  background: #e7f2ed;
+  font-weight: 700;
+}
+
+.danger {
+  border-color: #c84747;
+  color: #a21f1f;
+}
+
+.status {
+  min-height: 38px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #eef3f8;
+  color: #22496b;
+}
+
+.status.error {
+  background: #fdecec;
+  color: #8b1a1a;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.segment-list {
+  min-height: 120px;
+}
+
+.empty-state {
+  padding: 20px;
+  border: 1px dashed #c8c5bd;
+  border-radius: 8px;
+  color: #6f6a62;
+  text-align: center;
+}
+
+.segment-card {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 14px;
+  padding: 12px;
+}
+
+.thumbnail {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 7px;
+  background: #e8e5dd;
+  object-fit: cover;
+}
+
+.segment-body {
+  min-width: 0;
+}
+
+.segment-title {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.segment-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.segment-meta div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 7px;
+  background: #f5f6f3;
+  overflow-wrap: anywhere;
+}
+
+.segment-meta span {
+  display: block;
+  margin-bottom: 3px;
+  color: #6f6a62;
+  font-size: 12px;
+}
+
+.segment-actions,
+.json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 140px 140px;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.edit-grid label {
+  display: grid;
+  gap: 4px;
+  color: #6f6a62;
+  font-size: 12px;
+}
+
+.edit-grid input {
+  color: #202124;
+  font-size: 14px;
+}
+
+.json-panel {
+  margin-top: 16px;
+  padding: 14px;
+}
+
+@media (max-width: 760px) {
+  .editor-shell {
+    padding: 14px;
+  }
+
+  .workspace,
+  .segment-card,
+  .edit-grid {
+    grid-template-columns: 1fr;
+  }
+}

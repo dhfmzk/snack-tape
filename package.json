@@ -1,0 +1,20 @@
+{
+  "name": "snacktape",
+  "version": "0.1.0",
+  "description": "좋아하는 YouTube 장면만 골라 이어보는 영상 믹스테이프",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json",
+    "build": "node scripts/clean.mjs && npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json && node scripts/build.mjs",
+    "build:test": "npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json",
+    "test": "node scripts/clean.mjs && npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.305",
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,271 @@
+import { removeContinueOverlay, showContinueOverlay } from './overlay.js';
+import type { PageInfo, Segment, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
+import { parseYouTubeVideoId } from '../shared/youtube.js';
+
+let activeToken: string | null = null;
+let activeSegmentVideoId: string | null = null;
+let cleanupPlayback: (() => void) | null = null;
+let lastHref = location.href;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function getVideo(): HTMLVideoElement | null {
+  return document.querySelector('video');
+}
+
+function isAdShowing(): boolean {
+  const player = document.querySelector('.html5-video-player');
+  if (player?.classList.contains('ad-showing')) {
+    return true;
+  }
+
+  return Boolean(
+    document.querySelector('.ytp-ad-player-overlay, .ytp-ad-preview-container, .ytp-ad-module, .video-ads .ytp-ad-text')
+  );
+}
+
+async function waitUntilNoAd(timeoutMs = 120000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (!isAdShowing()) {
+      return;
+    }
+
+    await delay(500);
+  }
+
+  throw new Error('광고가 끝난 뒤 다시 시도해주세요.');
+}
+
+function waitForVideoElement(timeoutMs = 10000): Promise<HTMLVideoElement> {
+  const existing = getVideo();
+  if (existing) {
+    return Promise.resolve(existing);
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+      reject(new Error('YouTube 영상 플레이어를 찾을 수 없습니다.'));
+    }, timeoutMs);
+
+    const observer = new MutationObserver(() => {
+      const video = getVideo();
+      if (!video) {
+        return;
+      }
+
+      window.clearTimeout(timeout);
+      observer.disconnect();
+      resolve(video);
+    });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
+function waitForMetadata(video: HTMLVideoElement, timeoutMs = 5000): Promise<void> {
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('영상 정보를 준비하지 못했습니다.'));
+    }, timeoutMs);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener('loadedmetadata', onReady);
+      video.removeEventListener('canplay', onReady);
+    };
+
+    const onReady = () => {
+      cleanup();
+      resolve();
+    };
+
+    video.addEventListener('loadedmetadata', onReady, { once: true });
+    video.addEventListener('canplay', onReady, { once: true });
+  });
+}
+
+async function waitForSegmentVideo(videoId: string, timeoutMs = 12000): Promise<HTMLVideoElement> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (parseYouTubeVideoId(location.href) === videoId) {
+      await delay(400);
+      const video = await waitForVideoElement(Math.max(500, deadline - Date.now()));
+      await waitForMetadata(video, Math.max(500, deadline - Date.now()));
+      return video;
+    }
+
+    await delay(250);
+  }
+
+  throw new Error('대상 YouTube 영상을 준비하지 못했습니다.');
+}
+
+function getTitle(): string {
+  const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+  const title = titleElement?.textContent?.trim();
+  if (title) {
+    return title;
+  }
+
+  return document.title.replace(/\s+-\s+YouTube$/, '').trim();
+}
+
+function getPageInfo(): PageInfo {
+  const video = getVideo();
+  const videoId = parseYouTubeVideoId(location.href);
+
+  return {
+    isYouTubeVideoPage: Boolean(videoId) && location.pathname === '/watch',
+    videoId,
+    title: getTitle(),
+    url: location.href,
+    currentTime: video ? Math.floor(video.currentTime) : null,
+    duration: video && Number.isFinite(video.duration) ? Math.floor(video.duration) : null
+  };
+}
+
+function sendMessage(message: SnackTapeMessage): void {
+  chrome.runtime.sendMessage(message, () => {
+    // Ignore disconnected receivers. Playback cleanup is idempotent on the background side.
+    void chrome.runtime.lastError;
+  });
+}
+
+function clearPlayback(): void {
+  if (cleanupPlayback) {
+    cleanupPlayback();
+    cleanupPlayback = null;
+  }
+
+  activeToken = null;
+  activeSegmentVideoId = null;
+  removeContinueOverlay();
+}
+
+async function tryPlay(video: HTMLVideoElement): Promise<void> {
+  try {
+    await video.play();
+    removeContinueOverlay();
+  } catch {
+    showContinueOverlay(async () => {
+      await video.play();
+      removeContinueOverlay();
+    });
+  }
+}
+
+async function playSegment(segment: Segment, playbackToken: string): Promise<void> {
+  clearPlayback();
+  activeToken = playbackToken;
+  activeSegmentVideoId = segment.videoId;
+
+  const video = await waitForSegmentVideo(segment.videoId);
+  const targetStart = Math.max(0, Math.floor(segment.startSeconds));
+  await waitUntilNoAd();
+  video.currentTime = targetStart;
+
+  let finished = false;
+  const finish = () => {
+    if (finished || activeToken !== playbackToken) {
+      return;
+    }
+
+    finished = true;
+    clearPlayback();
+    sendMessage({ type: 'SEGMENT_ENDED', playbackToken });
+  };
+
+  const endedHandler = () => {
+    if (!segment.endSeconds || segment.endSeconds <= 0) {
+      finish();
+    }
+  };
+
+  const interval = window.setInterval(() => {
+    if (activeToken !== playbackToken) {
+      window.clearInterval(interval);
+      return;
+    }
+
+    if (segment.endSeconds && segment.endSeconds > 0 && video.currentTime >= segment.endSeconds - 0.15) {
+      finish();
+    }
+  }, 250);
+
+  video.addEventListener('ended', endedHandler);
+  cleanupPlayback = () => {
+    window.clearInterval(interval);
+    video.removeEventListener('ended', endedHandler);
+  };
+
+  await tryPlay(video);
+}
+
+async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {
+  if (message.type === 'GET_PAGE_INFO') {
+    return { ok: true, data: getPageInfo() };
+  }
+
+  if (message.type === 'GET_CURRENT_TIME') {
+    const video = getVideo();
+    return { ok: true, data: video ? Math.floor(video.currentTime) : null };
+  }
+
+  if (message.type === 'PLAY_SEGMENT') {
+    await playSegment(message.segment, message.playbackToken);
+    return { ok: true };
+  }
+
+  if (message.type === 'STOP_PLAYBACK') {
+    const video = getVideo();
+    clearPlayback();
+    video?.pause();
+    return { ok: true };
+  }
+
+  return { ok: false, error: '지원하지 않는 요청입니다.' };
+}
+
+chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
+  handleMessage(message)
+    .then(sendResponse)
+    .catch((error: unknown) => {
+      const messageText = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
+      sendResponse({ ok: false, error: messageText });
+    });
+
+  return true;
+});
+
+function handleUrlChange(): void {
+  if (location.href !== lastHref) {
+    lastHref = location.href;
+    if (activeSegmentVideoId && parseYouTubeVideoId(location.href) !== activeSegmentVideoId) {
+      clearPlayback();
+      return;
+    }
+    removeContinueOverlay();
+  }
+}
+
+window.addEventListener('yt-navigate-finish', () => {
+  handleUrlChange();
+});
+
+window.setInterval(() => {
+  handleUrlChange();
+}, 1000);

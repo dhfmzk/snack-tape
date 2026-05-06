@@ -1,0 +1,5 @@
+node_modules/
+.tmp-tests/
+dist/
+package-lock.json
+.DS_Store

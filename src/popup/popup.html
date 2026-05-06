@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnackTape</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="hero">
+        <h1>SnackTape</h1>
+        <p>좋아하는 장면만 골라 이어보기</p>
+      </header>
+
+      <section id="pageWarning" class="notice hidden">YouTube 영상 페이지에서 사용할 수 있어요.</section>
+
+      <section class="panel" aria-label="현재 영상">
+        <h2>현재 영상</h2>
+        <p id="videoTitle" class="strong-text">불러오는 중...</p>
+        <p id="videoMeta" class="muted-text"></p>
+        <div class="time-row">
+          <span>현재 시간</span>
+          <strong id="currentTime">--:--</strong>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="구간 캡처">
+        <label class="label" for="sequenceSelect">선택한 시퀀스</label>
+        <select id="sequenceSelect"></select>
+
+        <div class="draft-grid">
+          <div>
+            <span>시작점</span>
+            <strong id="draftStart">아직 찍지 않음</strong>
+          </div>
+          <div>
+            <span>끝점</span>
+            <strong id="draftEnd">영상 끝까지</strong>
+          </div>
+        </div>
+
+        <div class="button-grid">
+          <button id="captureStart" type="button">시작점 찍기</button>
+          <button id="captureEnd" type="button">끝점 찍기</button>
+        </div>
+        <button id="addSegment" type="button" class="primary">조각 추가</button>
+      </section>
+
+      <section id="status" class="status" aria-live="polite"></section>
+
+      <footer class="actions">
+        <button id="startPlayback" type="button" class="primary">이어보기</button>
+        <button id="openEditor" type="button">편집 열기</button>
+      </footer>
+    </main>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

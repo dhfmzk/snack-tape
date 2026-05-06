@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnackTape 편집</title>
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <main class="editor-shell">
+      <header class="topbar">
+        <div>
+          <h1>SnackTape</h1>
+          <p>좋아하는 장면만 골라 만든 나만의 영상 믹스테이프</p>
+        </div>
+      </header>
+
+      <section id="status" class="status" aria-live="polite"></section>
+
+      <div class="workspace">
+        <aside class="sidebar" aria-label="시퀀스 목록">
+          <h2>시퀀스</h2>
+          <div class="create-row">
+            <input id="newSequenceName" type="text" placeholder="새 시퀀스 이름" />
+            <button id="createSequence" type="button">시퀀스 만들기</button>
+          </div>
+          <div id="sequenceList" class="sequence-list"></div>
+
+          <div class="sequence-tools">
+            <input id="renameSequenceName" type="text" placeholder="선택한 이름" />
+            <button id="renameSequence" type="button">이름 변경</button>
+            <button id="deleteSequence" type="button" class="danger">시퀀스 삭제</button>
+          </div>
+        </aside>
+
+        <section class="main-panel" aria-label="구간 편집">
+          <div class="panel-header">
+            <div>
+              <h2 id="activeSequenceName">선택한 시퀀스</h2>
+              <p id="segmentCount" class="muted-text"></p>
+            </div>
+          </div>
+
+          <div id="segmentList" class="segment-list"></div>
+
+          <section class="json-panel" aria-label="JSON 가져오기와 내보내기">
+            <h2>JSON 가져오기 / JSON 내보내기</h2>
+            <div class="json-actions">
+              <button id="exportStore" type="button">전체 JSON 내보내기</button>
+              <button id="exportSequence" type="button">선택 시퀀스 JSON 내보내기</button>
+              <button id="importJson" type="button">JSON 가져오기</button>
+            </div>
+            <textarea id="jsonText" spellcheck="false" placeholder="가져올 JSON을 붙여넣거나, 내보내기 결과를 여기에서 확인하세요."></textarea>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <script src="editor.js" type="module"></script>
+  </body>
+</html>

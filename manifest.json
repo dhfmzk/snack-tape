@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "SnackTape",
+  "version": "0.1.0",
+  "description": "좋아하는 YouTube 장면만 골라 이어보는 영상 믹스테이프",
+  "permissions": ["storage", "tabs", "activeTab", "scripting"],
+  "host_permissions": ["https://www.youtube.com/*", "https://youtube.com/*", "https://m.youtube.com/*", "https://youtu.be/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["contentScript.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_page": "editor.html"
+}
