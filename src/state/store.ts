@@ -13,7 +13,8 @@ import {
 } from '../shared/storage.js';
 import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
-import { loadSettings, saveSettings, type Settings } from './storage.js';
+import { createI18n } from '../i18n.js';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from './storage.js';
 import { getActiveVideoState, sendRuntimeMessage } from './youtube.js';
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
@@ -73,15 +74,7 @@ export class SnackTapeAppStore {
     this.state = {
       route: 'home',
       store: null,
-      settings: {
-        accentKey: 'peach',
-        autoNext: true,
-        fadeOut: true,
-        shuffleByDefault: false,
-        shortcutIn: 'I',
-        shortcutOut: 'O',
-        autoTitleFromCaptions: true,
-      },
+      settings: { ...DEFAULT_SETTINGS },
       pageInfo: null,
       videoState: null,
       playbackState: null,
@@ -150,7 +143,7 @@ export class SnackTapeAppStore {
     const timestamp = Date.now();
     const sequence: Sequence = {
       id: createId('sequence'),
-      name: `믹스테이프 ${currentStore.sequences.length + 1}`,
+      name: `${createI18n(this.state.settings.language).common.unnamedMixtape} ${currentStore.sequences.length + 1}`,
       segments: [],
       createdAt: timestamp,
       updatedAt: timestamp,

@@ -1,12 +1,14 @@
 import { Thumb } from '../components/Thumb.js';
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
+import { createI18n, type I18n } from '../i18n.js';
 import { formatTimecode } from '../shared/time.js';
 import type { Segment, Sequence } from '../shared/types.js';
 import type { AppState, SegmentEditEdge } from '../state/store.js';
 
 type Props = {
   state: AppState;
+  i18n?: I18n;
   onIn: () => void;
   onOut: () => void;
   onNudgeDraft?: (deltaSeconds: number) => void;
@@ -85,6 +87,7 @@ function menuButtonStyle(danger = false): Style {
 }
 
 function SegmentActionMenu(
+  i18n: I18n,
   segment: Segment,
   onBeginSegmentEdit?: (segmentId: string) => void,
   onDeleteSegment?: (segmentId: string) => void
@@ -102,7 +105,7 @@ function SegmentActionMenu(
     el(
       'summary',
       {
-        ariaLabel: `${segment.title} 메뉴`,
+        ariaLabel: i18n.capture.segmentMenu(segment.title),
         style: {
           ...btnIconStyle(),
           listStyle: 'none',
@@ -128,24 +131,24 @@ function SegmentActionMenu(
         },
       },
       el(
-        'button',
-        {
-          ariaLabel: `${segment.title} 구간 편집`,
+      'button',
+      {
+          ariaLabel: i18n.capture.editSegmentAria(segment.title),
           onClick: () => onBeginSegmentEdit?.(segment.id),
           style: menuButtonStyle(),
         },
         Glyph('note', 12),
-        '구간 편집'
+        i18n.capture.editSegment
       ),
       el(
         'button',
         {
-          ariaLabel: `${segment.title} 삭제`,
+          ariaLabel: i18n.capture.deleteSegmentAria(segment.title),
           onClick: () => onDeleteSegment?.(segment.id),
           style: menuButtonStyle(true),
         },
         Glyph('trash', 12),
-        '삭제'
+        i18n.capture.deleteSegment
       )
     )
   );
@@ -167,6 +170,7 @@ function segmentEditButtonStyle(): Style {
 }
 
 function SegmentEditControls(
+  i18n: I18n,
   segment: Segment,
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void,
   onCancelSegmentEdit?: () => void
@@ -216,10 +220,10 @@ function SegmentEditControls(
     el(
       'div',
       { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } },
-      el('span', { text: '구간 편집', style: { color: 'var(--text)', fontSize: '11px', fontWeight: '700' } }),
+      el('span', { text: i18n.capture.segmentEdit, style: { color: 'var(--text)', fontSize: '11px', fontWeight: '700' } }),
       el('button', {
-        text: '완료',
-        ariaLabel: `${segment.title} 편집 완료`,
+        text: i18n.capture.done,
+        ariaLabel: i18n.capture.segmentEditDone(segment.title),
         onClick: () => onCancelSegmentEdit?.(),
         style: {
           height: '24px',
@@ -234,12 +238,13 @@ function SegmentEditControls(
         },
       })
     ),
-    row('시작', 'start'),
-    row('끝', 'end')
+    row(i18n.capture.start, 'start'),
+    row(i18n.capture.end, 'end')
   );
 }
 
 function SaveTargetBar(
+  i18n: I18n,
   sequence: Sequence | null,
   sequences: Sequence[],
   onTargetSequence?: (sequenceId: string) => void,
@@ -250,13 +255,13 @@ function SaveTargetBar(
   onDeleteMixtape?: (sequenceId: string) => void
 ): HTMLElement {
   const nameControl = sequence && isRenaming
-    ? RenameTargetEditor(sequence, onCancelRenameMixtape, onRenameMixtape)
-    : SaveTargetSelect(sequence, sequences, onTargetSequence);
+    ? RenameTargetEditor(i18n, sequence, onCancelRenameMixtape, onRenameMixtape)
+    : SaveTargetSelect(i18n, sequence, sequences, onTargetSequence);
 
   return el(
     'div',
     {
-      ariaLabel: '저장 위치',
+      ariaLabel: i18n.capture.saveLocation,
       style: {
         position: 'relative',
         padding: '10px 14px',
@@ -271,7 +276,7 @@ function SaveTargetBar(
     },
     Glyph('tape', 12),
     el('span', {
-      text: '저장 위치',
+      text: i18n.capture.saveLocation,
       style: {
         color: 'var(--mute)',
         fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -284,8 +289,8 @@ function SaveTargetBar(
           'button',
           {
             type: 'button',
-            ariaLabel: '선택된 테이프 이름 변경',
-            title: '믹스테이프 이름 변경',
+            ariaLabel: i18n.capture.renameSelectedTape,
+            title: i18n.playback.renameMixtape,
             disabled: !onBeginRenameMixtape,
             onClick: () => onBeginRenameMixtape?.(sequence.id),
             style: {
@@ -311,8 +316,8 @@ function SaveTargetBar(
           'button',
           {
             type: 'button',
-            ariaLabel: '선택된 테이프 삭제',
-            title: '믹스테이프 삭제',
+            ariaLabel: i18n.capture.deleteSelectedTape,
+            title: i18n.capture.deleteSelectedTape,
             onClick: () => onDeleteMixtape?.(sequence.id),
             style: {
               width: '28px',
@@ -336,6 +341,7 @@ function SaveTargetBar(
 }
 
 function SaveTargetSelect(
+  i18n: I18n,
   sequence: Sequence | null,
   sequences: Sequence[],
   onTargetSequence?: (sequenceId: string) => void
@@ -354,7 +360,7 @@ function SaveTargetSelect(
     el(
       'select',
       {
-        ariaLabel: '저장 위치 선택',
+        ariaLabel: i18n.capture.saveLocationSelect,
         value: sequence?.id ?? '',
         onChange: (event) => {
           const target = event.target as HTMLSelectElement;
@@ -386,6 +392,7 @@ function SaveTargetSelect(
 }
 
 function RenameTargetEditor(
+  i18n: I18n,
   sequence: Sequence,
   onCancelRenameMixtape?: () => void,
   onRenameMixtape?: (sequenceId: string, name: string) => void
@@ -398,7 +405,7 @@ function RenameTargetEditor(
     }
   };
   const input = el('input', {
-    ariaLabel: '믹스테이프 이름',
+    ariaLabel: i18n.capture.mixtapeName,
     value: sequence.name,
     onInput: (event) => {
       const target = event.target as HTMLInputElement;
@@ -432,7 +439,7 @@ function RenameTargetEditor(
     'button',
     {
       type: 'button',
-      ariaLabel: '믹스테이프 이름 저장',
+      ariaLabel: i18n.capture.saveMixtapeName,
       onClick: () => commit(input),
       style: {
         width: '28px',
@@ -468,7 +475,7 @@ function RenameTargetEditor(
       'button',
       {
         type: 'button',
-        ariaLabel: '믹스테이프 이름 변경 취소',
+        ariaLabel: i18n.capture.cancelMixtapeName,
         onClick: () => onCancelRenameMixtape?.(),
         style: {
           width: '28px',
@@ -489,21 +496,23 @@ function RenameTargetEditor(
   );
 }
 
-export function Capture({
-  state,
-  onIn,
-  onOut,
-  onNudgeDraft,
-  onTargetSequence,
-  onBeginSegmentEdit,
-  onCancelSegmentEdit,
-  onNudgeSegment,
-  onDeleteSegment,
-  onBeginRenameMixtape,
-  onCancelRenameMixtape,
-  onRenameMixtape,
-  onDeleteMixtape,
-}: Props): HTMLElement {
+export function Capture(props: Props): HTMLElement {
+  const {
+    state,
+    onIn,
+    onOut,
+    onNudgeDraft,
+    onTargetSequence,
+    onBeginSegmentEdit,
+    onCancelSegmentEdit,
+    onNudgeSegment,
+    onDeleteSegment,
+    onBeginRenameMixtape,
+    onCancelRenameMixtape,
+    onRenameMixtape,
+    onDeleteMixtape,
+  } = props;
+  const i18n = props.i18n ?? createI18n(state.settings.language);
   const pageInfo = state.pageInfo;
   const usable = Boolean(pageInfo?.isYouTubeVideoPage && pageInfo.videoId && pageInfo.currentTime !== null && pageInfo.currentTime !== undefined);
   const currentTime = pageInfo?.currentTime ?? 0;
@@ -535,6 +544,7 @@ export function Capture({
       },
     },
     SaveTargetBar(
+      i18n,
       sequence,
       sequences,
       onTargetSequence,
@@ -560,7 +570,7 @@ export function Capture({
         'div',
         { style: { flex: '1', minWidth: '0' } },
         el('div', {
-          text: usable ? pageInfo?.title || '제목을 읽는 중' : 'YouTube 영상에서 열어주세요',
+          text: usable ? pageInfo?.title || i18n.common.readingTitle : i18n.common.openYoutubeVideo,
           style: {
             color: 'var(--text)',
             fontSize: '11.5px',
@@ -610,7 +620,7 @@ export function Capture({
         {
           disabled: !usable,
           onClick: onIn,
-          ariaLabel: 'IN 마커 찍기',
+          ariaLabel: i18n.capture.captureInAria,
           style: {
             height: '76px',
             border: usable ? '1.5px solid var(--accent)' : '1.5px solid var(--hairline2)',
@@ -633,7 +643,7 @@ export function Capture({
           { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
           Glyph('inMark', 14),
           el('span', {
-            text: 'IN · I',
+            text: i18n.capture.inButton,
             style: {
               fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: '11px',
@@ -643,7 +653,7 @@ export function Capture({
           })
         ),
         el('span', {
-          text: state.draftIn === null ? '찍기' : formatTimecode(state.draftIn),
+          text: state.draftIn === null ? i18n.capture.mark : formatTimecode(state.draftIn),
           style: {
             color: 'var(--text)',
             fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -660,7 +670,7 @@ export function Capture({
         {
           disabled: !canCaptureOut,
           onClick: onOut,
-          ariaLabel: 'OUT 마커 찍고 추가',
+          ariaLabel: i18n.capture.captureOutAria,
           style: {
             height: '76px',
             border: canCaptureOut ? '1.5px solid var(--accent)' : '1.5px solid var(--hairline2)',
@@ -682,7 +692,7 @@ export function Capture({
           { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
           Glyph('outMark', 14),
           el('span', {
-            text: 'OUT + 추가 · O',
+            text: i18n.capture.outButton,
             style: {
               fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: '11px',
@@ -692,7 +702,7 @@ export function Capture({
           })
         ),
         el('span', {
-          text: usable ? (hasDraftIn ? '지금' : 'IN 먼저') : formatTimecode(currentTime),
+          text: usable ? (hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
           style: {
             fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
             fontSize: '14px',
@@ -709,7 +719,7 @@ export function Capture({
           text: label,
           disabled: !canNudgeDraft,
           onClick: () => onNudgeDraft?.(delta),
-          ariaLabel: `${label} 조정`,
+          ariaLabel: i18n.capture.adjust(label),
           style: {
             minWidth: '50px',
             height: '26px',
@@ -730,7 +740,7 @@ export function Capture({
       'div',
       { style: { padding: '4px 14px 8px' } },
       el('span', {
-        text: `이번 세션 · ${segmentCount}개 저장됨`,
+        text: i18n.capture.sessionSaved(segmentCount),
         style: {
           color: 'var(--mute)',
           fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -783,7 +793,7 @@ export function Capture({
                 whiteSpace: 'nowrap',
               },
             }),
-            SegmentActionMenu(segment, onBeginSegmentEdit, onDeleteSegment)
+            SegmentActionMenu(i18n, segment, onBeginSegmentEdit, onDeleteSegment)
           ),
           el(
             'div',
@@ -801,7 +811,7 @@ export function Capture({
             }),
             el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
             el('span', {
-              text: segment.endSeconds ? formatTimecode(segment.endSeconds) : 'END',
+              text: segment.endSeconds ? formatTimecode(segment.endSeconds) : i18n.common.end,
               style: {
                 padding: '2px 6px',
                 background: 'var(--surface3)',
@@ -822,7 +832,7 @@ export function Capture({
               },
             })
           ),
-          isEditingSegment ? SegmentEditControls(segment, onNudgeSegment, onCancelSegmentEdit) : null
+          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onCancelSegmentEdit) : null
         )
           );
         }
@@ -852,7 +862,7 @@ export function Capture({
             el(
               'div',
               { style: { flex: '1' } },
-              el('span', { text: '현재 캡처 중', style: { color: 'var(--text)', fontSize: '11.5px', fontWeight: '600' } }),
+              el('span', { text: i18n.capture.currentlyCapturing, style: { color: 'var(--text)', fontSize: '11.5px', fontWeight: '600' } }),
               el(
                 'div',
                 { style: { display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' } },

@@ -1,12 +1,14 @@
 import { Thumb } from '../components/Thumb.js';
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
+import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
 import type { Sequence } from '../shared/types.js';
 import type { AppState } from '../state/store.js';
 
 type Props = {
   state: AppState;
+  i18n?: I18n;
   onCreate: () => void;
   onOpenSequence: (sequenceId: string) => void;
   onPlaySequence: (sequenceId: string) => void;
@@ -97,6 +99,7 @@ function chipStyle(): Style {
 
 function MixtapeCard(
   state: AppState,
+  i18n: I18n,
   sequence: Sequence,
   index: number,
   onOpenSequence: (sequenceId: string) => void,
@@ -174,13 +177,13 @@ function MixtapeCard(
               flex: '1',
             },
           },
-          el('span', { text: `${clipCount} CLIPS`, style: chipStyle() })
+          el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() })
         ),
         el(
           'button',
           {
             disabled: clipCount === 0,
-            ariaLabel: `${sequence.name} 재생`,
+            ariaLabel: i18n.home.playAria(sequence.name),
             onClick: (event) => {
               event.stopPropagation();
               onPlaySequence(sequence.id);
@@ -207,11 +210,11 @@ function MixtapeCard(
   );
 }
 
-function newTapeButton(onCreate: () => void): HTMLButtonElement {
+function newTapeButton(i18n: I18n, onCreate: () => void): HTMLButtonElement {
   return el(
     'button',
     {
-      ariaLabel: '새 테이프 만들기',
+      ariaLabel: i18n.home.newTapeAria,
       onClick: onCreate,
       style: {
         height: '28px',
@@ -231,7 +234,7 @@ function newTapeButton(onCreate: () => void): HTMLButtonElement {
       },
     },
     Glyph('plus', 11),
-    '새 테이프'
+    i18n.home.newTape
   );
 }
 
@@ -254,7 +257,7 @@ function MixtapeList(children: HTMLElement[]): HTMLElement {
   );
 }
 
-export function Home({ state, onCreate, onOpenSequence, onPlaySequence }: Props): HTMLElement {
+export function Home({ state, i18n = createI18n(state.settings.language), onCreate, onOpenSequence, onPlaySequence }: Props): HTMLElement {
   const sequences = state.store?.sequences ?? [];
 
   return el(
@@ -271,7 +274,7 @@ export function Home({ state, onCreate, onOpenSequence, onPlaySequence }: Props)
         },
       },
       el('span', {
-        text: '내 믹스테이프',
+        text: i18n.home.title,
         style: {
           fontSize: '18px',
           fontWeight: '700',
@@ -279,7 +282,7 @@ export function Home({ state, onCreate, onOpenSequence, onPlaySequence }: Props)
           letterSpacing: '-0.4px',
         },
       }),
-      newTapeButton(onCreate)
+      newTapeButton(i18n, onCreate)
     ),
     sequences.length === 0
       ? MixtapeList([
@@ -295,11 +298,11 @@ export function Home({ state, onCreate, onOpenSequence, onPlaySequence }: Props)
               },
             },
             el('p', {
-              text: '첫 믹스테이프를 만들어보세요',
+              text: i18n.home.emptyTitle,
               style: { margin: '0', fontSize: '14px', fontWeight: '700', color: 'var(--text)' },
             })
           ),
         ])
-      : MixtapeList(sequences.map((sequence, index) => MixtapeCard(state, sequence, index, onOpenSequence, onPlaySequence)))
+      : MixtapeList(sequences.map((sequence, index) => MixtapeCard(state, i18n, sequence, index, onOpenSequence, onPlaySequence)))
   );
 }

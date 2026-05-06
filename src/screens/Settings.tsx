@@ -1,5 +1,6 @@
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
+import { createI18n, type I18n, type Language } from '../i18n.js';
 import type { AppState } from '../state/store.js';
 import type { Settings as SnackTapeSettings } from '../state/storage.js';
 import type { ThemeKey } from '../theme/tokens.js';
@@ -7,6 +8,7 @@ import { SNACKTAPE_PALETTE } from '../theme/tokens.js';
 
 type Props = {
   state: AppState;
+  i18n?: I18n;
   onAccent: (key: ThemeKey) => void;
   onSettingChange?: (patch: Partial<SnackTapeSettings>) => void;
 };
@@ -23,7 +25,7 @@ type RowProps = {
   onToggle?: () => void;
 };
 
-function selectedMixtapeName(state: AppState): string {
+function selectedMixtapeName(state: AppState, i18n: I18n): string {
   const sequences = state.store?.sequences ?? [];
   const settingsDefault = state.settings.defaultMixtapeId
     ? sequences.find((sequence) => sequence.id === state.settings.defaultMixtapeId)
@@ -32,10 +34,10 @@ function selectedMixtapeName(state: AppState): string {
     ? sequences.find((sequence) => sequence.id === state.store?.selectedSequenceId)
     : undefined;
 
-  return settingsDefault?.name ?? selected?.name ?? sequences[0]?.name ?? '믹스테이프 없음';
+  return settingsDefault?.name ?? selected?.name ?? sequences[0]?.name ?? i18n.common.noMixtape;
 }
 
-function SettingsRow({ label, sub, right, mono, chev, toggle, on, danger, onToggle }: RowProps): HTMLElement {
+function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, danger, onToggle }: RowProps): HTMLElement {
   return el(
     'div',
     {
@@ -88,7 +90,7 @@ function SettingsRow({ label, sub, right, mono, chev, toggle, on, danger, onTogg
           'button',
           {
             type: 'button',
-            ariaLabel: `${label} ${on ? '끄기' : '켜기'}`,
+            ariaLabel: `${label} ${on ? i18n.settings.turnOff : i18n.settings.turnOn}`,
             onClick: () => onToggle?.(),
             style: {
               width: '32px',
@@ -138,7 +140,96 @@ function Section(title: string, ...children: HTMLElement[]): HTMLElement {
   );
 }
 
-export function Settings({ state, onAccent, onSettingChange }: Props): HTMLElement {
+function LanguageSection(state: AppState, i18n: I18n, onSettingChange?: (patch: Partial<SnackTapeSettings>) => void): HTMLElement {
+  const choices: Array<{ key: Language; label: string }> = [
+    { key: 'ko', label: i18n.settings.Korean },
+    { key: 'en', label: i18n.settings.English },
+  ];
+
+  return el(
+    'div',
+    { style: { marginBottom: '22px' } },
+    el(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: '4px',
+        },
+      },
+      el('span', {
+        text: i18n.settings.language,
+        style: {
+          fontSize: '13px',
+          fontWeight: '600',
+          color: 'var(--text)',
+        },
+      }),
+      el('span', {
+        text: i18n.settings.languageCode,
+        style: {
+          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontSize: '9.5px',
+          color: 'var(--mute)',
+          letterSpacing: '0.4px',
+        },
+      })
+    ),
+    el('div', {
+      text: i18n.settings.languageHelp,
+      style: {
+        fontSize: '11px',
+        color: 'var(--mute)',
+        marginBottom: '12px',
+        lineHeight: '1.5',
+      },
+    }),
+    el(
+      'div',
+      {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: '8px',
+        },
+      },
+      ...choices.map((choice) => {
+        const selected = state.settings.language === choice.key;
+        return el(
+          'button',
+          {
+            type: 'button',
+            ariaLabel: choice.label,
+            onClick: () => onSettingChange?.({ language: choice.key }),
+            style: {
+              height: '42px',
+              border: `1.5px solid ${selected ? 'var(--accent)' : 'var(--hairline)'}`,
+              background: selected ? 'var(--accent-soft)' : 'var(--surface)',
+              color: selected ? 'var(--text)' : 'var(--text2)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px',
+              fontWeight: selected ? '700' : '600',
+              boxShadow: selected ? '0 0 14px var(--accent-glow)' : 'none',
+              position: 'relative',
+            },
+          },
+          choice.label,
+          selected
+            ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent)' } }, Glyph('check', 11))
+            : null
+        );
+      })
+    )
+  );
+}
+
+export function Settings({ state, i18n = createI18n(state.settings.language), onAccent, onSettingChange }: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
 
   return el(
@@ -154,7 +245,7 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
       },
     },
     el('div', {
-      text: '설정',
+      text: i18n.settings.title,
       style: {
         fontSize: '18px',
         fontWeight: '700',
@@ -163,6 +254,7 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
         marginBottom: '14px',
       },
     }),
+    LanguageSection(state, i18n, onSettingChange),
     el(
       'div',
       { style: { marginBottom: '22px' } },
@@ -177,7 +269,7 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
           },
         },
         el('span', {
-          text: '포인트 컬러',
+          text: i18n.settings.accentColor,
           style: {
             fontSize: '13px',
             fontWeight: '600',
@@ -195,7 +287,7 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
         })
       ),
       el('div', {
-        text: '현재 재생 / 저장 / 활성 상태에 사용되는 색입니다.',
+        text: i18n.settings.accentHelp,
         style: {
           fontSize: '11px',
           color: 'var(--mute)',
@@ -218,7 +310,7 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
             'button',
             {
               type: 'button',
-              ariaLabel: `${palette.name} 선택`,
+              ariaLabel: i18n.settings.selectPalette(palette.name),
               onClick: () => onAccent(palette.key),
               style: {
                 background: 'var(--surface)',
@@ -273,46 +365,46 @@ export function Settings({ state, onAccent, onSettingChange }: Props): HTMLEleme
       )
     ),
     Section(
-      '재생',
-      SettingsRow({
-        label: '자동 다음 재생',
-        sub: '구간 끝나면 다음 클립으로',
+      i18n.settings.playback,
+      SettingsRow(i18n, {
+        label: i18n.settings.autoNext,
+        sub: i18n.settings.autoNextHelp,
         toggle: true,
         on: state.settings.autoNext,
         onToggle: () => onSettingChange?.({ autoNext: !state.settings.autoNext }),
       }),
-      SettingsRow({
-        label: '구간 끝에서 0.3초 페이드',
-        sub: '끊김 부드럽게',
+      SettingsRow(i18n, {
+        label: i18n.settings.fadeOut,
+        sub: i18n.settings.fadeOutHelp,
         toggle: true,
         on: state.settings.fadeOut,
         onToggle: () => onSettingChange?.({ fadeOut: !state.settings.fadeOut }),
       }),
-      SettingsRow({
-        label: '기본 시작 시 셔플',
+      SettingsRow(i18n, {
+        label: i18n.settings.shuffleByDefault,
         toggle: true,
         on: state.settings.shuffleByDefault,
         onToggle: () => onSettingChange?.({ shuffleByDefault: !state.settings.shuffleByDefault }),
       })
     ),
     Section(
-      '캡처',
-      SettingsRow({ label: '단축키 — IN', right: state.settings.shortcutIn, mono: true }),
-      SettingsRow({ label: '단축키 — OUT + 저장', right: state.settings.shortcutOut, mono: true }),
-      SettingsRow({ label: '기본 저장 위치', right: selectedMixtapeName(state) }),
-      SettingsRow({
-        label: 'OUT 시 자동 제목 추론',
-        sub: '자막·챕터에서 추출',
+      i18n.settings.capture,
+      SettingsRow(i18n, { label: i18n.settings.shortcutIn, right: state.settings.shortcutIn, mono: true }),
+      SettingsRow(i18n, { label: i18n.settings.shortcutOut, right: state.settings.shortcutOut, mono: true }),
+      SettingsRow(i18n, { label: i18n.settings.defaultSaveLocation, right: selectedMixtapeName(state, i18n) }),
+      SettingsRow(i18n, {
+        label: i18n.settings.autoTitle,
+        sub: i18n.settings.autoTitleHelp,
         toggle: true,
         on: state.settings.autoTitleFromCaptions,
         onToggle: () => onSettingChange?.({ autoTitleFromCaptions: !state.settings.autoTitleFromCaptions }),
       })
     ),
     Section(
-      '데이터',
-      SettingsRow({ label: '내보내기', right: 'JSON · CSV', chev: true }),
-      SettingsRow({ label: '가져오기', chev: true }),
-      SettingsRow({ label: '모든 클립 삭제', danger: true })
+      i18n.settings.data,
+      SettingsRow(i18n, { label: i18n.settings.export, right: 'JSON · CSV', chev: true }),
+      SettingsRow(i18n, { label: i18n.settings.import, chev: true }),
+      SettingsRow(i18n, { label: i18n.settings.deleteAllClips, danger: true })
     ),
     el(
       'div',

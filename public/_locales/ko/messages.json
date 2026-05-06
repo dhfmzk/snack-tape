@@ -4,5 +4,17 @@
   },
   "appDescription": {
     "message": "YouTube 구간을 잘라 믹스테이프처럼 이어 재생"
+  },
+  "commandCaptureIn": {
+    "message": "IN 마커"
+  },
+  "commandCaptureOut": {
+    "message": "OUT 마커 + 저장"
+  },
+  "commandPlayPause": {
+    "message": "재생/일시정지"
+  },
+  "commandNextClip": {
+    "message": "다음 클립"
   }
 }

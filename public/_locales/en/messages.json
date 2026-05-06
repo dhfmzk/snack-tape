@@ -1,0 +1,20 @@
+{
+  "appName": {
+    "message": "SnackTape"
+  },
+  "appDescription": {
+    "message": "Save YouTube ranges and replay them like a mixtape"
+  },
+  "commandCaptureIn": {
+    "message": "IN marker"
+  },
+  "commandCaptureOut": {
+    "message": "OUT marker + save"
+  },
+  "commandPlayPause": {
+    "message": "Play/pause"
+  },
+  "commandNextClip": {
+    "message": "Next clip"
+  }
+}

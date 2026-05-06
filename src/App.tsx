@@ -1,5 +1,6 @@
 import { PanelFrame } from './components/PanelFrame.js';
 import { el } from './components/dom.js';
+import { createI18n, type I18n } from './i18n.js';
 import { Capture } from './screens/Capture.js';
 import { Detail } from './screens/Detail.js';
 import { Home } from './screens/Home.js';
@@ -7,14 +8,15 @@ import { Playback } from './screens/Playback.js';
 import { Settings } from './screens/Settings.js';
 import type { AppState, SnackTapeAppStore } from './state/store.js';
 
-function screenFor(state: AppState, store: SnackTapeAppStore): HTMLElement {
+function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLElement {
   if (state.loading) {
-    return el('div', { className: 'screen', dataset: { scrollKey: 'loading-screen' } }, el('p', { className: 'soft-empty', text: '불러오는 중...' }));
+    return el('div', { className: 'screen', dataset: { scrollKey: 'loading-screen' } }, el('p', { className: 'soft-empty', text: i18n.app.loading }));
   }
 
   if (state.route === 'capture') {
     return Capture({
       state,
+      i18n,
       onIn: () => void store.captureIn(),
       onOut: () => void store.captureOutAndSave(),
       onNudgeDraft: (deltaSeconds) => void store.nudgeDraft(deltaSeconds),
@@ -28,9 +30,9 @@ function screenFor(state: AppState, store: SnackTapeAppStore): HTMLElement {
       onRenameMixtape: (sequenceId, name) => void store.renameMixtape(sequenceId, name),
       onDeleteMixtape: (sequenceId) => {
         const sequence = state.store?.sequences.find((item) => item.id === sequenceId);
-        const name = sequence?.name ?? '믹스테이프';
+        const name = sequence?.name ?? i18n.common.unnamedMixtape;
         const clipCount = sequence?.segments.length ?? 0;
-        if (window.confirm(`"${name}" 믹스테이프를 삭제할까요? 저장된 구간 ${clipCount}개도 함께 삭제됩니다.`)) {
+        if (window.confirm(i18n.app.deleteMixtapeConfirm(name, clipCount))) {
           void store.deleteMixtape(sequenceId);
         }
       },
@@ -40,6 +42,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore): HTMLElement {
   if (state.route === 'playback') {
     return Playback({
       state,
+      i18n,
       onBack: () => store.setRoute('home'),
       onPlay: (index, sequenceId, mode) => void store.startSequence(index, sequenceId, mode),
       onStop: () => void store.stopPlayback(),
@@ -56,17 +59,19 @@ function screenFor(state: AppState, store: SnackTapeAppStore): HTMLElement {
   if (state.route === 'settings') {
     return Settings({
       state,
+      i18n,
       onAccent: (key) => void store.setAccentKey(key),
       onSettingChange: (patch) => void store.updateSettings(patch),
     });
   }
 
   if (state.route === 'detail') {
-    return Detail();
+    return Detail(i18n);
   }
 
   return Home({
     state,
+    i18n,
     onCreate: () => void store.createMixtape(),
     onOpenSequence: (sequenceId) => void store.openMixtape(sequenceId),
     onPlaySequence: (sequenceId) => void store.startSequence(0, sequenceId),
@@ -74,13 +79,16 @@ function screenFor(state: AppState, store: SnackTapeAppStore): HTMLElement {
 }
 
 export function App(state: AppState, store: SnackTapeAppStore): HTMLElement {
+  const i18n = createI18n(state.settings.language);
+
   return el(
     'div',
     { className: 'app-shell' },
     PanelFrame({
       active: state.route,
+      i18n,
       onRoute: (route) => store.setRoute(route),
-      children: screenFor(state, store),
+      children: screenFor(state, store, i18n),
     })
   );
 }

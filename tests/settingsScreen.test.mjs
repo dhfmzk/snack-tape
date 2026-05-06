@@ -58,6 +58,7 @@ function baseState(accentKey = 'coral') {
     },
     settings: {
       accentKey,
+      language: 'ko',
       autoNext: true,
       fadeOut: true,
       shuffleByDefault: false,
@@ -92,11 +93,16 @@ test('Settings renders the full handoff settings template in palette order', asy
 
   const page = Settings({ state, onAccent: () => {}, onSettingChange: () => {} });
   const text = textOf(page);
-  const colorSection = page.children[1];
+  const languageSection = page.children[1];
+  const languageChoices = languageSection.children[2];
+  const colorSection = page.children[2];
   const swatchGrid = colorSection.children[2];
 
   assert.equal(page.dataset.scrollKey, 'settings-screen');
   assert.match(text, /설정/);
+  assert.match(text, /언어/);
+  assert.match(text, /앱 표시 언어입니다\./);
+  assert.deepEqual(languageChoices.children.map((choice) => choice.children[0].textContent), ['한국어', 'English']);
   assert.match(text, /포인트 컬러/);
   assert.match(text, /현재 재생 \/ 저장 \/ 활성 상태에 사용되는 색입니다\./);
   assert.match(text, /CORAL/);
@@ -134,12 +140,12 @@ test('Settings wires handoff toggles to persisted setting patches', async () => 
     onSettingChange: (patch) => patches.push(patch)
   });
 
-  const playbackSection = page.children[2];
+  const playbackSection = page.children[3];
   playbackSection.children[1].children[1].click();
   playbackSection.children[2].children[1].click();
   playbackSection.children[3].children[1].click();
 
-  const captureSection = page.children[3];
+  const captureSection = page.children[4];
   captureSection.children[4].children[1].click();
 
   assert.deepEqual(patches, [
@@ -148,4 +154,42 @@ test('Settings wires handoff toggles to persisted setting patches', async () => 
     { shuffleByDefault: true },
     { autoTitleFromCaptions: false }
   ]);
+});
+
+test('Settings wires language choices to persisted setting patches', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const patches = [];
+
+  const page = Settings({
+    state: baseState(),
+    onAccent: () => {},
+    onSettingChange: (patch) => patches.push(patch)
+  });
+
+  const languageChoices = page.children[1].children[2];
+  languageChoices.children[1].click();
+
+  assert.deepEqual(patches, [{ language: 'en' }]);
+});
+
+test('Settings renders English app copy when language is English', async () => {
+  installDomShim();
+  const [{ Settings }, { createI18n }] = await Promise.all([
+    import('../.tmp-tests/src/screens/Settings.js'),
+    import('../.tmp-tests/src/i18n.js')
+  ]);
+  const state = baseState('sky');
+  state.settings.language = 'en';
+
+  const page = Settings({ state, i18n: createI18n('en'), onAccent: () => {}, onSettingChange: () => {} });
+  const text = textOf(page);
+
+  assert.match(text, /Settings/);
+  assert.match(text, /Language/);
+  assert.match(text, /Accent color/);
+  assert.match(text, /Playback/);
+  assert.match(text, /Capture/);
+  assert.match(text, /Default save location/);
+  assert.match(text, /Data/);
 });

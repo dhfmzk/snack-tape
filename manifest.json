@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "SnackTape",
+  "name": "__MSG_appName__",
   "version": "0.1.0",
-  "description": "YouTube 구간을 잘라 믹스테이프처럼 이어 재생",
-  "default_locale": "ko",
+  "description": "__MSG_appDescription__",
+  "default_locale": "en",
   "permissions": ["sidePanel", "storage", "tabs", "scripting"],
   "host_permissions": ["https://*.youtube.com/*"],
   "action": {
@@ -26,19 +26,19 @@
   "commands": {
     "capture-in": {
       "suggested_key": { "default": "Alt+I" },
-      "description": "IN 마커"
+      "description": "__MSG_commandCaptureIn__"
     },
     "capture-out": {
       "suggested_key": { "default": "Alt+O" },
-      "description": "OUT 마커 + 저장"
+      "description": "__MSG_commandCaptureOut__"
     },
     "play-pause": {
       "suggested_key": { "default": "Alt+Space" },
-      "description": "재생/일시정지"
+      "description": "__MSG_commandPlayPause__"
     },
     "next-clip": {
       "suggested_key": { "default": "Alt+N" },
-      "description": "다음 클립"
+      "description": "__MSG_commandNextClip__"
     }
   }
 }

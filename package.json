@@ -1,9 +1,10 @@
 {
   "name": "snacktape",
   "version": "0.1.0",
-  "description": "좋아하는 YouTube 장면만 골라 이어보는 영상 믹스테이프",
+  "description": "A video mixtape for replaying only your favorite YouTube moments.",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "typecheck": "npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json",

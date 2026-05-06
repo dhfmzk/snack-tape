@@ -1,7 +1,9 @@
+import { isLanguage, type Language } from '../i18n.js';
 import { isThemeKey, type ThemeKey } from '../theme/tokens.js';
 
 export type Settings = {
   accentKey: ThemeKey;
+  language: Language;
   autoNext: boolean;
   fadeOut: boolean;
   shuffleByDefault: boolean;
@@ -15,6 +17,7 @@ export const SETTINGS_KEY = 'snacktape.settings.v1';
 
 export const DEFAULT_SETTINGS: Settings = {
   accentKey: 'peach',
+  language: 'ko',
   autoNext: true,
   fadeOut: true,
   shuffleByDefault: false,
@@ -44,6 +47,7 @@ export function normalizeSettings(input: unknown): Settings {
 
   return {
     accentKey: isThemeKey(input.accentKey) ? input.accentKey : DEFAULT_SETTINGS.accentKey,
+    language: isLanguage(input.language) ? input.language : DEFAULT_SETTINGS.language,
     autoNext: bool(input.autoNext, DEFAULT_SETTINGS.autoNext),
     fadeOut: bool(input.fadeOut, DEFAULT_SETTINGS.fadeOut),
     shuffleByDefault: bool(input.shuffleByDefault, DEFAULT_SETTINGS.shuffleByDefault),

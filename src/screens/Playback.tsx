@@ -1,12 +1,14 @@
 import { Thumb } from '../components/Thumb.js';
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
+import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
 import type { PlaybackMode, Segment, Sequence } from '../shared/types.js';
 import type { AppState } from '../state/store.js';
 
 type Props = {
   state: AppState;
+  i18n?: I18n;
   onBack: () => void;
   onPlay: (index: number, sequenceId?: string, mode?: PlaybackMode) => void;
   onStop: () => void;
@@ -65,8 +67,8 @@ function totalDuration(sequence: Sequence): number {
   return sequence.segments.reduce((sum, segment) => sum + clipDuration(segment), 0);
 }
 
-function timeRange(segment: Segment): string {
-  return `${formatSeconds(segment.startSeconds)} → ${segment.endSeconds ? formatSeconds(segment.endSeconds) : 'END'}`;
+function timeRange(segment: Segment, i18n: I18n): string {
+  return `${formatSeconds(segment.startSeconds)} → ${segment.endSeconds ? formatSeconds(segment.endSeconds) : i18n.common.end}`;
 }
 
 function progress(state: AppState, segment: Segment | null): { ratio: number; elapsed: number; duration: number; remaining: number; animate: boolean } {
@@ -186,19 +188,21 @@ function editTextButtonStyle(accent = false): Style {
   };
 }
 
-export function Playback({
-  state,
-  onBack,
-  onPlay,
-  onStop,
-  onNext,
-  onEditSequence,
-  onRenameSequence,
-  onCancelQueueEdit,
-  onSaveQueueEdit,
-  onMoveQueueSegment,
-  onRemoveQueueSegment,
-}: Props): HTMLElement {
+export function Playback(props: Props): HTMLElement {
+  const {
+    state,
+    onBack,
+    onPlay,
+    onStop,
+    onNext,
+    onEditSequence,
+    onRenameSequence,
+    onCancelQueueEdit,
+    onSaveQueueEdit,
+    onMoveQueueSegment,
+    onRemoveQueueSegment,
+  } = props;
+  const i18n = props.i18n ?? createI18n(state.settings.language);
   const sequence = playbackSequence(state);
   const { segment, index } = currentSegment(state, sequence);
   const isPlaying = state.playbackDisplay?.canStop === true;
@@ -221,8 +225,8 @@ export function Playback({
             padding: '18px',
           },
         },
-        el('p', { text: '재생할 클립이 없습니다', style: { margin: '0 0 6px', fontSize: '14px', fontWeight: '700', color: 'var(--text)' } }),
-        el('p', { text: '캡처 탭에서 첫 구간을 저장하면 큐가 만들어집니다.', style: { margin: '0', color: 'var(--mute)', fontSize: '12px', lineHeight: '1.5' } })
+        el('p', { text: i18n.playback.emptyTitle, style: { margin: '0 0 6px', fontSize: '14px', fontWeight: '700', color: 'var(--text)' } }),
+        el('p', { text: i18n.playback.emptyCopy, style: { margin: '0', color: 'var(--mute)', fontSize: '12px', lineHeight: '1.5' } })
       )
     );
   }
@@ -255,12 +259,12 @@ export function Playback({
       el(
         'div',
         { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' } },
-        el('button', { ariaLabel: '믹스테이프로 돌아가기', onClick: onBack, style: btnIconStyle() }, Glyph('back', 14)),
+        el('button', { ariaLabel: i18n.playback.backToMixtapes, onClick: onBack, style: btnIconStyle() }, Glyph('back', 14)),
         el(
           'div',
           { style: { flex: '1', minWidth: '0' } },
           el('span', {
-            text: isPlaying ? 'NOW PLAYING' : 'READY',
+            text: isPlaying ? i18n.playback.nowPlaying : i18n.playback.ready,
             style: {
               fontSize: '9.5px',
               color: 'var(--accent)',
@@ -289,8 +293,8 @@ export function Playback({
             el(
               'button',
               {
-                ariaLabel: '믹스테이프 이름 변경',
-                title: '믹스테이프 이름 변경',
+                ariaLabel: i18n.playback.renameMixtape,
+                title: i18n.playback.renameMixtape,
                 onClick: () => onRenameSequence?.(sequence.id),
                 style: btnIconStyle({ width: '24px', height: '24px', color: 'var(--accent)' }),
               },
@@ -328,7 +332,7 @@ export function Playback({
             } as Style,
           }),
           el('div', {
-            text: `↳ ${sequence.name}`,
+              text: `↳ ${sequence.name}`,
             style: {
               fontSize: '11px',
               color: 'var(--text2)',
@@ -342,7 +346,7 @@ export function Playback({
             'div',
             { style: { marginTop: '8px' } },
             el('span', {
-              text: timeRange(segment),
+              text: timeRange(segment, i18n),
               style: {
                 fontFamily: 'JetBrains Mono',
                 fontSize: '9.5px',
@@ -362,7 +366,7 @@ export function Playback({
         el(
           'div',
           {
-            ariaLabel: '재생 진행률',
+            ariaLabel: i18n.playback.progress,
             role: 'progressbar',
             dataset: { progressRatio: String(Number(progressState.ratio.toFixed(4))) },
             style: { height: '5px', background: 'var(--surface3)', borderRadius: '999px', position: 'relative' },
@@ -384,12 +388,12 @@ export function Playback({
       el(
         'div',
         { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginTop: '12px', color: 'var(--text2)' } },
-        el('button', { ariaLabel: '셔플 재생', onClick: () => onPlay(index, sequence.id, 'shuffle'), style: btnIconStyle() }, Glyph('shuffle', 14)),
-        el('button', { ariaLabel: '이전 클립', onClick: () => onPlay(previousIndex, sequence.id, currentMode), style: btnIconStyle({ width: '32px', height: '32px' }) }, Glyph('prev', 16)),
+        el('button', { ariaLabel: i18n.playback.shuffle, onClick: () => onPlay(index, sequence.id, 'shuffle'), style: btnIconStyle() }, Glyph('shuffle', 14)),
+        el('button', { ariaLabel: i18n.playback.previous, onClick: () => onPlay(previousIndex, sequence.id, currentMode), style: btnIconStyle({ width: '32px', height: '32px' }) }, Glyph('prev', 16)),
         el(
           'button',
           {
-            ariaLabel: isPlaying ? '정지' : '재생',
+            ariaLabel: isPlaying ? i18n.playback.stop : i18n.playback.play,
             onClick: () => (isPlaying ? onStop() : onPlay(index, sequence.id, currentMode)),
             style: {
               width: '48px',
@@ -408,28 +412,28 @@ export function Playback({
           Glyph(isPlaying ? 'pause' : 'play', 16)
         ),
         el('button', {
-          ariaLabel: '다음 클립',
+          ariaLabel: i18n.playback.next,
           onClick: () => (isPlaying ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
           style: btnIconStyle({ width: '32px', height: '32px' }),
         }, Glyph('next', 16)),
-        el('button', { ariaLabel: '현재 클립 다시 재생', onClick: () => onPlay(index, sequence.id, currentMode), style: btnIconStyle() }, Glyph('repeat', 14))
+        el('button', { ariaLabel: i18n.playback.repeatCurrent, onClick: () => onPlay(index, sequence.id, currentMode), style: btnIconStyle() }, Glyph('repeat', 14))
       )
     ),
     el(
       'div',
       { style: { padding: '14px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
       el('span', {
-        text: 'QUEUE',
+        text: i18n.playback.queue,
         style: { fontFamily: 'JetBrains Mono', fontSize: '11px', fontWeight: '600', color: 'var(--text)', letterSpacing: '0.6px' },
       }),
       isEditingQueue
         ? el('span', {
-            text: '편집 중',
+            text: i18n.playback.editing,
             style: { fontFamily: 'JetBrains Mono', fontSize: '9.5px', color: 'var(--accent)' },
           })
         : el('button', {
-            text: '편집',
-            ariaLabel: '믹스테이프 편집',
+            text: i18n.playback.edit,
+            ariaLabel: i18n.playback.editMixtape,
             onClick: () => onEditSequence(sequence.id),
             style: {
               border: '1px solid var(--hairline2)',
@@ -510,7 +514,7 @@ export function Playback({
                 },
               }),
               el('div', {
-                text: timeRange(queueSegment),
+                text: timeRange(queueSegment, i18n),
                 style: {
                   fontSize: '10px',
                   color: 'var(--mute)',
@@ -525,19 +529,19 @@ export function Playback({
               'div',
               { style: { display: 'flex', gap: '4px', flexShrink: '0' } },
               el('button', {
-                ariaLabel: `${queueSegment.title} 위로 이동`,
+                ariaLabel: i18n.playback.moveUp(queueSegment.title),
                 disabled: !canMoveUp,
                 onClick: () => canMoveUp && onMoveQueueSegment(queueIndex, queueIndex - 1),
                 style: queueActionButtonStyle(!canMoveUp),
               }, Glyph('up', 12)),
               el('button', {
-                ariaLabel: `${queueSegment.title} 아래로 이동`,
+                ariaLabel: i18n.playback.moveDown(queueSegment.title),
                 disabled: !canMoveDown,
                 onClick: () => canMoveDown && onMoveQueueSegment(queueIndex, queueIndex + 1),
                 style: queueActionButtonStyle(!canMoveDown),
               }, Glyph('down', 12)),
               el('button', {
-                ariaLabel: `${queueSegment.title} 큐에서 제거`,
+                ariaLabel: i18n.playback.removeFromQueue(queueSegment.title),
                 disabled: !canRemove,
                 onClick: () => canRemove && onRemoveQueueSegment(queueSegment.id),
                 style: queueActionButtonStyle(!canRemove),
@@ -549,7 +553,7 @@ export function Playback({
         return el(
           'button',
           {
-            ariaLabel: `${queueSegment.title} 재생`,
+            ariaLabel: i18n.playback.playSegment(queueSegment.title),
             onClick: () => onPlay(originalIndex, sequence.id, currentMode),
             style: {
               width: '100%',
@@ -589,7 +593,7 @@ export function Playback({
               },
             }),
             el('div', {
-              text: timeRange(queueSegment),
+                text: timeRange(queueSegment, i18n),
               style: {
                 fontSize: '10px',
                 color: 'var(--mute)',
@@ -618,8 +622,8 @@ export function Playback({
               gap: '8px',
             },
           },
-          el('button', { text: '취소', ariaLabel: '큐 편집 취소', onClick: onCancelQueueEdit, style: editTextButtonStyle() }),
-          el('button', { text: '완료', ariaLabel: '큐 편집 완료', onClick: onSaveQueueEdit, style: editTextButtonStyle(true) })
+          el('button', { text: i18n.playback.cancel, ariaLabel: i18n.playback.cancelQueueEdit, onClick: onCancelQueueEdit, style: editTextButtonStyle() }),
+          el('button', { text: i18n.playback.done, ariaLabel: i18n.playback.saveQueueEdit, onClick: onSaveQueueEdit, style: editTextButtonStyle(true) })
         )
       : null
   );

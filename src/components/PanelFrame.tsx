@@ -1,3 +1,4 @@
+import { createI18n, type I18n } from '../i18n.js';
 import type { AppRoute } from '../state/store.js';
 import { TabBar } from './TabBar.js';
 import { el } from './dom.js';
@@ -5,10 +6,11 @@ import { el } from './dom.js';
 type PanelFrameProps = {
   active: AppRoute;
   children: Node;
+  i18n?: I18n;
   onRoute: (route: AppRoute) => void;
 };
 
-export function PanelFrame({ active, children, onRoute }: PanelFrameProps): HTMLElement {
+export function PanelFrame({ active, children, i18n = createI18n(), onRoute }: PanelFrameProps): HTMLElement {
   return el(
     'section',
     {
@@ -33,6 +35,6 @@ export function PanelFrame({ active, children, onRoute }: PanelFrameProps): HTML
       },
       children
     ),
-    TabBar(active, onRoute)
+    TabBar(active, onRoute, i18n)
   );
 }

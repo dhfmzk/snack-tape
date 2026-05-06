@@ -1,102 +1,23 @@
 # SnackTape
 
-좋아하는 YouTube 장면만 골라 이어보는 Chrome Extension MVP입니다.
+SnackTape is a Chrome MV3 side-panel extension for turning favorite YouTube moments into local video mixtapes.
 
-## 기능
+It is built around a simple loop: mark an IN point, mark an OUT point, save the range to a mixtape, then replay saved clips as a queue. The current app focuses on a compact side-panel workflow with three tabs: `Edit / Mixtapes / Settings`.
 
-- Chrome MV3 사이드 패널에서 `편집 / 믹스테이프 / 설정` 탭을 제공합니다.
-- 편집 탭에서 저장 위치를 고르고, 현재 YouTube 영상의 IN/OUT 구간을 선택한 믹스테이프에 추가합니다.
-- 저장한 구간은 편집 탭에서 구간 보정 또는 삭제할 수 있습니다.
-- 믹스테이프 탭에서 새 테이프를 만들고, 비어 있는 테이프는 바로 편집 대상으로 열며, 구간이 있는 테이프는 재생 화면으로 엽니다.
-- 재생 화면에서 Now Playing, 진행 위치, 큐, 이전/다음/셔플/반복/정지 제어를 제공합니다.
-- 큐 편집 모드에서 재생 목록 순서를 바꾸거나 현재 재생 중이 아닌 구간을 제거할 수 있습니다.
-- 설정 탭에서 포인트 컬러와 기본 재생/캡처 설정을 바꿀 수 있습니다.
-- 자동 재생이 허용되지 않으면 YouTube 페이지 위에 작은 `계속 재생` 버튼을 표시합니다.
+## What It Does
 
-## 현재 배포 진입점
+- Saves YouTube time ranges as reusable clips.
+- Groups clips into mixtapes stored locally in the browser.
+- Plays mixtapes through a Now Playing view with queue controls.
+- Lets users edit saved ranges, reorder queues, rename mixtapes, delete clips, and delete mixtapes.
+- Supports accent themes and Korean/English app language selection.
 
-현재 로드되는 확장 프로그램은 `manifest.json`의 `side_panel.default_path`인 `sidepanel.html`을 사용합니다. 확장 프로그램 아이콘을 누르면 Chrome 사이드 패널이 열립니다.
+## Scope
 
-`src/editor`는 레거시 소스에 남아 있지만 현재 `manifest.json`과 `dist/` 배포물에는 연결되어 있지 않습니다. Popup 소스는 제거되었고, 수동 QA와 사용 설명은 사이드 패널 기준으로만 진행합니다.
+SnackTape is intentionally local-first and YouTube-focused. It does not download, reupload, scrape, or bypass access controls for videos. It only controls playback position for videos the user can already view in the browser.
 
-## 설치 및 빌드
+This repository currently targets the Chrome side panel experience. Legacy editor source may remain in the tree, but the extension entry point is the MV3 side panel defined in `manifest.json`.
 
-```bash
-node scripts/clean.mjs
-npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json
-node scripts/build.mjs
-```
+## License
 
-`node scripts/build.mjs`는 내부에서 `npx --package esbuild@0.25.12`를 호출해 `dist/` 폴더에 Chrome에서 불러올 수 있는 확장 프로그램 파일을 만듭니다.
-
-테스트는 아래처럼 실행합니다.
-
-```bash
-node scripts/clean.mjs
-npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json
-node --test tests/*.test.mjs
-```
-
-`npm install` 없이 실행하는 흐름을 기본으로 잡았습니다. 이미 의존성을 설치해둔 환경에서도 같은 명령을 그대로 사용할 수 있습니다.
-
-## Chrome에 불러오기
-
-1. Chrome에서 `chrome://extensions`를 엽니다.
-2. 오른쪽 위의 개발자 모드를 켭니다.
-3. `Load unpacked`를 누릅니다.
-4. 이 저장소의 `dist/` 폴더를 선택합니다.
-5. YouTube 영상 페이지에서 SnackTape 확장 프로그램 아이콘을 눌러 사이드 패널을 엽니다.
-
-## 사용 방법
-
-1. YouTube 영상 페이지를 엽니다.
-2. SnackTape 사이드 패널을 열고 하단 탭이 `편집 / 믹스테이프 / 설정` 순서인지 확인합니다.
-3. 편집 탭 상단의 저장 위치에서 저장할 믹스테이프를 선택합니다.
-4. 원하는 시작 지점에서 `IN · I`를 누릅니다.
-5. 원하는 끝 지점에서 `OUT + 추가 · O`를 눌러 구간을 저장합니다.
-6. 저장된 구간의 더보기 메뉴에서 `구간 편집` 또는 `삭제`를 선택합니다.
-7. 편집 탭 상단의 삭제 버튼으로 현재 저장 위치의 믹스테이프를 삭제할 수 있습니다.
-8. 믹스테이프 탭에서 `새 테이프`를 만들거나 기존 테이프를 엽니다.
-9. 비어 있는 테이프를 열면 편집 탭으로 이동하고 저장 위치가 해당 테이프로 잡힙니다.
-10. 구간이 있는 테이프를 열면 재생 화면에서 Now Playing과 큐가 표시됩니다.
-11. 재생 화면의 `편집` 버튼은 해당 믹스테이프를 저장 위치로 잡고 편집 탭으로 이동합니다.
-12. 설정 탭에서 포인트 컬러와 기본 설정을 변경합니다.
-
-## 수동 QA 체크리스트
-
-1. `dist/manifest.json`에 `side_panel.default_path`가 있고 `sidepanel.html`, `sidepanel.css`, `main.js`가 `dist/`에 있는지 확인합니다.
-2. YouTube 영상 페이지에서 확장 프로그램 아이콘을 눌렀을 때 사이드 패널이 열리는지 확인합니다.
-3. 하단 탭이 `편집 / 믹스테이프 / 설정` 순서로 보이는지 확인합니다.
-4. 편집 탭 상단 저장 위치 선택이 현재 믹스테이프 이름을 표시하고 선택 변경이 가능한지 확인합니다.
-5. 활성 탭을 다른 YouTube 영상으로 바꾸거나 같은 탭에서 다른 영상으로 이동하면 편집 탭의 영상 제목, 썸네일, 현재 시간이 갱신되는지 확인합니다.
-6. 편집 탭에서 현재 YouTube 영상 제목, 썸네일, 현재 시간이 표시되는지 확인합니다.
-7. `IN · I`를 누르면 버튼과 현재 캡처 영역에 draft 시간이 바로 표시되는지 확인합니다.
-8. `-1s`, `-1f`, `+1f`, `+1s`가 draft 시간을 조정하는지 확인합니다.
-9. `OUT + 추가 · O`를 누르면 선택한 믹스테이프에 구간이 추가되고 draft가 비워지는지 확인합니다.
-10. 저장된 구간의 더보기 메뉴가 `구간 편집`과 `삭제` 선택지를 표시하는지 확인합니다.
-11. `구간 편집`에서 시작/끝 시간을 보정하고, `완료`를 누르면 편집 상태가 닫히는지 확인합니다.
-12. `삭제`를 누르면 해당 구간이 목록에서 제거되는지 확인합니다.
-13. 편집 탭 상단 삭제 버튼을 누르면 확인창이 뜨고, 승인 시 현재 믹스테이프가 삭제되는지 확인합니다.
-14. 믹스테이프 탭에서 `새 테이프`가 새 믹스테이프를 만들고 목록이 스크롤되는지 확인합니다.
-15. 비어 있는 믹스테이프를 클릭하면 편집 탭으로 이동하고 저장 위치가 그 믹스테이프로 바뀌는지 확인합니다.
-16. 구간이 있는 믹스테이프를 클릭하면 해당 믹스테이프의 재생 화면이 열리는지 확인합니다.
-17. 재생 화면에서 재생, 정지, 이전, 다음, 셔플, 반복 버튼이 동작하는지 확인합니다.
-18. 재생 화면의 `편집` 버튼이 해당 믹스테이프를 저장 위치로 잡고 편집 탭으로 이동하는지 확인합니다.
-19. 설정 탭에서 포인트 컬러와 토글 설정이 변경 후 유지되는지 확인합니다.
-20. 자동 재생이 허용되지 않는 경우 `계속 재생` 버튼으로 직접 재생을 이어갈 수 있는지 확인합니다.
-
-## 알려진 한계
-
-- 일부 영상은 브라우저나 YouTube 정책 때문에 자동 재생되지 않을 수 있습니다.
-- 일부 영상은 YouTube 제공 상태, 지역 제한, 로그인 상태, 연령 제한 등에 따라 재생되지 않을 수 있습니다.
-- 이 MVP는 YouTube 중심으로 구현되어 있고 Google Drive, TwitCasting, 자막, 태그 필터는 지원하지 않습니다.
-- 이 MVP는 로컬 저장소만 사용하며 계정, cloud sync, 공유 링크는 지원하지 않습니다.
-- 시작점/끝점 draft는 같은 브라우저 세션 안에서 같은 영상에 한해 유지됩니다.
-
-## 안전 원칙
-
-- SnackTape은 사용자가 이미 브라우저에서 볼 수 있는 YouTube 영상의 재생 위치만 제어합니다.
-- 광고, DRM, 로그인 벽, 지역 제한, 연령 제한, 비공개 영상 접근 제어를 우회하지 않습니다.
-- 영상을 다운로드하거나 재업로드하지 않습니다.
-- 사적 콘텐츠를 스크래핑하지 않습니다.
-- YouTube UI처럼 위장한 조작 버튼을 삽입하지 않고, 자동 재생이 허용되지 않을 때 작은 `계속 재생` 버튼만 표시합니다.
+MIT

@@ -16,6 +16,7 @@ if (!root) {
 const store = new SnackTapeAppStore();
 
 const scheduleRender = createFrameRenderScheduler<AppState>((state) => {
+  document.documentElement.lang = state.settings.language;
   applyTheme(document.documentElement, THEMES[state.settings.accentKey]);
   clearAndAppend(root, App(state, store));
 });

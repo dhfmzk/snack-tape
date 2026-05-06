@@ -49,11 +49,18 @@ function textOf(node) {
 
 test('Tab bar order is edit, mixtape, settings with mixtape centered', async () => {
   installDomShim();
-  const { TabBar } = await import('../.tmp-tests/src/components/TabBar.js');
+  const [{ TabBar }, { createI18n }] = await Promise.all([
+    import('../.tmp-tests/src/components/TabBar.js'),
+    import('../.tmp-tests/src/i18n.js')
+  ]);
 
   const tabBar = TabBar('home', () => {});
   const buttons = tabBar.children;
 
   assert.deepEqual(buttons.map(textOf), ['편집', '믹스테이프', '설정']);
   assert.equal(buttons[1].attributes['aria-selected'], 'true');
+
+  const englishTabBar = TabBar('settings', () => {}, createI18n('en'));
+  assert.deepEqual(englishTabBar.children.map(textOf), ['Edit', 'Mixtapes', 'Settings']);
+  assert.equal(englishTabBar.children[2].attributes['aria-selected'], 'true');
 });

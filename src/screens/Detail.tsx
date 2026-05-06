@@ -1,14 +1,15 @@
 import { el } from '../components/dom.js';
+import { createI18n, type I18n } from '../i18n.js';
 
-export function Detail(): HTMLElement {
+export function Detail(i18n: I18n = createI18n()): HTMLElement {
   return el(
     'div',
     { className: 'screen', dataset: { scrollKey: 'detail-screen' } },
     el(
       'section',
       { className: 'empty-card' },
-      el('p', { className: 'empty-title', text: '상세 편집은 M2 범위입니다' }),
-      el('p', { className: 'empty-copy', text: '클립 제목, 메모, 태그, 미세 조정은 다음 단계에서 붙입니다.' })
+      el('p', { className: 'empty-title', text: i18n.detail.title }),
+      el('p', { className: 'empty-copy', text: i18n.detail.copy })
     )
   );
 }

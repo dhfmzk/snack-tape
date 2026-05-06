@@ -9,7 +9,7 @@ test('manifest uses Chrome-loadable command defaults', async () => {
   assert.doesNotMatch(JSON.stringify(manifest.commands), /Alt\+\]/);
 });
 
-test('README documents the side panel flow instead of legacy popup/editor entrypoints', async () => {
+test('README stays as a concise project introduction', async () => {
   const [manifestText, readme] = await Promise.all([
     readFile(new URL('../manifest.json', import.meta.url), 'utf8'),
     readFile(new URL('../README.md', import.meta.url), 'utf8'),
@@ -19,7 +19,22 @@ test('README documents the side panel flow instead of legacy popup/editor entryp
   assert.equal(manifest.side_panel.default_path, 'sidepanel.html');
   assert.equal(manifest.action.default_popup, undefined);
   assert.equal(manifest.options_ui, undefined);
-  assert.match(readme, /사이드 패널/);
-  assert.match(readme, /편집 \/ 믹스테이프 \/ 설정/);
-  assert.doesNotMatch(readme, /확장 프로그램 팝업|팝업의|편집 열기|편집 페이지/);
+  assert.match(readme, /Chrome MV3 side-panel extension/);
+  assert.match(readme, /Edit \/ Mixtapes \/ Settings/);
+  assert.doesNotMatch(readme, /Manual QA Checklist|Load in Chrome|How to Use|Install and Build/);
+});
+
+test('manifest metadata uses Chrome locale messages with English default locale', async () => {
+  const [manifestText, englishLocaleText] = await Promise.all([
+    readFile(new URL('../manifest.json', import.meta.url), 'utf8'),
+    readFile(new URL('../public/_locales/en/messages.json', import.meta.url), 'utf8'),
+  ]);
+  const manifest = JSON.parse(manifestText);
+  const englishLocale = JSON.parse(englishLocaleText);
+
+  assert.equal(manifest.default_locale, 'en');
+  assert.equal(manifest.name, '__MSG_appName__');
+  assert.equal(manifest.description, '__MSG_appDescription__');
+  assert.equal(englishLocale.appName.message, 'SnackTape');
+  assert.match(englishLocale.appDescription.message, /YouTube ranges/);
 });
