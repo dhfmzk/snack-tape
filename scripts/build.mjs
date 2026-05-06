@@ -34,9 +34,8 @@ await run(npx, [
   'esbuild@0.25.12',
   'esbuild',
   'src/background/background.ts',
-  'src/content/contentScript.ts',
-  'src/popup/popup.ts',
-  'src/editor/editor.ts',
+  'src/content/content.ts',
+  'src/main.tsx',
   '--bundle',
   `--format=${shared.format}`,
   `--target=${shared.target}`,
@@ -46,10 +45,9 @@ await run(npx, [
 ]);
 
 await Promise.all([
-  cp('src/popup/popup.html', 'dist/popup.html'),
-  cp('src/popup/popup.css', 'dist/popup.css'),
-  cp('src/editor/editor.html', 'dist/editor.html'),
-  cp('src/editor/editor.css', 'dist/editor.css')
+  cp('src/sidepanel/sidepanel.html', 'dist/sidepanel.html'),
+  cp('src/sidepanel/sidepanel.css', 'dist/sidepanel.css'),
+  cp('public/_locales', 'dist/_locales', { recursive: true, force: true })
 ]);
 
 const manifest = await readFile('manifest.json', 'utf8');

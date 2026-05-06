@@ -2,22 +2,43 @@
   "manifest_version": 3,
   "name": "SnackTape",
   "version": "0.1.0",
-  "description": "좋아하는 YouTube 장면만 골라 이어보는 영상 믹스테이프",
-  "permissions": ["storage", "tabs", "activeTab", "scripting"],
-  "host_permissions": ["https://www.youtube.com/*", "https://youtube.com/*", "https://m.youtube.com/*", "https://youtu.be/*"],
+  "description": "YouTube 구간을 잘라 믹스테이프처럼 이어 재생",
+  "default_locale": "ko",
+  "permissions": ["sidePanel", "storage", "tabs", "scripting"],
+  "host_permissions": ["https://*.youtube.com/*"],
+  "action": {
+    "default_title": "SnackTape"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*", "https://youtube.com/*", "https://m.youtube.com/*"],
-      "js": ["contentScript.js"],
+      "matches": ["https://*.youtube.com/watch*"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
-  "action": {
-    "default_popup": "popup.html"
-  },
-  "options_page": "editor.html"
+  "commands": {
+    "capture-in": {
+      "suggested_key": { "default": "Alt+I" },
+      "description": "IN 마커"
+    },
+    "capture-out": {
+      "suggested_key": { "default": "Alt+O" },
+      "description": "OUT 마커 + 저장"
+    },
+    "play-pause": {
+      "suggested_key": { "default": "Alt+Space" },
+      "description": "재생/일시정지"
+    },
+    "next-clip": {
+      "suggested_key": { "default": "Alt+N" },
+      "description": "다음 클립"
+    }
+  }
 }

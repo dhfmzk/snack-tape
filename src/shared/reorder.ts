@@ -44,3 +44,31 @@ export function moveSegmentUp(sequence: Sequence, segmentId: string): Sequence {
 export function moveSegmentDown(sequence: Sequence, segmentId: string): Sequence {
   return moveSegment(sequence, segmentId, 1);
 }
+
+export function applySegmentOrder(sequence: Sequence, segmentIds: string[], now: () => number = Date.now): Sequence {
+  const segmentsById = new Map(sequence.segments.map((segment) => [segment.id, segment]));
+  const seen = new Set<string>();
+  const segments = segmentIds
+    .map((segmentId) => {
+      if (seen.has(segmentId)) {
+        return null;
+      }
+      seen.add(segmentId);
+      return segmentsById.get(segmentId) ?? null;
+    })
+    .filter((segment): segment is Sequence['segments'][number] => segment !== null);
+
+  return {
+    ...sequence,
+    segments,
+    updatedAt: now()
+  };
+}
+
+export function removeSegmentFromSequence(sequence: Sequence, segmentId: string, now: () => number = Date.now): Sequence {
+  return {
+    ...sequence,
+    segments: sequence.segments.filter((segment) => segment.id !== segmentId),
+    updatedAt: now()
+  };
+}

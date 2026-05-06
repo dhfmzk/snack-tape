@@ -34,8 +34,9 @@
 - Manifest V3 Chrome extension
 - TypeScript source
 - `dist/`에 loadable unpacked extension build output 생성
-- Popup UI: 현재 YouTube 영상 정보, 시작점/끝점 캡처, 조각 추가, 이어보기, 편집 열기
-- Editor page: sequence 생성/선택/이름 변경/삭제, segment 카드 수정/삭제/위아래 이동, JSON import/export
+- Side Panel UI: 편집, 믹스테이프, 설정 탭과 재생 화면
+- 편집 탭: 현재 YouTube 영상 정보, 저장 위치 선택, 시작점/끝점 캡처, 조각 추가, 구간 보정/삭제, 믹스테이프 삭제
+- 믹스테이프 탭: sequence 생성/선택, 비어 있는 테이프 편집 이동, 구간이 있는 테이프 재생 이동
 - Content script: YouTube video element 제어, SPA navigation 대응, 자동 재생 실패 overlay
 - Background service worker: active playback state, tab navigation, segment sequence orchestration
 - Storage: `chrome.storage.local`, `chrome.storage.session` 우선 playback state와 local fallback
@@ -54,7 +55,7 @@
 - `npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json`와 `node --test tests/*.test.mjs` 통과
 - `npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json`와 `node scripts/build.mjs` 통과
 - `dist/manifest.json`과 manifest가 가리키는 파일들이 실제 존재
-- popup에서 YouTube 구간 캡처와 segment 추가 가능
-- editor에서 sequence와 segment 관리 가능
+- 사이드 패널 편집 탭에서 YouTube 구간 캡처와 segment 추가 가능
+- 사이드 패널에서 sequence와 segment 관리 가능
 - playback이 같은 영상/다른 영상 segment를 순서대로 재생하고 final segment 후 상태를 정리
 - UI/UX와 동작 피드백을 서브에이전트로 받아 필요한 수정 반영

@@ -6,9 +6,10 @@
     "strict": true,
     "lib": ["ES2022", "DOM"],
     "noEmit": true,
+    "jsx": "preserve",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/types/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/types/**/*.d.ts"]
 }

@@ -18,13 +18,20 @@ export type Sequence = {
   updatedAt: number;
 };
 
+export type PlaybackMode = 'sequence' | 'shuffle';
+
 export type PlaybackState = {
   sequenceId: string;
   segmentIndex: number;
+  currentSegmentId?: string;
   tabId?: number;
   status: 'idle' | 'playing' | 'paused' | 'stopped';
   startedAt: number;
   playbackToken?: string;
+  mode?: PlaybackMode;
+  order?: number[];
+  orderSegmentIds?: string[];
+  orderPosition?: number;
 };
 
 export type PageInfo = {
@@ -34,6 +41,15 @@ export type PageInfo = {
   url: string;
   currentTime: number | null;
   duration: number | null;
+};
+
+export type VideoState = {
+  videoId: string | null;
+  title: string;
+  channel: string;
+  currentTime: number;
+  duration: number;
+  paused: boolean;
 };
 
 export type SegmentDraft = {
@@ -54,10 +70,16 @@ export type SnackTapeMessage =
   | { type: 'PLAY_SEGMENT'; segment: Segment; playbackToken: string }
   | { type: 'STOP_PLAYBACK' }
   | { type: 'SEGMENT_ENDED'; playbackToken: string }
-  | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number }
+  | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number }
   | { type: 'PLAY_NEXT'; playbackToken?: string }
   | { type: 'STOP_SEQUENCE' }
-  | { type: 'OPEN_EDITOR' };
+  | { type: 'OPEN_EDITOR' }
+  | { type: 'getVideoState' }
+  | { type: 'seek'; sec: number }
+  | { type: 'play' }
+  | { type: 'pause' }
+  | { type: 'navigate'; videoId: string; sec: number }
+  | { type: 'COMMAND_EVENT'; name: 'capture-in' | 'capture-out' | 'play-pause' | 'next-clip' };
 
 export type SnackTapeResponse<T = unknown> = {
   ok: boolean;

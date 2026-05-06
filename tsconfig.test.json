@@ -7,9 +7,18 @@
     "lib": ["ES2022", "DOM"],
     "rootDir": ".",
     "outDir": ".tmp-tests",
+    "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src/shared/**/*.ts", "src/types/**/*.d.ts"]
+  "include": [
+    "src/App.tsx",
+    "src/components/**/*.tsx",
+    "src/screens/**/*.tsx",
+    "src/shared/**/*.ts",
+    "src/state/**/*.ts",
+    "src/theme/**/*.ts",
+    "src/types/**/*.d.ts"
+  ]
 }

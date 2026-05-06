@@ -1,6 +1,12 @@
 import { removeContinueOverlay, showContinueOverlay } from './overlay.js';
-import type { PageInfo, Segment, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
+import type { PageInfo, Segment, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
+
+declare global {
+  interface Window {
+    __snacktapeContentScriptLoaded?: boolean;
+  }
+}
 
 let activeToken: string | null = null;
 let activeSegmentVideoId: string | null = null;
@@ -13,6 +19,10 @@ function delay(ms: number): Promise<void> {
 
 function getVideo(): HTMLVideoElement | null {
   return document.querySelector('video');
+}
+
+function roundTime(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function isAdShowing(): boolean {
@@ -124,6 +134,24 @@ function getTitle(): string {
   return document.title.replace(/\s+-\s+YouTube$/, '').trim();
 }
 
+function getChannel(): string {
+  const channelElement = document.querySelector('#owner ytd-channel-name a, ytd-video-owner-renderer ytd-channel-name a');
+  return channelElement?.textContent?.trim() ?? '';
+}
+
+function getVideoState(): VideoState {
+  const video = getVideo();
+
+  return {
+    videoId: parseYouTubeVideoId(location.href),
+    title: getTitle(),
+    channel: getChannel(),
+    currentTime: video ? roundTime(video.currentTime) : 0,
+    duration: video && Number.isFinite(video.duration) ? roundTime(video.duration) : 0,
+    paused: video?.paused ?? true
+  };
+}
+
 function getPageInfo(): PageInfo {
   const video = getVideo();
   const videoId = parseYouTubeVideoId(location.href);
@@ -133,8 +161,8 @@ function getPageInfo(): PageInfo {
     videoId,
     title: getTitle(),
     url: location.href,
-    currentTime: video ? Math.floor(video.currentTime) : null,
-    duration: video && Number.isFinite(video.duration) ? Math.floor(video.duration) : null
+    currentTime: video ? roundTime(video.currentTime) : null,
+    duration: video && Number.isFinite(video.duration) ? roundTime(video.duration) : null
   };
 }
 
@@ -174,7 +202,7 @@ async function playSegment(segment: Segment, playbackToken: string): Promise<voi
   activeSegmentVideoId = segment.videoId;
 
   const video = await waitForSegmentVideo(segment.videoId);
-  const targetStart = Math.max(0, Math.floor(segment.startSeconds));
+  const targetStart = Math.max(0, segment.startSeconds);
   await waitUntilNoAd();
   video.currentTime = targetStart;
 
@@ -216,13 +244,40 @@ async function playSegment(segment: Segment, playbackToken: string): Promise<voi
 }
 
 async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {
+  if (message.type === 'getVideoState') {
+    return { ok: true, data: getVideoState() };
+  }
+
   if (message.type === 'GET_PAGE_INFO') {
     return { ok: true, data: getPageInfo() };
   }
 
   if (message.type === 'GET_CURRENT_TIME') {
     const video = getVideo();
-    return { ok: true, data: video ? Math.floor(video.currentTime) : null };
+    return { ok: true, data: video ? roundTime(video.currentTime) : null };
+  }
+
+  if (message.type === 'seek') {
+    const video = await waitForVideoElement();
+    video.currentTime = Math.max(0, message.sec);
+    return { ok: true };
+  }
+
+  if (message.type === 'play') {
+    const video = await waitForVideoElement();
+    await tryPlay(video);
+    return { ok: true };
+  }
+
+  if (message.type === 'pause') {
+    const video = getVideo();
+    video?.pause();
+    return { ok: true };
+  }
+
+  if (message.type === 'navigate') {
+    location.href = `https://www.youtube.com/watch?v=${encodeURIComponent(message.videoId)}&t=${Math.floor(message.sec)}s`;
+    return { ok: true };
   }
 
   if (message.type === 'PLAY_SEGMENT') {
@@ -240,17 +295,6 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
   return { ok: false, error: '지원하지 않는 요청입니다.' };
 }
 
-chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
-  handleMessage(message)
-    .then(sendResponse)
-    .catch((error: unknown) => {
-      const messageText = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
-      sendResponse({ ok: false, error: messageText });
-    });
-
-  return true;
-});
-
 function handleUrlChange(): void {
   if (location.href !== lastHref) {
     lastHref = location.href;
@@ -262,10 +306,25 @@ function handleUrlChange(): void {
   }
 }
 
-window.addEventListener('yt-navigate-finish', () => {
-  handleUrlChange();
-});
+if (!window.__snacktapeContentScriptLoaded) {
+  window.__snacktapeContentScriptLoaded = true;
 
-window.setInterval(() => {
-  handleUrlChange();
-}, 1000);
+  chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
+    handleMessage(message)
+      .then(sendResponse)
+      .catch((error: unknown) => {
+        const messageText = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
+        sendResponse({ ok: false, error: messageText });
+      });
+
+    return true;
+  });
+
+  window.addEventListener('yt-navigate-finish', () => {
+    handleUrlChange();
+  });
+
+  window.setInterval(() => {
+    handleUrlChange();
+  }, 1000);
+}

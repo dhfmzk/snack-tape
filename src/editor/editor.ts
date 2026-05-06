@@ -8,7 +8,8 @@ import {
   saveStore,
   selectSequence
 } from '../shared/storage.js';
-import type { Segment, Sequence, SnackTapeStore } from '../shared/types.js';
+import { findYouTubePlaybackTab } from '../shared/playbackTarget.js';
+import type { PlaybackMode, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, SnackTapeStore } from '../shared/types.js';
 import { moveSegmentDown, moveSegmentUp } from '../shared/reorder.js';
 import { validateSegment } from '../shared/validation.js';
 
@@ -58,6 +59,44 @@ function makeMeta(label: string, value: string): HTMLDivElement {
   valueEl.textContent = value;
   wrapper.append(labelEl, valueEl);
   return wrapper;
+}
+
+function sendRuntimeMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(message, (response: SnackTapeResponse | undefined) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        resolve({ ok: false, error: '확장 프로그램과 연결할 수 없습니다.' });
+        return;
+      }
+
+      resolve(response ?? { ok: true });
+    });
+  });
+}
+
+async function startSequenceFrom(sequence: Sequence, startIndex: number, mode: PlaybackMode): Promise<void> {
+  if (sequence.segments.length === 0) {
+    setStatus('재생할 구간이 없습니다.', 'error');
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const tabId = findYouTubePlaybackTab(tabs) ?? undefined;
+  const response = await sendRuntimeMessage({
+    type: 'START_SEQUENCE',
+    sequenceId: sequence.id,
+    startIndex,
+    mode,
+    tabId
+  });
+
+  if (!response.ok) {
+    setStatus(response.error ?? '재생을 시작할 수 없습니다.', 'error');
+    return;
+  }
+
+  setStatus(mode === 'shuffle' ? `${startIndex + 1}번 구간부터 랜덤 재생을 시작합니다.` : `${startIndex + 1}번 구간부터 재생합니다.`);
 }
 
 function confirmUnsavedChanges(): boolean {
@@ -126,6 +165,13 @@ function renderSegmentReadOnly(sequence: Sequence, segment: Segment, index: numb
     makeMeta('순서', `${index + 1}`)
   );
 
+  const playbackActions = document.createElement('div');
+  playbackActions.className = 'segment-playback-actions';
+  playbackActions.append(
+    makeButton('여기부터 재생', () => startSequenceFrom(sequence, index, 'sequence'), 'primary'),
+    makeButton('여기부터 랜덤', () => startSequenceFrom(sequence, index, 'shuffle'))
+  );
+
   const actions = document.createElement('div');
   actions.className = 'segment-actions';
   const up = makeButton('위로', () => persistSequence(moveSegmentUp(sequence, segment.id), '순서를 바꿨습니다.'));
@@ -150,7 +196,7 @@ function renderSegmentReadOnly(sequence: Sequence, segment: Segment, index: numb
     }, 'danger')
   );
 
-  body.append(title, meta, actions);
+  body.append(title, meta, playbackActions, actions);
   return body;
 }
 

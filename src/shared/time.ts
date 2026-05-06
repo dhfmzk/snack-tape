@@ -47,3 +47,21 @@ export function formatSeconds(seconds: number): string {
 
   return `${paddedMinutes}:${paddedSeconds}`;
 }
+
+export function formatTimecode(seconds: number): string {
+  const normalized = Math.max(0, seconds);
+  const wholeSeconds = Math.floor(normalized);
+  const hundredths = Math.floor((normalized - wholeSeconds) * 100);
+  const hours = Math.floor(wholeSeconds / 3600);
+  const minutes = Math.floor((wholeSeconds % 3600) / 60);
+  const rest = wholeSeconds % 60;
+  const paddedMinutes = String(minutes).padStart(2, '0');
+  const paddedSeconds = String(rest).padStart(2, '0');
+  const paddedHundredths = String(hundredths).padStart(2, '0');
+
+  if (hours > 0) {
+    return `${hours}:${paddedMinutes}:${paddedSeconds}`;
+  }
+
+  return `${paddedMinutes}:${paddedSeconds}.${paddedHundredths}`;
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { moveItem, moveSegmentDown, moveSegmentUp } from '../.tmp-tests/src/shared/reorder.js';
+import { applySegmentOrder, moveItem, moveSegmentDown, moveSegmentUp, removeSegmentFromSequence } from '../.tmp-tests/src/shared/reorder.js';
 import { makeSequence } from './helpers.mjs';
 
 test('moveItem moves an item to an earlier index without mutating the input', () => {
@@ -41,4 +41,22 @@ test('moveSegmentDown moves a segment and does not mutate the original sequence'
 
   assert.deepEqual(moved.segments.map((segment) => segment.id), ['a', 'c', 'b']);
   assert.deepEqual(sequence.segments.map((segment) => segment.id), ['a', 'b', 'c']);
+});
+
+test('applySegmentOrder saves the edited queue as the sequence order', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = applySegmentOrder(sequence, ['c', 'a'], () => 200);
+
+  assert.deepEqual(edited.segments.map((segment) => segment.id), ['c', 'a']);
+  assert.deepEqual(sequence.segments.map((segment) => segment.id), ['a', 'b', 'c']);
+  assert.equal(edited.updatedAt, 200);
+});
+
+test('removeSegmentFromSequence deletes one segment without mutating the original', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = removeSegmentFromSequence(sequence, 'b', () => 200);
+
+  assert.deepEqual(edited.segments.map((segment) => segment.id), ['a', 'c']);
+  assert.deepEqual(sequence.segments.map((segment) => segment.id), ['a', 'b', 'c']);
+  assert.equal(edited.updatedAt, 200);
 });

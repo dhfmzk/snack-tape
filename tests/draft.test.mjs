@@ -12,8 +12,8 @@ test('normalizeSegmentDraft keeps valid draft times for one video', () => {
     }),
     {
       videoId: 'abc123XYZ_1',
-      startSeconds: 12,
-      endSeconds: 30,
+      startSeconds: 12.9,
+      endSeconds: 30.2,
       updatedAt: 1700000000000
     }
   );

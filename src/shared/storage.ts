@@ -46,12 +46,16 @@ function timestamp(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function preciseSeconds(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function seconds(value: unknown, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return fallback;
   }
 
-  return Math.floor(value);
+  return preciseSeconds(value);
 }
 
 function endSeconds(value: unknown): number | null {
@@ -63,7 +67,7 @@ function endSeconds(value: unknown): number | null {
     return null;
   }
 
-  return Math.floor(value);
+  return preciseSeconds(value);
 }
 
 export function normalizeSegment(input: unknown, index = 0): Segment | null {
@@ -121,15 +125,20 @@ export function normalizeStore(input: unknown): SnackTapeStore {
     };
   }
 
-  const sequences = Array.isArray(input.sequences)
-    ? input.sequences.map((sequence, index) => normalizeSequence(sequence, index)).filter((sequence): sequence is Sequence => sequence !== null)
-    : [];
+  if (!Array.isArray(input.sequences)) {
+    return {
+      sequences: [defaultSequence],
+      selectedSequenceId: defaultSequence.id
+    };
+  }
 
-  const normalizedSequences = sequences.length > 0 ? sequences : [defaultSequence];
+  const normalizedSequences = input.sequences
+    .map((sequence, index) => normalizeSequence(sequence, index))
+    .filter((sequence): sequence is Sequence => sequence !== null);
   const requestedSelectedId = typeof input.selectedSequenceId === 'string' ? input.selectedSequenceId : null;
   const selectedSequenceId = normalizedSequences.some((sequence) => sequence.id === requestedSelectedId)
     ? requestedSelectedId
-    : normalizedSequences[0].id;
+    : normalizedSequences[0]?.id ?? null;
 
   return {
     sequences: normalizedSequences,
@@ -242,10 +251,9 @@ export async function deleteSequence(sequenceId: string): Promise<void> {
   const nextSequences = store.sequences.filter((sequence) => sequence.id !== sequenceId);
 
   if (nextSequences.length === 0) {
-    const defaultSequence = createDefaultSequence();
     await saveStore({
-      sequences: [defaultSequence],
-      selectedSequenceId: defaultSequence.id
+      sequences: [],
+      selectedSequenceId: null
     });
     return;
   }
