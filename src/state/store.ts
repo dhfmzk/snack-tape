@@ -65,6 +65,7 @@ export type AppState = {
 };
 
 export type AppListener = (state: AppState) => void;
+type PersistenceNoticeTarget = 'capture' | 'settings';
 
 function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
   if (!store) {
@@ -161,6 +162,46 @@ export class SnackTapeAppStore {
     }
   }
 
+  private noticeTargetForRoute(route: AppRoute): PersistenceNoticeTarget {
+    return route === 'capture' ? 'capture' : 'settings';
+  }
+
+  private persistenceErrorMessage(error: unknown, state: AppState): string {
+    const message = error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+    return createI18n(state.settings?.language).common.saveFailed(message);
+  }
+
+  private restoreAfterPersistenceError(previousState: AppState, target: PersistenceNoticeTarget, error: unknown): void {
+    const notice = {
+      kind: 'error',
+      message: this.persistenceErrorMessage(error, previousState),
+    } as const;
+
+    this.setState({
+      ...previousState,
+      captureNotice: target === 'capture' ? notice : previousState.captureNotice ?? null,
+      settingsNotice: target === 'settings' ? notice : previousState.settingsNotice ?? null,
+    });
+  }
+
+  private async persistOrRollback(
+    previousState: AppState,
+    target: PersistenceNoticeTarget,
+    persist: () => Promise<void>
+  ): Promise<boolean> {
+    try {
+      await persist();
+      return true;
+    } catch (error) {
+      this.restoreAfterPersistenceError(previousState, target, error);
+      return false;
+    }
+  }
+
   async init(): Promise<void> {
     const [store, settings] = await Promise.all([loadStore(), loadSettings()]);
     this.setState({ store, settings, loading: false });
@@ -191,6 +232,7 @@ export class SnackTapeAppStore {
     if (!currentStore) {
       return;
     }
+    const previousState = this.state;
 
     const timestamp = Date.now();
     const sequence: Sequence = {
@@ -206,7 +248,10 @@ export class SnackTapeAppStore {
       selectedSequenceId: sequence.id,
     };
     this.setState({ store });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -216,6 +261,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence) {
       return;
     }
+    const previousState = this.state;
 
     const playbackState = this.state.playbackState ?? await loadPlaybackState();
     const clearsPlayback = Boolean(playbackState?.sequenceId && playbackState.sequenceId !== sequenceId);
@@ -232,11 +278,18 @@ export class SnackTapeAppStore {
       segmentEdit: null,
       renameEdit: null,
     });
-    if (clearsPlayback) {
-      await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
-      await clearPlaybackState();
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), async () => {
+      await saveStore(store);
+    });
+    if (!persisted) {
+      return;
     }
-    await saveStore(store);
+    if (clearsPlayback) {
+      const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      if (!response.ok) {
+        await clearPlaybackState();
+      }
+    }
     if (!clearsPlayback) {
       await this.refreshPlayback();
     }
@@ -248,6 +301,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence) {
       return;
     }
+    const previousState = this.state;
 
     const store: SnackTapeStore = {
       ...currentStore,
@@ -260,7 +314,10 @@ export class SnackTapeAppStore {
       segmentEdit: null,
       renameEdit: null,
     });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -270,6 +327,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence) {
       return;
     }
+    const previousState = this.state;
 
     const store: SnackTapeStore = {
       ...currentStore,
@@ -282,7 +340,10 @@ export class SnackTapeAppStore {
       segmentEdit: null,
       renameEdit: { sequenceId },
     });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -297,6 +358,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence || !nextName) {
       return;
     }
+    const previousState = this.state;
 
     const timestamp = Date.now();
     const store: SnackTapeStore = {
@@ -311,7 +373,10 @@ export class SnackTapeAppStore {
       store,
       renameEdit: this.state.renameEdit?.sequenceId === sequenceId ? null : this.state.renameEdit,
     });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -321,6 +386,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence) {
       return;
     }
+    const previousState = this.state;
 
     const nextSequences = currentStore.sequences.filter((item) => item.id !== sequenceId);
     const store: SnackTapeStore = {
@@ -346,14 +412,21 @@ export class SnackTapeAppStore {
       capturePulseId: null,
     });
 
-    if (clearsPlayback) {
-      await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
-      await clearPlaybackState();
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), async () => {
+      await saveStore(store);
+      if (clearsDefaultMixtape) {
+        await saveSettings(settings);
+      }
+    });
+    if (!persisted) {
+      return;
     }
 
-    await saveStore(store);
-    if (clearsDefaultMixtape) {
-      await saveSettings(settings);
+    if (clearsPlayback) {
+      const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      if (!response.ok) {
+        await clearPlaybackState();
+      }
     }
     await this.refreshPlayback();
   }
@@ -363,13 +436,17 @@ export class SnackTapeAppStore {
     if (!currentStore?.sequences.some((sequence) => sequence.id === sequenceId)) {
       return;
     }
+    const previousState = this.state;
 
     const store: SnackTapeStore = {
       ...currentStore,
       selectedSequenceId: sequenceId,
     };
     this.setState({ store, segmentEdit: null, renameEdit: null });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -392,6 +469,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence || !Number.isFinite(deltaSeconds)) {
       return;
     }
+    const previousState = this.state;
 
     const timestamp = Date.now();
     let changed = false;
@@ -435,7 +513,10 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
     this.setState({ store });
-    await saveStore(store);
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
     await this.refreshPlayback();
   }
 
@@ -445,6 +526,7 @@ export class SnackTapeAppStore {
     if (!currentStore || !sequence || !sequence.segments.some((segment) => segment.id === segmentId)) {
       return;
     }
+    const previousState = this.state;
 
     const updatedSequence = removeSegmentFromSequence(sequence, segmentId);
     const store: SnackTapeStore = {
@@ -468,13 +550,21 @@ export class SnackTapeAppStore {
       segmentEdit: this.state.segmentEdit?.segmentId === segmentId ? null : this.state.segmentEdit,
     });
 
-    await saveStore(store);
-    if (playbackState?.sequenceId === updatedSequence.id) {
-      if (!nextPlaybackState) {
-        await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(store);
+      if (playbackState?.sequenceId === updatedSequence.id) {
+        if (nextPlaybackState) {
+          await savePlaybackState(nextPlaybackState);
+        }
+      }
+    });
+    if (!persisted) {
+      return;
+    }
+    if (playbackState?.sequenceId === updatedSequence.id && !nextPlaybackState) {
+      const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      if (!response.ok) {
         await clearPlaybackState();
-      } else {
-        await savePlaybackState(nextPlaybackState);
       }
     }
     await this.refreshPlayback();
@@ -540,6 +630,7 @@ export class SnackTapeAppStore {
     if (!queueEdit || !currentStore) {
       return;
     }
+    const previousState = this.state;
 
     const sequence = currentStore.sequences.find((item) => item.id === queueEdit.sequenceId);
     if (!sequence) {
@@ -565,9 +656,14 @@ export class SnackTapeAppStore {
       playbackDisplay: describePlaybackState(store, nextPlaybackState),
     });
 
-    await saveStore(store);
-    if (playbackState?.sequenceId === updatedSequence.id && nextPlaybackState) {
-      await savePlaybackState(nextPlaybackState);
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), async () => {
+      await saveStore(store);
+      if (playbackState?.sequenceId === updatedSequence.id && nextPlaybackState) {
+        await savePlaybackState(nextPlaybackState);
+      }
+    });
+    if (!persisted) {
+      return;
     }
     await this.refreshPlayback();
   }
@@ -624,9 +720,10 @@ export class SnackTapeAppStore {
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
+    const previousState = this.state;
     const settings = normalizeSettings({ ...this.state.settings, ...patch });
     this.setState({ settings });
-    await saveSettings(settings);
+    await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
   }
 
   async setAccentKey(accentKey: Settings['accentKey']): Promise<void> {
@@ -661,6 +758,7 @@ export class SnackTapeAppStore {
       return;
     }
 
+    const previousState = this.state;
     const previousSettings = this.state.settings;
     const settings = store.sequences.some((sequence) => sequence.id === previousSettings.defaultMixtapeId)
       ? this.state.settings
@@ -678,15 +776,18 @@ export class SnackTapeAppStore {
       renameEdit: null,
       settingsNotice: { kind: 'info', message: i18n.importReady(store.sequences.length) },
     });
-    await saveStore(store);
-    if (settingsChanged) {
-      await saveSettings(settings);
-    }
-    await clearPlaybackState();
-    await clearSegmentDraft();
+    await this.persistOrRollback(previousState, 'settings', async () => {
+      await saveStore(store);
+      if (settingsChanged) {
+        await saveSettings(settings);
+      }
+      await clearPlaybackState();
+      await clearSegmentDraft();
+    });
   }
 
   async deleteAllData(): Promise<void> {
+    const previousState = this.state;
     const emptyStore: SnackTapeStore = {
       sequences: [],
       selectedSequenceId: null,
@@ -704,10 +805,12 @@ export class SnackTapeAppStore {
       renameEdit: null,
       settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.deleteAllDone },
     });
-    await saveStore(emptyStore);
-    await saveSettings(settings);
-    await clearPlaybackState();
-    await clearSegmentDraft();
+    await this.persistOrRollback(previousState, 'settings', async () => {
+      await saveStore(emptyStore);
+      await saveSettings(settings);
+      await clearPlaybackState();
+      await clearSegmentDraft();
+    });
   }
 
   private downloadTextFile(filename: string, mimeType: string, text: string): void {
@@ -747,14 +850,15 @@ export class SnackTapeAppStore {
   }
 
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
+    const previousState = this.state;
     const inSec = preciseTime(pageInfo.currentTime);
     this.setState({ draftIn: inSec, captureNotice: null });
-    await saveSegmentDraft({
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId: pageInfo.videoId,
       startSeconds: inSec,
       endSeconds: null,
       updatedAt: Date.now(),
-    });
+    }));
   }
 
   async nudgeDraft(deltaSeconds: number): Promise<void> {
@@ -772,14 +876,15 @@ export class SnackTapeAppStore {
       return;
     }
 
+    const previousState = this.state;
     const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
     this.setState({ draftIn: nextIn });
-    await saveSegmentDraft({
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId,
       startSeconds: nextIn,
       endSeconds: null,
       updatedAt: Date.now(),
-    });
+    }));
   }
 
   async captureOutAndSave(): Promise<void> {
@@ -836,6 +941,7 @@ export class SnackTapeAppStore {
     if (!currentStore) {
       return;
     }
+    const previousState = this.state;
 
     const nextStore: SnackTapeStore = {
       ...currentStore,
@@ -843,8 +949,13 @@ export class SnackTapeAppStore {
     };
 
     this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
-    await saveStore(nextStore);
-    await clearSegmentDraft(pageInfo.videoId);
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(nextStore);
+      await clearSegmentDraft(pageInfo.videoId);
+    });
+    if (!persisted) {
+      return;
+    }
     await this.refreshStore();
     window.setTimeout(() => {
       if (this.state.capturePulseId === segment.id) {
@@ -886,9 +997,10 @@ export class SnackTapeAppStore {
       startIndex,
       mode: mode ?? (this.state.settings.shuffleByDefault ? 'shuffle' : 'sequence'),
     };
-    const previousRoute = this.state.route;
-    const previousPlaybackState = this.state.playbackState;
-    const previousPlaybackDisplay = this.state.playbackDisplay;
+    const previousState = this.state;
+    const previousRoute = previousState.route;
+    const previousPlaybackState = previousState.playbackState;
+    const previousPlaybackDisplay = previousState.playbackDisplay;
     const pendingPlaybackState: PlaybackState = {
       sequenceId: sequence.id,
       segmentIndex: startIndex,
@@ -912,7 +1024,10 @@ export class SnackTapeAppStore {
         segmentEdit: null,
         renameEdit: null,
       });
-      await saveStore(nextStore);
+      const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(nextStore));
+      if (!persisted) {
+        return;
+      }
     } else {
       this.setState({
         route: 'playback',

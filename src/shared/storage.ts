@@ -8,7 +8,7 @@ export const PLAYBACK_STATE_LOCAL_FALLBACK_KEY = 'snacktape.playback.localFallba
 export const SEGMENT_DRAFT_KEY = 'snacktape.segmentDraft.v1';
 export const SEGMENT_DRAFT_LOCAL_FALLBACK_KEY = 'snacktape.segmentDraft.localFallback.v1';
 
-const DEFAULT_SEQUENCE_NAME = '내 첫 믹스테이프';
+const DEFAULT_SEQUENCE_NAME = 'Mixtape 1';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -51,6 +51,14 @@ function preciseSeconds(value: number): number {
   return value;
 }
 
+function generatedSequenceName(index: number): string {
+  return `Mixtape ${index + 1}`;
+}
+
+function generatedSegmentTitle(videoId: string): string {
+  return `YouTube ${videoId}`;
+}
+
 function seconds(value: unknown, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return fallback;
@@ -82,13 +90,13 @@ export function normalizeSegment(input: unknown, index = 0): Segment | null {
   }
 
   const timestampValue = now();
-  const title = text(input.title, `영상 ${videoId}`);
+  const title = text(input.title, generatedSegmentTitle(videoId));
 
   const segment: Segment = {
     id: text(input.id, createId('segment')),
     videoId,
     originalUrl: text(input.originalUrl, `https://www.youtube.com/watch?v=${videoId}`),
-    title: title || `영상 ${videoId}`,
+    title: title || generatedSegmentTitle(videoId),
     startSeconds: seconds(input.startSeconds, 0),
     endSeconds: endSeconds(input.endSeconds),
     note: typeof input.note === 'string' ? input.note : undefined,
@@ -111,7 +119,7 @@ export function normalizeSequence(input: unknown, index = 0): Sequence | null {
 
   return {
     id: text(input.id, createId('sequence')),
-    name: text(input.name, index === 0 ? DEFAULT_SEQUENCE_NAME : `믹스테이프 ${index + 1}`),
+    name: text(input.name, index === 0 ? DEFAULT_SEQUENCE_NAME : generatedSequenceName(index)),
     segments,
     createdAt: timestamp(input.createdAt, timestampValue + index),
     updatedAt: timestamp(input.updatedAt, timestampValue + index)

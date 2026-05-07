@@ -391,7 +391,9 @@ export async function playSegment(
       segment,
       playbackToken,
       fadeOut: settings.fadeOut,
-      fadeOutSeconds: FADE_OUT_SECONDS
+      fadeOutSeconds: FADE_OUT_SECONDS,
+      language: settings.language,
+      accentKey: settings.accentKey
     });
     const startedTime = typeof response.data?.currentTime === 'number' && Number.isFinite(response.data.currentTime)
       ? response.data.currentTime

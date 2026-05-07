@@ -234,6 +234,32 @@ test('continue overlay keeps retry actionable after a failed manual play attempt
   ]);
 });
 
+test('continue overlay uses playback language and accent theme from the message', async () => {
+  const { env, getContentListener } = installContentEnvironment({ playRejects: true });
+  await import('../.tmp-tests/src/content/contentScript.js?themed-overlay');
+  const listener = getContentListener();
+
+  await sendContentMessage(listener, {
+    type: 'PLAY_SEGMENT',
+    segment: makeSegment({ id: 'clip-theme', videoId: 'video-1', startSeconds: 10, endSeconds: 20 }),
+    playbackToken: 'token-theme',
+    language: 'en',
+    accentKey: 'sky'
+  });
+
+  const label = findByText(env.documentElement, 'Continue SnackTape playback?');
+  const button = findByText(env.documentElement, 'Continue');
+
+  assert.notEqual(label, null);
+  assert.equal(button.style.background, '#a8d8ff');
+
+  button.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(findByText(env.documentElement, 'Click the YouTube player once, then try again.').textContent, 'Click the YouTube player once, then try again.');
+  assert.notEqual(findByText(env.documentElement, 'Try again'), null);
+});
+
 test('content playback reports waiting while an ad is showing and starts after the ad clears', async () => {
   const { env, getContentListener } = installContentEnvironment({ adChecksBeforeClear: 1 });
   await import('../.tmp-tests/src/content/contentScript.js?ad-wait');

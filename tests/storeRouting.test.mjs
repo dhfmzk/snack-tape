@@ -2,13 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSegment, makeSequence } from './helpers.mjs';
 
-function installChromeStorage(initial = {}) {
+function installChromeStorage(initial = {}, options = {}) {
   const data = { ...initial };
+  const failSetKeys = new Set(options.failSetKeys ?? []);
   const area = {
     get(key, callback) {
       callback({ [key]: data[key] });
     },
     set(value, callback) {
+      const fails = Object.keys(value).some((key) => failSetKeys.has(key));
+      if (fails) {
+        globalThis.chrome.runtime.lastError = { message: options.failMessage ?? 'storage write failed' };
+        callback?.();
+        globalThis.chrome.runtime.lastError = null;
+        return;
+      }
       Object.assign(data, value);
       callback?.();
     },
@@ -82,6 +90,50 @@ test('openMixtape sends an empty mixtape to edit with that mixtape selected as s
   assert.equal(store.getState().store.selectedSequenceId, empty.id);
 });
 
+test('createMixtape rolls back visible state when store persistence fails', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-existing', name: '기존 믹스테이프', segments: [] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  }, {
+    failSetKeys: [STORAGE_KEY],
+    failMessage: 'quota exceeded'
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.createMixtape();
+
+  assert.equal(store.getState().store.sequences.length, 1);
+  assert.equal(store.getState().store.selectedSequenceId, sequence.id);
+  assert.equal(store.getState().settingsNotice.kind, 'error');
+  assert.match(store.getState().settingsNotice.message, /quota exceeded/);
+});
+
 test('openMixtape keeps filled mixtapes on playback', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -139,6 +191,9 @@ test('openMixtape clears stale playback state from a different mixtape', async (
   const runtimeMessages = [];
   globalThis.chrome.runtime.sendMessage = (message, callback) => {
     runtimeMessages.push(message);
+    if (message.type === 'STOP_SEQUENCE') {
+      delete storage[PLAYBACK_STATE_KEY];
+    }
     callback({ ok: true });
   };
 
@@ -537,6 +592,50 @@ test('renameMixtape trims and saves the selected mixtape name', async () => {
   assert.equal(store.getState().renameEdit, null);
 });
 
+test('renameMixtape restores the previous name when store persistence fails', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-rename-fail', name: '이전 이름', segments: [makeSegment()] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  }, {
+    failSetKeys: [STORAGE_KEY],
+    failMessage: 'quota exceeded'
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: { sequenceId: sequence.id },
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.renameMixtape(sequence.id, '새 이름');
+
+  assert.equal(store.getState().store.sequences[0].name, '이전 이름');
+  assert.deepEqual(store.getState().renameEdit, { sequenceId: sequence.id });
+  assert.equal(store.getState().captureNotice.kind, 'error');
+  assert.match(store.getState().captureNotice.message, /quota exceeded/);
+});
+
 test('deleteMixtape removes the selected mixtape and clears its playback state', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -559,6 +658,9 @@ test('deleteMixtape removes the selected mixtape and clears its playback state',
   const runtimeMessages = [];
   globalThis.chrome.runtime.sendMessage = (message, callback) => {
     runtimeMessages.push(message);
+    if (message.type === 'STOP_SEQUENCE') {
+      delete storage[PLAYBACK_STATE_KEY];
+    }
     callback({ ok: true });
   };
 
@@ -593,6 +695,67 @@ test('deleteMixtape removes the selected mixtape and clears its playback state',
   assert.deepEqual(runtimeMessages.map((message) => message.type), ['STOP_SEQUENCE']);
 });
 
+test('deleteMixtape keeps the current mixtape and playback when store persistence fails', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'first-sequence', name: '남길 믹스테이프', segments: [makeSegment({ id: 'first-clip' })] });
+  const second = makeSequence({ id: 'second-sequence', name: '삭제 실패 믹스테이프', segments: [makeSegment({ id: 'second-clip' })] });
+  const playbackState = {
+    sequenceId: second.id,
+    segmentIndex: 0,
+    currentSegmentId: 'second-clip',
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, second],
+      selectedSequenceId: second.id
+    },
+    [PLAYBACK_STATE_KEY]: playbackState
+  }, {
+    failSetKeys: [STORAGE_KEY],
+    failMessage: 'quota exceeded'
+  });
+  const runtimeMessages = [];
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessages.push(message);
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [first, second],
+      selectedSequenceId: second.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: { segmentId: 'second-clip' },
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.deleteMixtape(second.id);
+
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [first.id, second.id]);
+  assert.equal(storage[PLAYBACK_STATE_KEY].sequenceId, second.id);
+  assert.deepEqual(store.getState().store.sequences.map((sequence) => sequence.id), [first.id, second.id]);
+  assert.equal(store.getState().store.selectedSequenceId, second.id);
+  assert.equal(store.getState().playbackState.sequenceId, second.id);
+  assert.deepEqual(runtimeMessages, []);
+  assert.equal(store.getState().captureNotice.kind, 'error');
+});
+
 test('deleteMixtape removes the final mixtape instead of recreating a default one', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -611,6 +774,12 @@ test('deleteMixtape removes the final mixtape instead of recreating a default on
     },
     [PLAYBACK_STATE_KEY]: playbackState
   });
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    if (message.type === 'STOP_SEQUENCE') {
+      delete storage[PLAYBACK_STATE_KEY];
+    }
+    callback({ ok: true });
+  };
 
   const store = new SnackTapeAppStore();
   store.state = {

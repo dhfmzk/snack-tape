@@ -13,6 +13,7 @@ export type I18n = {
     unnamedMixtape: string;
     readingTitle: string;
     openYoutubeVideo: string;
+    saveFailed: (message: string) => string;
     end: string;
   };
   tabs: {
@@ -141,6 +142,12 @@ export type I18n = {
     title: string;
     copy: string;
   };
+  content: {
+    continuePrompt: string;
+    continueButton: string;
+    retryPrompt: string;
+    retryButton: string;
+  };
 };
 
 const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
@@ -154,6 +161,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       unnamedMixtape: '믹스테이프',
       readingTitle: '제목을 읽는 중',
       openYoutubeVideo: 'YouTube 영상에서 열어주세요',
+      saveFailed: (message) => `저장하지 못했습니다.${message ? ` ${message}` : ''}`,
       end: 'END',
     },
     tabs: {
@@ -282,6 +290,12 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       title: '상세 편집은 M2 범위입니다',
       copy: '클립 제목, 메모, 태그, 미세 조정은 다음 단계에서 붙입니다.',
     },
+    content: {
+      continuePrompt: 'SnackTape 재생을 계속할까요?',
+      continueButton: '계속 재생',
+      retryPrompt: 'YouTube 플레이어를 직접 한 번 클릭한 뒤 다시 시도해주세요.',
+      retryButton: '다시 시도',
+    },
   },
   en: {
     app: {
@@ -293,6 +307,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       unnamedMixtape: 'Mixtape',
       readingTitle: 'Reading title',
       openYoutubeVideo: 'Open a YouTube video',
+      saveFailed: (message) => `Could not save.${message ? ` ${message}` : ''}`,
       end: 'END',
     },
     tabs: {
@@ -420,6 +435,12 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     detail: {
       title: 'Detailed editing is planned for M2',
       copy: 'Clip titles, notes, tags, and fine-tuning land in the next milestone.',
+    },
+    content: {
+      continuePrompt: 'Continue SnackTape playback?',
+      continueButton: 'Continue',
+      retryPrompt: 'Click the YouTube player once, then try again.',
+      retryButton: 'Try again',
     },
   },
 };

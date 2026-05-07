@@ -1,6 +1,8 @@
 import { removeContinueOverlay, showContinueOverlay } from './overlay.js';
 import type { PageInfo, PlaybackStartResult, Segment, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
+import type { Language } from '../i18n.js';
+import type { ThemeKey } from '../theme/tokens.js';
 
 declare global {
   interface Window {
@@ -210,7 +212,11 @@ function clearPlayback(): void {
   removeContinueOverlay();
 }
 
-async function tryPlay(video: HTMLVideoElement, playbackToken?: string): Promise<PlaybackStartResult['status']> {
+async function tryPlay(
+  video: HTMLVideoElement,
+  playbackToken?: string,
+  overlayOptions?: { language?: Language; accentKey?: ThemeKey }
+): Promise<PlaybackStartResult['status']> {
   try {
     await video.play();
     removeContinueOverlay();
@@ -222,7 +228,7 @@ async function tryPlay(video: HTMLVideoElement, playbackToken?: string): Promise
       if (playbackToken) {
         sendMessage({ type: 'PLAYBACK_STARTED', playbackToken, currentTime: roundTime(video.currentTime) });
       }
-    });
+    }, overlayOptions);
     return 'waiting';
   }
 }
@@ -232,7 +238,8 @@ async function startReadySegment(
   playbackToken: string,
   video: HTMLVideoElement,
   fadeOut: boolean,
-  fadeOutSeconds: number
+  fadeOutSeconds: number,
+  overlayOptions?: { language?: Language; accentKey?: ThemeKey }
 ): Promise<PlaybackStartResult> {
   const targetStart = Math.max(0, segment.startSeconds);
   video.currentTime = targetStart;
@@ -285,7 +292,7 @@ async function startReadySegment(
     video.volume = originalVolume;
   };
 
-  const status = await tryPlay(video, playbackToken);
+  const status = await tryPlay(video, playbackToken, overlayOptions);
   return { status, currentTime: roundTime(video.currentTime) };
 }
 
@@ -294,7 +301,8 @@ async function startAfterAdWait(
   playbackToken: string,
   video: HTMLVideoElement,
   fadeOut: boolean,
-  fadeOutSeconds: number
+  fadeOutSeconds: number,
+  overlayOptions?: { language?: Language; accentKey?: ThemeKey }
 ): Promise<void> {
   try {
     await waitUntilNoAd();
@@ -302,7 +310,7 @@ async function startAfterAdWait(
       return;
     }
 
-    const result = await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+    const result = await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds, overlayOptions);
     if (result.status === 'playing') {
       sendMessage({ type: 'PLAYBACK_STARTED', playbackToken, currentTime: result.currentTime });
     }
@@ -314,7 +322,13 @@ async function startAfterAdWait(
   }
 }
 
-async function playSegment(segment: Segment, playbackToken: string, fadeOut = false, fadeOutSeconds = 0.3): Promise<PlaybackStartResult> {
+async function playSegment(
+  segment: Segment,
+  playbackToken: string,
+  fadeOut = false,
+  fadeOutSeconds = 0.3,
+  overlayOptions?: { language?: Language; accentKey?: ThemeKey }
+): Promise<PlaybackStartResult> {
   clearPlayback();
 
   try {
@@ -323,12 +337,12 @@ async function playSegment(segment: Segment, playbackToken: string, fadeOut = fa
     if (isAdShowing()) {
       activeToken = playbackToken;
       activeSegmentVideoId = segment.videoId;
-      void startAfterAdWait(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+      void startAfterAdWait(segment, playbackToken, video, fadeOut, fadeOutSeconds, overlayOptions);
       return { status: 'waiting', currentTime: roundTime(targetStart) };
     }
 
     await waitUntilNoAd();
-    return await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+    return await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds, overlayOptions);
   } catch (error) {
     clearPlayback();
     throw error;
@@ -375,7 +389,13 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
   if (message.type === 'PLAY_SEGMENT') {
     return {
       ok: true,
-      data: await playSegment(message.segment, message.playbackToken, message.fadeOut, message.fadeOutSeconds)
+      data: await playSegment(
+        message.segment,
+        message.playbackToken,
+        message.fadeOut,
+        message.fadeOutSeconds,
+        { language: message.language, accentKey: message.accentKey }
+      )
     };
   }
 

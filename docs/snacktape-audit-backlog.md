@@ -6,12 +6,12 @@ Scope: repository audit only. This document does not implement fixes. It separat
 
 Counts:
 
-- Potential bugs and regressions: 50 total, 46 fixed, 4 open
+- Potential bugs and regressions: 50 total, 50 fixed, 0 open
 - Unfinished areas and follow-up work: 50 total, 13 fixed, 37 open
 
 Open severity:
 
-- Open bugs: P0 Critical 1, P1 High 0, P2 Medium 0, P3 Low 3
+- Open bugs: P0 Critical 0, P1 High 0, P2 Medium 0, P3 Low 0
 - Open unfinished work: P0 Critical 1, P1 High 8, P2 Medium 16, P3 Low 12
 
 Severity model:
@@ -25,7 +25,7 @@ Severity model:
 
 Fix first:
 
-- P0/P1 first: `ST-BUG-040`, `ST-GAP-042`, `ST-GAP-015`, `ST-GAP-022`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
+- P0/P1 first: `ST-GAP-042`, `ST-GAP-015`, `ST-GAP-022`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
 - P2 next: queue and segment editing depth, playback control clarity, localization, accessibility, and browser-level QA confidence.
 - P3 later: library-scale conveniences, visual polish, optional metadata, and release packaging.
 
@@ -46,6 +46,7 @@ Fix first:
 | ST-BUG-011 | Time display | Fixed: duration/range helpers now treat `endSeconds: 0` as an explicit saved boundary instead of missing data across Edit, Mixtapes, Playback, and content playback. | `src/screens/Capture.tsx:37-43`, `src/screens/Capture.tsx:632`, `src/screens/Capture.tsx:860`, `src/screens/Playback.tsx:59-72`, `src/screens/Home.tsx:19-26`, `src/content/contentScript.ts:254-271` | `tests/captureScreen.test.mjs`, `tests/playbackScreen.test.mjs`, `tests/homeScreen.test.mjs` |
 | ST-BUG-012 | Validation | Fixed: imported and normalized segments now reject zero-length or backwards saved ranges before they enter storage. | `src/shared/validation.ts:22-27`, `src/shared/storage.ts:87-99` | `tests/validation.test.mjs`, `tests/dataTransfer.test.mjs` |
 | ST-BUG-013 | Storage normalization | Fixed: primary side-panel screens are covered for explicit empty-store state with no selected mixtape, and existing empty Edit/Home/Playback/Settings guards remain active. | `src/screens/Home.tsx:260-307`, `src/screens/Capture.tsx:597-608`, `src/screens/Playback.tsx:254-275`, `src/screens/Settings.tsx:176-220` | `tests/sidepanelScrollKeys.test.mjs` |
+| ST-BUG-014 | Localization | Fixed: storage fallback mixtape and segment names are language-neutral generated values instead of Korean strings. | `src/shared/storage.ts:11-59`, `src/shared/storage.ts:82-122` | `tests/storageNormalization.test.mjs` |
 | ST-BUG-015 | Settings state | `updateSettings` normalizes merged patches before publishing visible state or saving storage. | `src/state/store.ts:555-558`, `src/state/storage.ts:43-55` | `tests/storeRouting.test.mjs` |
 | ST-BUG-016 | Settings state | Deleting the mixtape used as the default save target clears `defaultMixtapeId` in state and storage. | `src/state/store.ts:258-293` | `tests/storeRouting.test.mjs` |
 | ST-BUG-017 | Settings state | Shortcut settings canonicalize to the manifest command defaults instead of preserving arbitrary stored strings. | `src/state/storage.ts:16-54`, `manifest.json:26-43` | `tests/settingsState.test.mjs` |
@@ -67,10 +68,12 @@ Fix first:
 | ST-BUG-033 | Ad wait | Ad playback handoff now reports `waiting` immediately, keeps a cancellable active token, starts the segment after ads clear, and promotes background state with `PLAYBACK_STARTED`. | `src/content/contentScript.ts:266-305` | `tests/contentPlayback.test.mjs` |
 | ST-BUG-034 | YouTube surfaces | Fixed: YouTube URL parsing now matches the MVP watch-page surface supported by the manifest and content page-info checks. | `src/shared/youtube.ts:12-36`, `manifest.json:19-24`, `src/content/contentScript.ts:181-190` | `tests/youtube.test.mjs` |
 | ST-BUG-035 | Content title | Fixed: content title extraction now tries multiple YouTube title sources, strips the YouTube suffix, and falls back to a generated visible title. | `src/content/contentScript.ts:28-43`, `src/content/contentScript.ts:144-160` | `tests/contentPlayback.test.mjs` |
+| ST-BUG-036 | Overlay | Fixed: the YouTube continue overlay now uses the playback message language and active accent theme instead of hard-coded Korean copy and fixed colors. | `src/content/overlay.ts:1-57`, `src/content/contentScript.ts:215-331`, `src/background/background.ts:387-397` | `tests/contentPlayback.test.mjs` |
 | ST-BUG-037 | Overlay retry | Fixed: failed manual continue attempts keep the overlay actionable by changing the copy and retry button instead of leaving a dead-end state. | `src/content/overlay.ts:27-42` | `tests/contentPlayback.test.mjs` |
 | ST-BUG-038 | Active-video detection | Tab/window/focus detection now coalesces refreshes into one scheduled sync, and `refreshVideo` skips state publication when the detected video data is unchanged. | `src/state/videoDetection.ts:25-42`, `src/state/store.ts:100-116`, `src/state/store.ts:561-570` | `tests/videoDetection.test.mjs`, `tests/storeCapture.test.mjs` |
 | ST-BUG-039 | Active-video refresh | Fixed: active-tab detection failures are converted into `ActiveVideoResult.error` and rendered as an Edit-tab capture notice instead of rejecting through UI callers. | `src/state/youtube.ts:120-130`, `src/state/store.ts:575-586`, `src/i18n.ts:60-66` | `tests/storeCapture.test.mjs` |
-| ST-BUG-041 | Delete flow | Deleting a mixtape or active segment now sends a runtime stop before clearing playback storage, so content playback does not keep running with orphaned state. | `src/state/store.ts:330-352`, `src/state/store.ts:442-480` | `tests/storeRouting.test.mjs` |
+| ST-BUG-040 | Storage errors | Fixed: optimistic store, capture, playback handoff, settings, import, and delete mutations now roll back visible state and surface localized notices when storage writes fail. | `src/state/store.ts:165-203`, `src/state/store.ts:230-431`, `src/state/store.ts:721-812`, `src/state/store.ts:943-956`, `src/i18n.ts:153-159`, `src/i18n.ts:293-299` | `tests/storeRouting.test.mjs`, `tests/storeCapture.test.mjs`, `tests/settingsDataActions.test.mjs` |
+| ST-BUG-041 | Delete flow | Deleting a mixtape or active segment now persists durable mutations first, then sends a runtime stop so content receives the stop before any side-panel fallback clears playback storage. | `src/state/store.ts:383-431`, `src/state/store.ts:526-568` | `tests/storeRouting.test.mjs` |
 | ST-BUG-042 | Empty store | Fixed: Edit tab with no mixtapes now exposes a create-target action wired to create a new mixtape. | `src/screens/Capture.tsx:24-25`, `src/screens/Capture.tsx:597-608`, `src/App.tsx:29-45` | `tests/captureScreen.test.mjs` |
 | ST-BUG-043 | Current time | Fixed: Edit tab video header exposes a manual current-time refresh control wired to `refreshVideo`, so users can update YouTube time without background DOM polling. | `src/screens/Capture.tsx:664-685`, `src/state/store.ts:575-583`, `src/App.tsx:29-45` | `tests/captureScreen.test.mjs`, `tests/storeCapture.test.mjs` |
 | ST-BUG-044 | Accessibility | Fixed: segment menus, Settings toggles, Playback progress, and playback mode controls now expose semantic ARIA state. | `src/components/dom.ts:20-63`, `src/screens/Capture.tsx:123-167`, `src/screens/Playback.tsx:413-485`, `src/screens/Settings.tsx:109-115` | `tests/captureScreen.test.mjs`, `tests/playbackScreen.test.mjs`, `tests/settingsScreen.test.mjs` |
@@ -79,15 +82,13 @@ Fix first:
 | ST-BUG-047 | Time precision | Fixed: capture, draft, storage, active-video, and content-video time paths now preserve source precision; frame nudges no longer accumulate hundredth-rounding drift. | `src/shared/storage.ts:49-70`, `src/shared/draft.ts:9-19`, `src/state/store.ts:77-79`, `src/state/youtube.ts:11-13`, `src/content/contentScript.ts:24-26` | `tests/storeCapture.test.mjs`, `tests/youtubeState.test.mjs` |
 | ST-BUG-048 | Previous control | Previous is disabled at the first clip instead of replaying index 0. | `src/screens/Playback.tsx:277-284`, `src/screens/Playback.tsx:438-443` | `tests/playbackScreen.test.mjs` |
 | ST-BUG-049 | Next control | Next is disabled at the queue boundary instead of replaying the final clip when there is no next item. | `src/screens/Playback.tsx:277-284`, `src/screens/Playback.tsx:465-470` | `tests/playbackScreen.test.mjs` |
+| ST-BUG-050 | Build output | Fixed: production build now runs a dist smoke check that verifies Chrome load-unpacked files exist, are non-empty, and match MV3 manifest references. | `package.json:8-14`, `scripts/check-dist.mjs:1-41` | `tests/distSmokeScript.test.mjs`, `npm run build` |
 
 ## Open Bugs
 
 | ID | Severity | Area | Finding | Evidence | Recommended next step |
 | --- | --- | --- | --- | --- | --- |
-| ST-BUG-014 | P3 Low | Localization | Default sequence and fallback segment titles are still hard-coded Korean strings, regardless of language setting. | `src/shared/storage.ts:10-39`, `src/shared/storage.ts:83-90`, `src/shared/storage.ts:109-115` | Move fallback naming through i18n or store neutral generated names. |
-| ST-BUG-036 | P3 Low | Overlay | The autoplay overlay uses hard-coded copy and colors, outside the active theme and language. | `src/content/overlay.ts:7-45` | Localize and theme the overlay, or keep it intentionally browser-native but documented. |
-| ST-BUG-040 | P0 Critical | Storage errors | Storage writes are awaited, but most UI actions do not catch write failures or revert optimistic state. | `src/shared/storage.ts:177-188`, `src/state/store.ts:137-711` | Add write-error handling with rollback or retry. |
-| ST-BUG-050 | P3 Low | Build output | `dist/` is ignored and currently absent after clean/test flows, so local Chrome load-unpacked can fail until a fresh build is run. | `.gitignore:4-7`, `scripts/clean.mjs:1-6`, `scripts/build.mjs:29-54` | Make the required build step explicit in handoff/README or add a local smoke check before load-unpacked QA. |
+| _None_ | - | - | All tracked potential bugs are currently fixed. | - | Continue with unfinished areas below. |
 
 ## Unfinished Areas and Follow-Up Work
 
@@ -146,7 +147,7 @@ Fix first:
 
 ## Suggested Execution Order
 
-1. Close P0 storage risk: `ST-BUG-040`, `ST-GAP-042`.
+1. Close remaining P0 data-safety work: `ST-GAP-042`.
 2. Close P1 core-flow blockers: `ST-GAP-015`, `ST-GAP-022`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
 3. Work P2 usability, precision, and QA confidence: `ST-GAP-013`, `ST-GAP-014`, `ST-GAP-016`, `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-029` through `ST-GAP-033`, `ST-GAP-035`, `ST-GAP-039`, `ST-GAP-044` through `ST-GAP-047`.
-4. Keep P3 polish, scope, and release items for later: `ST-BUG-014`, `ST-BUG-036`, `ST-BUG-050`, `ST-GAP-017` through `ST-GAP-021`, `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-038`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.
+4. Keep P3 polish, scope, and release items for later: `ST-GAP-017` through `ST-GAP-021`, `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-038`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.

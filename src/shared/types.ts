@@ -1,3 +1,6 @@
+import type { Language } from '../i18n.js';
+import type { ThemeKey } from '../theme/tokens.js';
+
 export type Segment = {
   id: string;
   videoId: string;
@@ -72,7 +75,7 @@ export type SnackTapeStore = {
 export type SnackTapeMessage =
   | { type: 'GET_PAGE_INFO' }
   | { type: 'GET_CURRENT_TIME' }
-  | { type: 'PLAY_SEGMENT'; segment: Segment; playbackToken: string; fadeOut?: boolean; fadeOutSeconds?: number }
+  | { type: 'PLAY_SEGMENT'; segment: Segment; playbackToken: string; fadeOut?: boolean; fadeOutSeconds?: number; language?: Language; accentKey?: ThemeKey }
   | { type: 'STOP_PLAYBACK' }
   | { type: 'SEGMENT_ENDED'; playbackToken: string }
   | { type: 'PLAYBACK_STARTED'; playbackToken: string; currentTime?: number }

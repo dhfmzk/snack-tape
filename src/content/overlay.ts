@@ -1,11 +1,21 @@
+import { createI18n, type Language } from '../i18n.js';
+import { isThemeKey, THEMES, type ThemeKey } from '../theme/tokens.js';
+
 const OVERLAY_ID = 'snacktape-continue-overlay';
+
+export type ContinueOverlayOptions = {
+  language?: Language;
+  accentKey?: ThemeKey;
+};
 
 export function removeContinueOverlay(): void {
   document.getElementById(OVERLAY_ID)?.remove();
 }
 
-export function showContinueOverlay(onContinue: () => Promise<void>): void {
+export function showContinueOverlay(onContinue: () => Promise<void>, options: ContinueOverlayOptions = {}): void {
   removeContinueOverlay();
+  const copy = createI18n(options.language).content;
+  const theme = THEMES[isThemeKey(options.accentKey) ? options.accentKey : 'peach'];
 
   const root = document.createElement('div');
   root.id = OVERLAY_ID;
@@ -15,29 +25,30 @@ export function showContinueOverlay(onContinue: () => Promise<void>): void {
   root.style.zIndex = '2147483647';
   root.style.padding = '10px 12px';
   root.style.borderRadius = '8px';
-  root.style.background = '#202124';
-  root.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.28)';
-  root.style.color = '#fff';
+  root.style.background = theme.surface;
+  root.style.border = `1px solid ${theme.hairline2}`;
+  root.style.boxShadow = `0 8px 24px ${theme.accentGlow}`;
+  root.style.color = theme.text;
   root.style.font = '13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
   const label = document.createElement('div');
-  label.textContent = 'SnackTape 재생을 계속할까요?';
+  label.textContent = copy.continuePrompt;
   label.style.marginBottom = '8px';
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.textContent = '계속 재생';
+  button.textContent = copy.continueButton;
   button.style.border = '0';
   button.style.borderRadius = '6px';
   button.style.padding = '8px 10px';
-  button.style.background = '#f4b400';
-  button.style.color = '#202124';
+  button.style.background = theme.accent;
+  button.style.color = theme.accentInk;
   button.style.fontWeight = '700';
   button.style.cursor = 'pointer';
   button.addEventListener('click', () => {
     onContinue().catch(() => {
-      label.textContent = 'YouTube 플레이어를 직접 한 번 클릭한 뒤 다시 시도해주세요.';
-      button.textContent = '다시 시도';
+      label.textContent = copy.retryPrompt;
+      button.textContent = copy.retryButton;
     });
   });
 

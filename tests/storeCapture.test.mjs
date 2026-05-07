@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSequence } from './helpers.mjs';
 
-function installChromeForCapture({ storage = {}, videoState, videoError = null, tabsQueryError = null, deferSet = false }) {
+function installChromeForCapture({ storage = {}, videoState, videoError = null, tabsQueryError = null, deferSet = false, failSetKeys = [], failMessage = 'storage write failed' }) {
   const data = { ...storage };
   let releaseSet = null;
+  const failingKeys = new Set(failSetKeys);
   globalThis.window = {
     setTimeout(callback) {
       return globalThis.setTimeout(callback, 0);
@@ -15,6 +16,13 @@ function installChromeForCapture({ storage = {}, videoState, videoError = null, 
       callback({ [key]: data[key] });
     },
     set(value, callback) {
+      const fails = Object.keys(value).some((key) => failingKeys.has(key));
+      if (fails) {
+        globalThis.chrome.runtime.lastError = { message: failMessage };
+        callback?.();
+        globalThis.chrome.runtime.lastError = null;
+        return;
+      }
       Object.assign(data, value);
       if (deferSet) {
         releaseSet = callback ?? (() => {});
@@ -546,6 +554,44 @@ test('captureOutAndSave updates the visible mixtape before storage persistence f
     storage.releaseSet();
     await capture;
   }
+});
+
+test('captureOutAndSave restores the draft and clip stack when store persistence fails', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-failing-save', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    failSetKeys: [STORAGE_KEY],
+    failMessage: 'quota exceeded',
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    },
+    videoState: {
+      videoId: 'video_12345',
+      title: '저장 실패 영상',
+      channel: '채널',
+      currentTime: 45,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    draftIn: 42
+  };
+
+  await store.captureOutAndSave();
+
+  assert.equal(store.getState().store.sequences[0].segments.length, 0);
+  assert.equal(store.getState().draftIn, 42);
+  assert.equal(store.getState().capturePulseId, null);
+  assert.equal(store.getState().captureNotice.kind, 'error');
+  assert.match(store.getState().captureNotice.message, /quota exceeded/);
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 0);
 });
 
 test('nudgeDraft adjusts the current IN marker and persists the draft', async () => {

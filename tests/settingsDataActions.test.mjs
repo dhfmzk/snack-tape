@@ -2,13 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSegment, makeSequence } from './helpers.mjs';
 
-function installChrome(initial = {}) {
+function installChrome(initial = {}, options = {}) {
   const data = { ...initial };
+  const failSetKeys = new Set(options.failSetKeys ?? []);
   const area = {
     get(key, callback) {
       callback({ [key]: data[key] });
     },
     set(value, callback) {
+      const fails = Object.keys(value).some((key) => failSetKeys.has(key));
+      if (fails) {
+        globalThis.chrome.runtime.lastError = { message: options.failMessage ?? 'storage write failed' };
+        callback?.();
+        globalThis.chrome.runtime.lastError = null;
+        return;
+      }
       Object.assign(data, value);
       callback?.();
     },
@@ -117,6 +125,29 @@ test('setDefaultMixtape persists an existing mixtape as the default save target'
 
   assert.equal(store.getState().settings.defaultMixtapeId, second.id);
   assert.equal(data[SETTINGS_KEY].defaultMixtapeId, second.id);
+});
+
+test('updateSettings restores previous settings when persistence fails', async () => {
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-settings-fail', segments: [] });
+  const previousSettings = baseSettings({ accentKey: 'peach', language: 'ko' });
+  const data = installChrome({
+    [SETTINGS_KEY]: previousSettings
+  }, {
+    failSetKeys: [SETTINGS_KEY],
+    failMessage: 'quota exceeded'
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence, previousSettings);
+
+  await store.updateSettings({ accentKey: 'sky', language: 'en' });
+
+  assert.equal(store.getState().settings.accentKey, 'peach');
+  assert.equal(store.getState().settings.language, 'ko');
+  assert.equal(data[SETTINGS_KEY].accentKey, 'peach');
+  assert.equal(store.getState().settingsNotice.kind, 'error');
+  assert.match(store.getState().settingsNotice.message, /quota exceeded/);
 });
 
 test('exportData downloads JSON and CSV backups from the current store', async () => {
