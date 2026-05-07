@@ -22,7 +22,7 @@ test('manifest uses Chrome-loadable command defaults', async () => {
   assert.doesNotMatch(JSON.stringify(manifest.commands), /Alt\+\]/);
 });
 
-test('README stays as a concise project introduction', async () => {
+test('README stays concise and documents developer-mode loading', async () => {
   const [manifestText, readme] = await Promise.all([
     readFile(new URL('../manifest.json', import.meta.url), 'utf8'),
     readFile(new URL('../README.md', import.meta.url), 'utf8'),
@@ -34,7 +34,12 @@ test('README stays as a concise project introduction', async () => {
   assert.equal(manifest.options_ui, undefined);
   assert.match(readme, /Chrome MV3 side-panel extension/);
   assert.match(readme, /Edit \/ Mixtapes \/ Settings/);
-  assert.doesNotMatch(readme, /Manual QA Checklist|Load in Chrome|How to Use|Install and Build/);
+  assert.match(readme, /Developer Mode/);
+  assert.match(readme, /npm run build/);
+  assert.match(readme, /chrome:\/\/extensions/);
+  assert.match(readme, /Load unpacked/);
+  assert.match(readme, /dist\//);
+  assert.doesNotMatch(readme, /Manual QA Checklist|How to Use|Install and Build/);
 });
 
 test('legacy editor source is removed from the MV3 side-panel app', async () => {

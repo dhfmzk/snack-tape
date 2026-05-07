@@ -18,6 +18,14 @@ SnackTape is intentionally local-first and YouTube-focused. It does not download
 
 This repository targets the Chrome side panel experience defined in `manifest.json`.
 
+## Developer Mode
+
+1. Install dependencies with `npm install`.
+2. Build the unpacked extension with `npm run build`.
+3. Open `chrome://extensions` in Chrome and enable `Developer mode`.
+4. Click `Load unpacked` and select the generated `dist/` directory.
+5. After source changes, run `npm run build` again and click `Reload` on the extension card.
+
 ## License
 
 MIT
