@@ -185,3 +185,153 @@ test('playbackStateAfterSequenceEdit keeps the current clip, playback mode, and 
     orderPosition: 2
   });
 });
+
+test('createPlaybackOrder returns empty array for invalid inputs', () => {
+  assert.deepEqual(createPlaybackOrder(0, 0, 'sequence'), []);
+  assert.deepEqual(createPlaybackOrder(-1, 0, 'sequence'), []);
+  assert.deepEqual(createPlaybackOrder(1.5, 0, 'sequence'), []);
+  assert.deepEqual(createPlaybackOrder(3, -1, 'sequence'), []);
+  assert.deepEqual(createPlaybackOrder(3, 3, 'sequence'), []);
+});
+
+test('createPlaybackOrder returns single-item order for repeat mode', () => {
+  assert.deepEqual(createPlaybackOrder(3, 0, 'repeat'), [0]);
+  assert.deepEqual(createPlaybackOrder(3, 2, 'repeat'), [2]);
+});
+
+test('createPlaybackOrder defaults to sequence mode starting at index 0', () => {
+  assert.deepEqual(createPlaybackOrder(3), [0, 1, 2]);
+});
+
+test('getNextPlaybackStep returns null when sequence is empty', () => {
+  const sequence = makeSequence({ segments: [] });
+  const state = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  assert.equal(getNextPlaybackStep(sequence, state), null);
+});
+
+test('getNextPlaybackStep repeats current segment in repeat mode', () => {
+  const sequence = makeSequence();
+  const state = {
+    sequenceId: sequence.id,
+    segmentIndex: 1,
+    currentSegmentId: 'b',
+    status: 'playing',
+    startedAt: 1700000000000,
+    mode: 'repeat'
+  };
+  assert.deepEqual(getNextPlaybackStep(sequence, state), {
+    segmentIndex: 1,
+    orderPosition: 0
+  });
+});
+
+test('getNextPlaybackStep uses sequential fallback when no order is stored', () => {
+  const sequence = makeSequence();
+  const state = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  assert.deepEqual(getNextPlaybackStep(sequence, state), {
+    segmentIndex: 1,
+    orderPosition: 1
+  });
+});
+
+test('getNextPlaybackStep returns null at the end of a sequential order', () => {
+  const sequence = makeSequence();
+  const state = {
+    sequenceId: sequence.id,
+    segmentIndex: 2,
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  assert.equal(getNextPlaybackStep(sequence, state), null);
+});
+
+test('describePlaybackState returns null for null state', () => {
+  const sequence = makeSequence();
+  const store = { sequences: [sequence], selectedSequenceId: sequence.id };
+  assert.equal(describePlaybackState(store, null), null);
+});
+
+test('describePlaybackState returns null for stopped or idle status', () => {
+  const sequence = makeSequence();
+  const store = { sequences: [sequence], selectedSequenceId: sequence.id };
+  for (const status of ['stopped', 'idle', 'paused']) {
+    const state = {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      status,
+      startedAt: 1700000000000
+    };
+    assert.equal(describePlaybackState(store, state), null, `expected null for status=${status}`);
+  }
+});
+
+test('describePlaybackState returns display data for waiting and pending status', () => {
+  const sequence = makeSequence();
+  const store = { sequences: [sequence], selectedSequenceId: sequence.id };
+  for (const status of ['waiting', 'pending']) {
+    const state = {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      status,
+      startedAt: 1700000000000,
+      mode: 'sequence'
+    };
+    const display = describePlaybackState(store, state);
+    assert.ok(display !== null, `expected display for status=${status}`);
+  }
+});
+
+test('describePlaybackState returns null when sequence is not found in store', () => {
+  const sequence = makeSequence();
+  const store = { sequences: [], selectedSequenceId: null };
+  const state = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  assert.equal(describePlaybackState(store, state), null);
+});
+
+test('describePlaybackState uses correct Korean mode labels', () => {
+  const sequence = makeSequence();
+  const store = { sequences: [sequence], selectedSequenceId: sequence.id };
+  const baseState = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    currentSegmentId: 'a',
+    status: 'playing',
+    startedAt: 1700000000000,
+    orderSegmentIds: ['a', 'b', 'c'],
+    orderPosition: 0
+  };
+
+  const sequenceDisplay = describePlaybackState(store, { ...baseState, mode: 'sequence' });
+  const repeatDisplay = describePlaybackState(store, { ...baseState, mode: 'repeat' });
+
+  assert.equal(sequenceDisplay?.modeLabel, '순서대로 재생');
+  assert.equal(repeatDisplay?.modeLabel, '반복 재생');
+});
+
+test('isFinalSegment identifies the last segment correctly', () => {
+  const sequence = makeSequence();
+  assert.equal(isFinalSegment(sequence, 2), true);
+  assert.equal(isFinalSegment(sequence, 1), false);
+  assert.equal(isFinalSegment(sequence, 0), false);
+});
+
+test('isFinalSegment returns false for invalid index', () => {
+  const sequence = makeSequence();
+  assert.equal(isFinalSegment(sequence, -1), false);
+  assert.equal(isFinalSegment(sequence, 10), false);
+});
