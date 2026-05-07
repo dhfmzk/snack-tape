@@ -16,7 +16,7 @@ import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTap
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { createI18n } from '../i18n.js';
 import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings, type Settings } from './storage.js';
-import { getActiveVideoState, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
+import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
 
@@ -702,6 +702,34 @@ export class SnackTapeAppStore {
     this.setState({ playbackState, playbackDisplay });
   }
 
+  async syncPlaybackProgress(): Promise<void> {
+    const playbackState = this.state.playbackState;
+    if (
+      this.state.route !== 'playback'
+      || !playbackState?.tabId
+      || (playbackState.status !== 'playing' && playbackState.status !== 'waiting' && playbackState.status !== 'pending')
+    ) {
+      return;
+    }
+
+    const pageInfo = await getPlaybackPageInfo(playbackState.tabId);
+    if (!pageInfo?.videoId || pageInfo.currentTime === null || pageInfo.currentTime === undefined) {
+      return;
+    }
+
+    const sequence = this.state.store?.sequences.find((item) => item.id === playbackState.sequenceId) ?? null;
+    const segment = sequence?.segments.find((item) => item.id === playbackState.currentSegmentId)
+      ?? sequence?.segments[playbackState.segmentIndex]
+      ?? null;
+    if (!segment || segment.videoId !== pageInfo.videoId) {
+      return;
+    }
+
+    if (!samePageInfo(this.state.pageInfo, pageInfo)) {
+      this.setState({ pageInfo });
+    }
+  }
+
   async refreshStore(): Promise<void> {
     const store = await loadStore();
     this.setState({ store });
@@ -1082,6 +1110,12 @@ export class SnackTapeAppStore {
       } else {
         await this.startSequence(0);
       }
+    }
+  }
+
+  async handleRuntimeMessage(message: SnackTapeMessage): Promise<void> {
+    if (message.type === 'PLAYBACK_STATE_CHANGED') {
+      await this.refreshPlayback();
     }
   }
 }

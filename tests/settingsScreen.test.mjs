@@ -111,7 +111,7 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /설정/);
   assert.match(text, /언어/);
   assert.match(text, /앱 표시 언어입니다\./);
-  assert.deepEqual(languageSelect.children.map((choice) => choice.textContent), ['한국어', 'English']);
+  assert.deepEqual(languageSelect.children.map((choice) => choice.textContent), ['한국어', 'English', '日本語']);
   assert.match(text, /포인트 컬러/);
   assert.match(text, /현재 재생 \/ 저장 \/ 활성 상태에 사용되는 색입니다\./);
   assert.match(text, /CORAL/);
@@ -138,7 +138,7 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /모든 클립 삭제/);
   assert.match(text, /믹스테이프와 저장된 구간을 비웁니다\./);
   assert.match(text, /SNACKTAPE v0\.1\.0 · MV3 SIDE PANEL/);
-  assert.match(text, /BY YOU · 2026/);
+  assert.match(text, /BY dhfmzk · 2026/);
   assert.deepEqual(swatchGrid.children.map((swatch) => swatch.children[1].textContent), ['peach', 'coral', 'butter', 'seafoam', 'sky']);
 });
 
@@ -236,10 +236,10 @@ test('Settings wires language dropdown to persisted setting patches', async () =
   });
 
   const languageSelect = page.children[1].children[0].children[1];
-  languageSelect.value = 'en';
+  languageSelect.value = 'ja';
   languageSelect.change();
 
-  assert.deepEqual(patches, [{ language: 'en' }]);
+  assert.deepEqual(patches, [{ language: 'ja' }]);
 });
 
 test('Settings language dropdown keeps stable dimensions across locales', async () => {
@@ -250,17 +250,24 @@ test('Settings language dropdown keeps stable dimensions across locales', async 
   ]);
   const koState = baseState();
   const enState = baseState();
+  const jaState = baseState();
   enState.settings.language = 'en';
+  jaState.settings.language = 'ja';
 
   const koPage = Settings({ state: koState, i18n: createI18n('ko'), onAccent: () => {}, onSettingChange: () => {} });
   const enPage = Settings({ state: enState, i18n: createI18n('en'), onAccent: () => {}, onSettingChange: () => {} });
+  const jaPage = Settings({ state: jaState, i18n: createI18n('ja'), onAccent: () => {}, onSettingChange: () => {} });
   const koSelect = koPage.children[1].children[0].children[1];
   const enSelect = enPage.children[1].children[0].children[1];
+  const jaSelect = jaPage.children[1].children[0].children[1];
 
   assert.equal(koSelect.style.width, enSelect.style.width);
+  assert.equal(koSelect.style.width, jaSelect.style.width);
   assert.equal(koSelect.style.height, enSelect.style.height);
+  assert.equal(koSelect.style.height, jaSelect.style.height);
   assert.equal(koSelect.style.flexShrink, '0');
   assert.equal(enSelect.style.flexShrink, '0');
+  assert.equal(jaSelect.style.flexShrink, '0');
 });
 
 test('Settings renders English app copy when language is English', async () => {
@@ -282,4 +289,37 @@ test('Settings renders English app copy when language is English', async () => {
   assert.match(text, /Capture/);
   assert.match(text, /Default save location/);
   assert.match(text, /Data/);
+});
+
+test('Settings renders Japanese app copy when language is Japanese', async () => {
+  installDomShim();
+  const [{ Settings }, { createI18n }] = await Promise.all([
+    import('../.tmp-tests/src/screens/Settings.js'),
+    import('../.tmp-tests/src/i18n.js')
+  ]);
+  const state = baseState('sky');
+  state.settings.language = 'ja';
+
+  const page = Settings({ state, i18n: createI18n('ja'), onAccent: () => {}, onSettingChange: () => {} });
+  const text = textOf(page);
+
+  assert.match(text, /設定/);
+  assert.match(text, /言語/);
+  assert.match(text, /アクセントカラー/);
+  assert.match(text, /再生/);
+  assert.match(text, /編集/);
+  assert.match(text, /既定の保存先/);
+  assert.match(text, /データ/);
+});
+
+test('Settings renders inline settings notices above the controls', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const state = baseState();
+  state.settingsNotice = { kind: 'info', message: 'Export is ready.' };
+
+  const page = Settings({ state, onAccent: () => {}, onSettingChange: () => {} });
+
+  assert.match(textOf(page), /Export is ready\./);
+  assert.equal(page.children[1].textContent, 'Export is ready.');
 });

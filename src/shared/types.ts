@@ -21,7 +21,7 @@ export type Sequence = {
   updatedAt: number;
 };
 
-export type PlaybackMode = 'sequence' | 'shuffle';
+export type PlaybackMode = 'sequence' | 'shuffle' | 'repeat';
 
 export type PlaybackState = {
   sequenceId: string;
@@ -79,6 +79,7 @@ export type SnackTapeMessage =
   | { type: 'STOP_PLAYBACK' }
   | { type: 'SEGMENT_ENDED'; playbackToken: string }
   | { type: 'PLAYBACK_STARTED'; playbackToken: string; currentTime?: number }
+  | { type: 'PLAYBACK_STATE_CHANGED' }
   | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number }
   | { type: 'PLAY_NEXT'; playbackToken?: string }
   | { type: 'STOP_SEQUENCE' }

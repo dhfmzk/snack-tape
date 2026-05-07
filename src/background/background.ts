@@ -80,7 +80,7 @@ type PlaybackRequest = {
 const FADE_OUT_SECONDS = 0.3;
 
 function normalizePlaybackMode(mode: PlaybackMode | undefined): PlaybackMode {
-  return mode === 'shuffle' ? 'shuffle' : 'sequence';
+  return mode === 'shuffle' || mode === 'repeat' ? mode : 'sequence';
 }
 
 class ContentResponseError extends Error {}
@@ -111,6 +111,16 @@ function selectCaptureSequence(sequences: Sequence[], selectedSequenceId: string
 
 function orderSegmentIds(sequence: Sequence, order: number[]): string[] {
   return order.map((index) => sequence.segments[index]?.id).filter((id): id is string => Boolean(id));
+}
+
+function notifyPlaybackStateChanged(): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'PLAYBACK_STATE_CHANGED' }, () => {
+      // Side panels may be closed; the playback state in storage remains the source of truth.
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
 }
 
 async function sendMessageToTab<T>(tabId: number, message: SnackTapeMessage): Promise<SnackTapeResponse<T>> {
@@ -453,6 +463,7 @@ export async function nextSegment(playbackToken?: string): Promise<void> {
     orderSegmentIds: state.orderSegmentIds ?? orderSegmentIds(sequence, state.order ?? createPlaybackOrder(sequence.segments.length, state.segmentIndex)),
     orderPosition: nextStep.orderPosition
   });
+  await notifyPlaybackStateChanged();
 }
 
 export async function markPlaybackStarted(playbackToken: string, currentTime?: number): Promise<void> {
@@ -475,6 +486,7 @@ export async function markPlaybackStarted(playbackToken: string, currentTime?: n
     status: 'playing',
     startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
   });
+  await notifyPlaybackStateChanged();
 }
 
 export async function stopPlayback(expectedPlaybackToken?: string): Promise<void> {
@@ -492,6 +504,7 @@ export async function stopPlayback(expectedPlaybackToken?: string): Promise<void
   }
 
   await clearPlaybackState();
+  await notifyPlaybackStateChanged();
 }
 
 async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {

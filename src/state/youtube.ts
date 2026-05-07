@@ -101,6 +101,26 @@ async function readVideoState(tabId: number): Promise<VideoState> {
   return response.data;
 }
 
+export async function getPlaybackPageInfo(tabId: number): Promise<PageInfo | null> {
+  try {
+    const response = await sendTabMessage<PageInfo>(tabId, { type: 'GET_PAGE_INFO' });
+    if (!response.ok || !response.data) {
+      return null;
+    }
+
+    return response.data;
+  } catch {
+    await injectContentScript(tabId);
+
+    try {
+      const response = await sendTabMessage<PageInfo>(tabId, { type: 'GET_PAGE_INFO' });
+      return response.ok && response.data ? response.data : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 function activeVideoResult(tab: chrome.tabs.Tab, videoState: VideoState): ActiveVideoResult {
   return {
     tabId: tab.id,

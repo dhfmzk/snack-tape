@@ -25,7 +25,7 @@ The product concept is: a personal video mixtape made from favorite moments.
 ## Intentional SnackTape Differences
 
 - Keep the MVP focused on YouTube.
-- Support Korean and English app UI through an in-app language setting.
+- Support Korean, English, and Japanese app UI through an in-app language setting.
 - Capture start/end points quickly from the current YouTube page.
 - Provide segment-card editing, ordering, and JSON import/export surfaces.
 - Use local storage only. Do not implement accounts, cloud sync, share links, captions, or tag systems.

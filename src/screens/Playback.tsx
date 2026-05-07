@@ -83,9 +83,11 @@ function progress(state: AppState, segment: Segment | null): { ratio: number; el
   }
 
   let elapsed: number | null = null;
+  let usesLivePageTime = false;
   const pageTime = state.pageInfo?.videoId === segment.videoId ? state.pageInfo.currentTime : null;
   if (pageTime !== null && pageTime !== undefined) {
     elapsed = pageTime - segment.startSeconds;
+    usesLivePageTime = true;
   } else if (
     state.playbackState?.status === 'playing'
     && (!state.playbackState.currentSegmentId || state.playbackState.currentSegmentId === segment.id)
@@ -106,7 +108,7 @@ function progress(state: AppState, segment: Segment | null): { ratio: number; el
     elapsed: clampedElapsed,
     duration,
     remaining,
-    animate: state.playbackState?.status === 'playing' && remaining > 0 && ratio < 1,
+    animate: !usesLivePageTime && state.playbackState?.status === 'playing' && remaining > 0 && ratio < 1,
   };
 }
 
@@ -180,6 +182,10 @@ function playbackOrderCount(state: AppState, sequence: Sequence): number {
   }
 
   return sequence.segments.length;
+}
+
+function playbackQueueSegments(sequence: Sequence): Segment[] {
+  return sequence.segments;
 }
 
 function thumbStyle(thumb: HTMLElement, width: number | string, height: number | string, dim = false): HTMLElement {
@@ -288,7 +294,7 @@ export function Playback(props: Props): HTMLElement {
     ? queueEdit.segmentIds
         .map((segmentId) => sequence.segments.find((item) => item.id === segmentId) ?? null)
         .filter((item): item is Segment => item !== null)
-    : sequence.segments;
+    : playbackQueueSegments(sequence);
 
   return el(
     'div',
@@ -441,7 +447,7 @@ export function Playback(props: Props): HTMLElement {
         el('button', {
           ariaLabel: i18n.playback.shuffle,
           ariaPressed: currentMode === 'shuffle' ? 'true' : 'false',
-          onClick: () => onPlay(index, sequence.id, 'shuffle'),
+          onClick: () => onPlay(index, sequence.id, currentMode === 'shuffle' ? 'sequence' : 'shuffle'),
           style: btnIconStyle(currentMode === 'shuffle' ? { color: 'var(--accent)', background: 'var(--accent-soft)' } : {}),
         }, Glyph('shuffle', 14)),
         el('button', {
@@ -479,9 +485,9 @@ export function Playback(props: Props): HTMLElement {
         }, Glyph('next', 16)),
         el('button', {
           ariaLabel: i18n.playback.repeatCurrent,
-          ariaPressed: 'false',
-          onClick: () => onPlay(index, sequence.id, currentMode),
-          style: btnIconStyle(),
+          ariaPressed: currentMode === 'repeat' ? 'true' : 'false',
+          onClick: () => onPlay(index, sequence.id, currentMode === 'repeat' ? 'sequence' : 'repeat'),
+          style: btnIconStyle(currentMode === 'repeat' ? { color: 'var(--accent)', background: 'var(--accent-soft)' } : {}),
         }, Glyph('repeat', 14))
       )
     ),
@@ -546,7 +552,6 @@ export function Playback(props: Props): HTMLElement {
       },
       ...queueSegments.map((queueSegment, queueIndex) => {
         const originalIndex = sequence.segments.findIndex((item) => item.id === queueSegment.id);
-        const done = !isEditingQueue && originalIndex < index;
         const now = queueSegment.id === segment.id;
 
         if (isEditingQueue) {
@@ -649,7 +654,6 @@ export function Playback(props: Props): HTMLElement {
               padding: '8px 8px',
               background: now ? 'var(--accent-soft)' : 'transparent',
               borderRadius: '6px',
-              opacity: done ? '0.4' : '1',
               borderLeft: now ? '2px solid var(--accent)' : '2px solid transparent',
               color: 'inherit',
               cursor: 'pointer',
@@ -661,7 +665,7 @@ export function Playback(props: Props): HTMLElement {
             { style: { width: '16px', display: 'flex', justifyContent: 'center', color: now ? 'var(--accent)' : 'var(--mute)' } },
             now ? Glyph('play', 10) : el('span', { text: String(queueIndex + 1), style: { fontFamily: 'JetBrains Mono', fontSize: '10px' } })
           ),
-          thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: queueSegment.videoId, variant: originalIndex }), 40, 40, done),
+          thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: queueSegment.videoId, variant: originalIndex }), 40, 40),
           el(
             'div',
             { style: { flex: '1', minWidth: '0' } },
@@ -670,15 +674,14 @@ export function Playback(props: Props): HTMLElement {
               style: {
                 fontSize: '12px',
                 fontWeight: now ? '600' : '500',
-                color: now ? 'var(--text)' : done ? 'var(--mute)' : 'var(--text)',
+                color: 'var(--text)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                textDecoration: done ? 'line-through' : 'none',
               },
             }),
             el('div', {
-                text: timeRange(queueSegment, i18n),
+              text: timeRange(queueSegment, i18n),
               style: {
                 fontSize: '10px',
                 color: 'var(--mute)',

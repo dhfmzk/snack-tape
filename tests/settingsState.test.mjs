@@ -14,6 +14,7 @@ test('settings expose the manifest shortcut defaults as read-only labels', () =>
 test('settings default to Korean UI and repair unsupported languages', () => {
   assert.equal(DEFAULT_SETTINGS.language, 'ko');
   assert.equal(normalizeSettings({ language: 'en' }).language, 'en');
+  assert.equal(normalizeSettings({ language: 'ja' }).language, 'ja');
   assert.equal(normalizeSettings({ language: 'fr' }).language, 'ko');
   assert.equal(normalizeSettings(null).language, 'ko');
 });

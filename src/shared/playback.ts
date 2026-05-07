@@ -40,6 +40,10 @@ export function createPlaybackOrder(
     return [];
   }
 
+  if (mode === 'repeat') {
+    return [startIndex];
+  }
+
   if (mode !== 'shuffle') {
     return Array.from({ length: segmentCount - startIndex }, (_, index) => startIndex + index);
   }
@@ -86,6 +90,15 @@ function stateOrderPosition(sequence: Sequence, state: PlaybackState): number {
 export function getNextPlaybackStep(sequence: Sequence, state: PlaybackState): PlaybackStep | null {
   if (sequence.segments.length === 0) {
     return null;
+  }
+
+  if (state.mode === 'repeat') {
+    const currentIndex = findSegmentIndex(sequence, state.currentSegmentId);
+    const fallbackIndex = isValidIndex(sequence, state.segmentIndex) ? state.segmentIndex : 0;
+    return {
+      segmentIndex: currentIndex >= 0 ? currentIndex : fallbackIndex,
+      orderPosition: 0
+    };
   }
 
   if (state.orderSegmentIds && state.orderSegmentIds.length > 0) {
@@ -158,7 +171,7 @@ export function describePlaybackState(store: SnackTapeStore, state: PlaybackStat
     sequenceName: sequence.name,
     segmentTitle: segment.title,
     positionText,
-    modeLabel: state.mode === 'shuffle' ? '랜덤 재생' : '순서대로 재생',
+    modeLabel: state.mode === 'shuffle' ? '랜덤 재생' : state.mode === 'repeat' ? '반복 재생' : '순서대로 재생',
     canStop: true
   };
 }

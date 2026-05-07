@@ -2,6 +2,7 @@ import { App } from './App.js';
 import { clearAndAppend } from './components/dom.js';
 import { createFrameRenderScheduler } from './shared/renderScheduler.js';
 import type { SnackTapeMessage } from './shared/types.js';
+import { installPlaybackProgressSync } from './state/playbackProgressSync.js';
 import { SnackTapeAppStore, type AppState } from './state/store.js';
 import { installActiveVideoDetection } from './state/videoDetection.js';
 import { applyTheme } from './theme/ThemeProvider.js';
@@ -23,11 +24,15 @@ const scheduleRender = createFrameRenderScheduler<AppState>((state) => {
 
 store.subscribe(scheduleRender);
 installActiveVideoDetection(store);
+installPlaybackProgressSync(store);
 
 chrome.runtime.onMessage.addListener((message: SnackTapeMessage) => {
   if (message.type === 'COMMAND_EVENT') {
     void store.handleCommand(message.name);
+    return;
   }
+
+  void store.handleRuntimeMessage(message);
 });
 
 void store.init();

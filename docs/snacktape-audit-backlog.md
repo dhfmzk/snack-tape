@@ -7,12 +7,12 @@ Scope: repository audit only. This document does not implement fixes. It separat
 Counts:
 
 - Potential bugs and regressions: 50 total, 50 fixed, 0 open
-- Unfinished areas and follow-up work: 50 total, 13 fixed, 37 open
+- Unfinished areas and follow-up work: 50 total, 16 fixed, 34 open
 
 Open severity:
 
 - Open bugs: P0 Critical 0, P1 High 0, P2 Medium 0, P3 Low 0
-- Open unfinished work: P0 Critical 1, P1 High 8, P2 Medium 16, P3 Low 12
+- Open unfinished work: P0 Critical 1, P1 High 7, P2 Medium 15, P3 Low 11
 
 Severity model:
 
@@ -25,7 +25,7 @@ Severity model:
 
 Fix first:
 
-- P0/P1 first: `ST-GAP-042`, `ST-GAP-015`, `ST-GAP-022`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
+- P0/P1 first: `ST-GAP-042`, `ST-GAP-015`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
 - P2 next: queue and segment editing depth, playback control clarity, localization, accessibility, and browser-level QA confidence.
 - P3 later: library-scale conveniences, visual polish, optional metadata, and release packaging.
 
@@ -106,6 +106,9 @@ Fix first:
 | ST-GAP-010 | Fixed | Data | Fixed: JSON and CSV export/import are now available from the current side panel instead of only the legacy editor. | `src/screens/Settings.tsx:528-540`, `src/state/store.ts:607-649`, `src/shared/dataTransfer.ts` | Keep data transfer tests and side-panel action wiring covered. |
 | ST-GAP-011 | Fixed | Legacy source | Fixed: removed the unused `src/editor/*` source and stale README/test references; the MV3 app is side-panel only. | `README.md:19`, `manifest.json:12-18`, `tests/manifest.test.mjs:40-44` | Keep the legacy-source absence test. |
 | ST-GAP-012 | Fixed | Queue editing | Fixed: Playback exposes a queue-edit path while preserving the separate mixtape-edit flow into the Edit tab. | `src/screens/Playback.tsx:493-512`, `src/App.tsx:51-58` | Keep queue-edit entry and mixtape-edit routing tests. |
+| ST-GAP-022 | Fixed | Capture | Fixed: Edit tab with no mixtapes exposes a create-target action, so the route no longer strands users without a save target. | `src/screens/Capture.tsx:597-608`, `src/App.tsx:29-45`, `tests/captureScreen.test.mjs:589-606` | Keep the no-mixtape Edit affordance test. |
+| ST-GAP-038 | Fixed | YouTube integration | Fixed: the YouTube continue overlay receives playback language and accent theme from the background/content message flow. | `src/content/overlay.ts:1-57`, `src/content/contentScript.ts:215-331`, `src/background/background.ts:387-397` | Keep the themed/localized overlay test. |
+| ST-GAP-047 | Fixed | Testing | Fixed: production build now runs a dist smoke check that verifies required MV3 load-unpacked files and manifest-referenced assets. | `package.json:8-14`, `scripts/check-dist.mjs:1-41`, `tests/distSmokeScript.test.mjs:5-16` | Keep `npm run build` in release verification. |
 | ST-GAP-048 | Fixed | Testing | Fixed: content-script playback behavior now has unit coverage for autoplay waiting, ad waiting, OUT boundary timing, and navigation cleanup. | `tests/contentPlayback.test.mjs`, `src/content/contentScript.ts:187-331` | Keep content message-flow tests and add real YouTube fixture coverage later. |
 | ST-GAP-013 | P2 Medium | Queue editing | Queue edit supports reorder/remove but not direct segment time edits inside the Playback queue. | `src/screens/Playback.tsx:462-550`, `src/screens/Capture.tsx:172-243` | Keep time editing in Edit tab or add an inline range editor in queue edit. |
 | ST-GAP-014 | P2 Medium | Segment editing | Segment range editing is nudge-only; there is no direct time input. | `src/screens/Capture.tsx:172-243` | Add exact start/end text fields with validation and keyboard commit. |
@@ -116,7 +119,6 @@ Fix first:
 | ST-GAP-019 | P3 Low | Mixtapes | There is no sorting option for many mixtapes beyond insertion order. | `src/screens/Home.tsx:260-307` | Add sort by recent update, name, clip count, or manual order. |
 | ST-GAP-020 | P3 Low | Mixtapes | There is no search/filter for large mixtape libraries. | `src/screens/Home.tsx:260-307` | Add local search once card count becomes large. |
 | ST-GAP-021 | P3 Low | Mixtapes | Mixtape creation names use count-based numbering, which can repeat names after deletion. | `src/state/store.ts:137-158` | Generate the next unused visible number or open rename immediately. |
-| ST-GAP-022 | P1 High | Capture | Edit tab has no create-mixtape affordance when there are no sequences but the route is still reachable. | `src/state/store.ts:256-287`, `src/screens/Capture.tsx:546-556` | Add create-target UI or redirect to Home when store is empty. |
 | ST-GAP-023 | P1 High | Capture | Capture guards fail silently instead of explaining whether the active tab is missing, not YouTube, unreadable, or has no current time. | `src/state/store.ts:557-620`, `src/state/youtube.ts:105-135` | Add inline error/status area in the template. |
 | ST-GAP-024 | P3 Low | Capture | Saved clip cards show only title and range; there is no thumbnail in the Edit list, unlike Playback queue and Home covers. | `src/screens/Capture.tsx:752-839` | Add compact thumbnails if the template expects visual continuity. |
 | ST-GAP-025 | P3 Low | Capture | The Edit tab does not show the active channel metadata even though content script reads it. | `src/content/contentScript.ts:137-152`, `src/screens/Capture.tsx:557-614` | Surface channel when useful or remove it from `VideoState`. |
@@ -132,7 +134,6 @@ Fix first:
 | ST-GAP-035 | P2 Medium | Playback | There is no "play from here to end" versus "play one clip" distinction in queue rows. | `src/screens/Playback.tsx:553-608`, `src/background/background.ts:160-190` | Clarify row click semantics and add explicit actions if needed. |
 | ST-GAP-036 | P1 High | Playback | There is no persisted manual queue separate from saved mixtape order; queue edit mutates the underlying mixtape. | `src/state/store.ts:411-499`, `src/shared/reorder.ts:48-65` | Decide whether queue edits are temporary session edits or permanent mixtape edits. |
 | ST-GAP-037 | P1 High | Playback | Playback state now models pending/waiting, but still lacks a durable error lifecycle that the side panel can render after runtime/content failures. | `src/shared/types.ts:21-37`, `src/state/store.ts:924-950`, `src/background/background.ts:397-423` | Add persisted/visible playback error state before improving recovery UI. |
-| ST-GAP-038 | P3 Low | YouTube integration | Content script does not support themed/localized status messaging on the YouTube page. | `src/content/overlay.ts:7-45` | Pass language/theme or keep all status inside the side panel. |
 | ST-GAP-039 | P2 Medium | YouTube integration | Shorts/embed parsing exists, but the extension does not define a completed capture/playback experience for those surfaces. | `src/shared/youtube.ts:36-43`, `manifest.json:19-24` | Either complete support or remove parser branches from MVP. |
 | ST-GAP-040 | P3 Low | Data model | Segments have an optional `note`, but the current side panel provides no note editing UI. | `src/shared/types.ts:1-11`, `src/shared/storage.ts:91-93` | Add notes or remove the field until needed. |
 | ST-GAP-041 | P3 Low | Data model | There are no tags, categories, or source filters for clips. | `src/shared/types.ts:1-20`, `src/screens/Home.tsx:260-307` | Defer intentionally or add only after core editing stabilizes. |
@@ -141,13 +142,12 @@ Fix first:
 | ST-GAP-044 | P2 Medium | Localization | Background, content, validation, and storage errors are not i18n-driven. | `src/background/background.ts:29-157`, `src/content/contentScript.ts:39-50`, `src/shared/validation.ts:7-52`, `src/shared/storage.ts:227-279` | Centralize user-facing strings or keep them out of user UI. |
 | ST-GAP-045 | P2 Medium | Accessibility | There is no keyboard-flow audit for Edit menus, native select, custom toggles, playback controls, and queue editing. | `src/screens/Capture.tsx:89-155`, `src/screens/Settings.tsx:88-123`, `src/screens/Playback.tsx:388-550` | Add keyboard-only QA and ARIA tests. |
 | ST-GAP-046 | P2 Medium | Testing | Current tests use lightweight DOM shims, not a real browser rendering engine. | `tests/playbackScreen.test.mjs:5-97`, `tests/captureScreen.test.mjs:1-80` | Add Playwright/Chrome smoke tests for side-panel interactions. |
-| ST-GAP-047 | P2 Medium | Testing | No test proves the unpacked `dist/` extension can be loaded by Chrome after build. | `package.json:8-14`, `scripts/build.mjs:29-54` | Add a manifest/file-existence smoke check after build. |
 | ST-GAP-049 | P1 High | Testing | No test covers keyboard commands when the side panel is closed. | `manifest.json:26-43`, `src/background/background.ts:360-367`, `src/main.tsx:27-31` | Add background-level command tests and decide desired behavior. |
 | ST-GAP-050 | P3 Low | Release | There is no packaging/release script for zip/CRX artifacts or version/changelog workflow. | `package.json:8-14`, `.gitignore:9-13`, `manifest.json:1-6` | Add release scripts only after MVP behavior stabilizes. |
 
 ## Suggested Execution Order
 
 1. Close remaining P0 data-safety work: `ST-GAP-042`.
-2. Close P1 core-flow blockers: `ST-GAP-015`, `ST-GAP-022`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
-3. Work P2 usability, precision, and QA confidence: `ST-GAP-013`, `ST-GAP-014`, `ST-GAP-016`, `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-029` through `ST-GAP-033`, `ST-GAP-035`, `ST-GAP-039`, `ST-GAP-044` through `ST-GAP-047`.
-4. Keep P3 polish, scope, and release items for later: `ST-GAP-017` through `ST-GAP-021`, `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-038`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.
+2. Close P1 core-flow blockers: `ST-GAP-015`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
+3. Work P2 usability, precision, and QA confidence: `ST-GAP-013`, `ST-GAP-014`, `ST-GAP-016`, `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-029` through `ST-GAP-033`, `ST-GAP-035`, `ST-GAP-039`, `ST-GAP-044` through `ST-GAP-046`.
+4. Keep P3 polish, scope, and release items for later: `ST-GAP-017` through `ST-GAP-021`, `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.

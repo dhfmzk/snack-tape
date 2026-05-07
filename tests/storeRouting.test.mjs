@@ -892,3 +892,147 @@ test('updateSettings normalizes settings before publishing visible state', async
   assert.equal(storage[SETTINGS_KEY].shortcutIn, 'Alt+I');
   assert.equal(storage[SETTINGS_KEY].shortcutOut, 'Alt+O');
 });
+
+test('store refreshes playback when background reports playback state changed', async () => {
+  const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSegment({ id: 'clip-1', title: 'First clip' });
+  const second = makeSegment({ id: 'clip-2', title: 'Second clip' });
+  const sequence = makeSequence({
+    id: 'sequence-refresh-playback',
+    name: 'Refresh Tape',
+    segments: [first, second]
+  });
+  installChromeStorage({
+    [PLAYBACK_STATE_KEY]: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: second.id,
+      tabId: 9,
+      status: 'playing',
+      startedAt: 2,
+      playbackToken: 'token-2',
+      mode: 'sequence',
+      order: [0, 1],
+      orderSegmentIds: [first.id, second.id],
+      orderPosition: 1
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: first.id,
+      tabId: 9,
+      status: 'playing',
+      startedAt: 1,
+      playbackToken: 'token-1',
+      mode: 'sequence',
+      order: [0, 1],
+      orderSegmentIds: [first.id, second.id],
+      orderPosition: 0
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.handleRuntimeMessage({ type: 'PLAYBACK_STATE_CHANGED' });
+
+  assert.equal(store.getState().playbackState.currentSegmentId, second.id);
+  assert.equal(store.getState().playbackDisplay.segmentTitle, 'Second clip');
+});
+
+test('store syncs playback progress from the playback tab instead of elapsed wall time', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const segment = makeSegment({
+    id: 'clip-progress-sync',
+    title: 'Synced clip',
+    videoId: 'video-progress',
+    startSeconds: 10,
+    endSeconds: 20
+  });
+  const sequence = makeSequence({
+    id: 'sequence-progress-sync',
+    name: 'Progress Sync Tape',
+    segments: [segment]
+  });
+  installChromeStorage();
+  const tabMessages = [];
+  globalThis.chrome.tabs = {
+    sendMessage(tabId, message, callback) {
+      tabMessages.push({ tabId, message });
+      callback({
+        ok: true,
+        data: {
+          isYouTubeVideoPage: true,
+          videoId: 'video-progress',
+          title: 'Synced clip',
+          url: 'https://www.youtube.com/watch?v=video-progress',
+          currentTime: 11,
+          duration: 120
+        }
+      });
+    }
+  };
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video-progress',
+      title: 'Synced clip',
+      url: 'https://www.youtube.com/watch?v=video-progress',
+      currentTime: 18,
+      duration: 120
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: segment.id,
+      tabId: 42,
+      status: 'playing',
+      startedAt: 1,
+      playbackToken: 'token-progress',
+      mode: 'sequence',
+      order: [0],
+      orderSegmentIds: [segment.id],
+      orderPosition: 0
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.syncPlaybackProgress();
+
+  assert.deepEqual(tabMessages, [{ tabId: 42, message: { type: 'GET_PAGE_INFO' } }]);
+  assert.equal(store.getState().pageInfo.currentTime, 11);
+});

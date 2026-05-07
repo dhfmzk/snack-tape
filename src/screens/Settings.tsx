@@ -1,6 +1,6 @@
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
-import { createI18n, type I18n, type Language } from '../i18n.js';
+import { createI18n, isLanguage, type I18n, type Language } from '../i18n.js';
 import type { AppState } from '../state/store.js';
 import type { Settings as SnackTapeSettings } from '../state/storage.js';
 import type { ExportFormat } from '../shared/dataTransfer.js';
@@ -262,6 +262,7 @@ function LanguageSection(state: AppState, i18n: I18n, onSettingChange?: (patch: 
   const choices: Array<{ key: Language; label: string }> = [
     { key: 'ko', label: i18n.settings.Korean },
     { key: 'en', label: i18n.settings.English },
+    { key: 'ja', label: i18n.settings.Japanese },
   ];
 
   return el(
@@ -307,7 +308,7 @@ function LanguageSection(state: AppState, i18n: I18n, onSettingChange?: (patch: 
           dataset: { persistKey: 'settings-language' },
           onChange: (event) => {
             const value = (event.target as HTMLSelectElement).value;
-            if (value === 'ko' || value === 'en') {
+            if (isLanguage(value)) {
               onSettingChange?.({ language: value });
             }
           },
@@ -550,7 +551,7 @@ export function Settings({
       },
       'SNACKTAPE v0.1.0 · MV3 SIDE PANEL',
       el('br'),
-      'BY YOU · 2026'
+      'BY dhfmzk · 2026'
     )
   );
 }

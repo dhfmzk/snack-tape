@@ -156,6 +156,72 @@ test('background startSequence honors shuffleByDefault when no mode is supplied'
   assert.equal(new Set(data[PLAYBACK_STATE_KEY].order).size, 3);
 });
 
+test('background startSequence preserves repeat mode for the current clip', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-repeat-mode',
+    segments: [
+      makeSegment({ id: 'clip-1', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-2', videoId: 'video-1' })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: settings()
+  });
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js?repeat-mode-start');
+
+  await startSequence(sequence.id, 1, 'repeat', 9);
+
+  assert.equal(data[PLAYBACK_STATE_KEY].mode, 'repeat');
+  assert.deepEqual(data[PLAYBACK_STATE_KEY].order, [1]);
+  assert.deepEqual(data[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-2']);
+  assert.equal(data[PLAYBACK_STATE_KEY].orderPosition, 0);
+});
+
+test('background repeats the current clip when a repeat-mode segment ends', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-repeat-advance',
+    segments: [
+      makeSegment({ id: 'clip-1', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-2', videoId: 'video-1' })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: settings({ autoNext: true }),
+    [PLAYBACK_STATE_KEY]: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: 'clip-2',
+      tabId: 9,
+      status: 'playing',
+      startedAt: 1,
+      playbackToken: 'token-repeat',
+      mode: 'repeat',
+      order: [1],
+      orderSegmentIds: ['clip-2'],
+      orderPosition: 0
+    }
+  });
+  const { nextSegment } = await import('../.tmp-tests/src/background/background.js?repeat-mode-next');
+
+  await nextSegment('token-repeat');
+
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-2');
+  assert.equal(data[PLAYBACK_STATE_KEY].segmentIndex, 1);
+  assert.equal(data.messages.filter((message) => message.type === 'PLAY_SEGMENT').length, 1);
+});
+
 test('background passes fadeOut setting into content playback messages', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
@@ -370,6 +436,44 @@ test('background clears playback state when the backing sequence was deleted bef
 
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
   assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), true);
+});
+
+test('background notifies extension views after automatic segment advance changes playback state', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-auto-advance',
+    segments: [
+      makeSegment({ id: 'clip-1', videoId: 'video-1', startSeconds: 10, endSeconds: 20 }),
+      makeSegment({ id: 'clip-2', videoId: 'video-1', startSeconds: 30, endSeconds: 40 })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: settings({ autoNext: true }),
+    [PLAYBACK_STATE_KEY]: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-1',
+      tabId: 9,
+      status: 'playing',
+      startedAt: 1,
+      playbackToken: 'token-1',
+      mode: 'sequence',
+      order: [0, 1],
+      orderSegmentIds: ['clip-1', 'clip-2'],
+      orderPosition: 0
+    }
+  });
+  const { nextSegment } = await import('../.tmp-tests/src/background/background.js?auto-advance-notify');
+
+  await nextSegment('token-1');
+
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-2');
+  assert.equal(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'), true);
 });
 
 test('background capture command saves IN when the side panel is not receiving commands', async () => {

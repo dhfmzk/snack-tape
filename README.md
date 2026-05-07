@@ -10,7 +10,7 @@ It is built around a simple loop: mark an IN point, mark an OUT point, save the 
 - Groups clips into mixtapes stored locally in the browser.
 - Plays mixtapes through a Now Playing view with queue controls.
 - Lets users edit saved ranges, reorder queues, rename mixtapes, delete clips, and delete mixtapes.
-- Supports accent themes and Korean/English app language selection.
+- Supports accent themes and Korean/English/Japanese app language selection.
 
 ## Scope
 

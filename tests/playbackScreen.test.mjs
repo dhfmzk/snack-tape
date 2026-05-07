@@ -271,6 +271,83 @@ test('Playback progress prefers live YouTube page time and does not animate whil
   }
 });
 
+test('Playback progress follows live YouTube time without CSS animation while playing', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const originalNow = Date.now;
+  Date.now = () => 1700000019000;
+  const sequence = makeSequence({
+    id: 'sequence-live-rewind',
+    name: '라이브 리와인드 믹스테이프',
+    segments: [makeSegment({ id: 'clip-live-rewind', title: '라이브 리와인드 클립', videoId: 'video-live', startSeconds: 10, endSeconds: 20 })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video-live',
+      title: '라이브 리와인드 클립',
+      url: 'https://www.youtube.com/watch?v=video-live',
+      currentTime: 11,
+      duration: 100
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-live-rewind',
+      status: 'playing',
+      startedAt: 1700000000000
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '라이브 리와인드 클립',
+      positionText: '1 / 1',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    loading: false
+  };
+
+  try {
+    const page = Playback({
+      state,
+      onBack: () => {},
+      onPlay: () => {},
+      onStop: () => {},
+      onNext: () => {},
+      onEditSequence: () => {},
+      onCancelQueueEdit: () => {},
+      onSaveQueueEdit: () => {},
+      onMoveQueueSegment: () => {},
+      onRemoveQueueSegment: () => {}
+    });
+    const progressBar = findByAriaLabel(page, '재생 진행률');
+
+    assert.equal(progressBar.dataset.progressRatio, '0.1');
+    assert.match(progressBar.children[0].style.cssText, /width: 10%/);
+    assert.doesNotMatch(progressBar.children[0].style.cssText, /snacktape-progress-fill/);
+    assert.doesNotMatch(progressBar.children[1].style.cssText, /snacktape-progress-knob/);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('Playback renders zero-second OUT values as saved times, not END', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
@@ -535,8 +612,90 @@ test('Playback template controls are wired to playback callbacks', async () => {
     ['play', 0, sequence.id, 'sequence'],
     ['stop'],
     ['next'],
-    ['play', 1, sequence.id, 'sequence'],
+    ['play', 1, sequence.id, 'repeat'],
     ['play', 2, sequence.id, 'sequence']
+  ]);
+});
+
+test('Playback edge mode buttons toggle shuffle and repeat modes', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-mode-toggle',
+    name: '모드 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '현재 클립', videoId: 'video2' })
+    ]
+  });
+  const baseState = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: 'clip-2',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'shuffle'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '현재 클립',
+      positionText: '2 / 2',
+      modeLabel: '셔플 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    loading: false
+  };
+  const calls = [];
+
+  const shufflePage = Playback({
+    state: baseState,
+    onBack: () => {},
+    onPlay: (index, sequenceId, mode) => calls.push(['play', index, sequenceId, mode]),
+    onStop: () => {},
+    onNext: () => {}
+  });
+  const shuffleButton = findByAriaLabel(shufflePage, '셔플 재생');
+  shuffleButton.click();
+
+  const repeatPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        ...baseState.playbackState,
+        mode: 'repeat'
+      }
+    },
+    onBack: () => {},
+    onPlay: (index, sequenceId, mode) => calls.push(['play', index, sequenceId, mode]),
+    onStop: () => {},
+    onNext: () => {}
+  });
+  const repeatButton = findByAriaLabel(repeatPage, '현재 클립 다시 재생');
+  assert.equal(repeatButton.attributes['aria-pressed'], 'true');
+  repeatButton.click();
+
+  assert.deepEqual(calls, [
+    ['play', 1, sequence.id, 'sequence'],
+    ['play', 1, sequence.id, 'sequence']
   ]);
 });
 
@@ -680,6 +839,89 @@ test('Playback queue header exposes up-next count and explicit queue edit action
     ['queue', sequence.id],
     ['edit', sequence.id]
   ]);
+});
+
+test('Playback list keeps mixtape order during shuffle without dimming earlier entries', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-shuffle-queue',
+    name: '랜덤 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '원본 첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-b', title: '이미 재생된 랜덤 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-c', title: '현재 랜덤 클립', videoId: 'video3' }),
+      makeSegment({ id: 'clip-d', title: '다음 랜덤 클립', videoId: 'video4' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 2,
+      currentSegmentId: 'clip-c',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'shuffle',
+      orderSegmentIds: ['clip-b', 'clip-c', 'clip-a', 'clip-d'],
+      orderPosition: 1
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '현재 랜덤 클립',
+      positionText: '2 / 4',
+      modeLabel: '랜덤 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const queue = findAll(page, (node) => node.dataset?.scrollKey === `playback-queue:${sequence.id}`)[0];
+  const queueText = textOf(queue);
+  const previousButton = findByAriaLabel(queue, '이미 재생된 랜덤 클립 재생');
+  const currentButton = findByAriaLabel(queue, '현재 랜덤 클립 재생');
+
+  assert.ok(queue);
+  assert.match(queueText, /이미 재생된 랜덤 클립/);
+  assert.match(queueText, /현재 랜덤 클립/);
+  assert.match(queueText, /원본 첫 클립/);
+  assert.match(queueText, /다음 랜덤 클립/);
+  assert.equal(queueText.indexOf('원본 첫 클립') < queueText.indexOf('이미 재생된 랜덤 클립'), true);
+  assert.equal(queueText.indexOf('이미 재생된 랜덤 클립') < queueText.indexOf('현재 랜덤 클립'), true);
+  assert.equal(queueText.indexOf('현재 랜덤 클립') < queueText.indexOf('다음 랜덤 클립'), true);
+  assert.notEqual(previousButton.style.opacity, '0.4');
+  assert.notEqual(currentButton.style.opacity, '0.4');
 });
 
 test('Playback previous and next controls are disabled at queue boundaries', async () => {
