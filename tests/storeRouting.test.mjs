@@ -204,6 +204,109 @@ test('startSequence switches to playback before runtime playback handoff finishe
   await pending;
 });
 
+test('startSequence uses shuffle mode when shuffleByDefault is enabled and no mode is supplied', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-shuffle-default', name: '랜덤 기본 믹스테이프', segments: [makeSegment({ id: 'clip-1' }), makeSegment({ id: 'clip-2' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  let runtimeMessage = null;
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessage = message;
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: { ...baseSettings(), shuffleByDefault: true },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(runtimeMessage.mode, 'shuffle');
+});
+
+test('saveQueueEdit preserves active shuffle playback mode', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-shuffle',
+    name: '큐 편집 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1' }),
+      makeSegment({ id: 'clip-2' }),
+      makeSegment({ id: 'clip-3' })
+    ]
+  });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 1,
+    currentSegmentId: 'clip-2',
+    status: 'playing',
+    startedAt: 1700000000000,
+    mode: 'shuffle',
+    orderSegmentIds: ['clip-2', 'clip-1', 'clip-3'],
+    orderPosition: 0
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [PLAYBACK_STATE_KEY]: playbackState
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: {
+      sequenceId: sequence.id,
+      segmentIds: ['clip-3', 'clip-2', 'clip-1']
+    },
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.saveQueueEdit();
+
+  assert.equal(store.getState().playbackState.mode, 'shuffle');
+  assert.equal(storage[PLAYBACK_STATE_KEY].mode, 'shuffle');
+  assert.deepEqual(storage[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-3', 'clip-2', 'clip-1']);
+  assert.equal(storage[PLAYBACK_STATE_KEY].orderPosition, 1);
+});
+
 test('beginRenameMixtape opens the edit tab with the selected mixtape rename field active', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -386,4 +489,83 @@ test('deleteMixtape removes the final mixtape instead of recreating a default on
   assert.equal(store.getState().segmentEdit, null);
   assert.equal(store.getState().renameEdit, null);
   assert.equal(store.getState().playbackState, null);
+});
+
+test('deleteMixtape clears a deleted mixtape from the default save target', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'first-sequence', name: '남길 믹스테이프', segments: [makeSegment({ id: 'first-clip' })] });
+  const second = makeSequence({ id: 'second-sequence', name: '기본 저장 위치', segments: [makeSegment({ id: 'second-clip' })] });
+  const settings = { ...baseSettings(), defaultMixtapeId: second.id };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, second],
+      selectedSequenceId: first.id
+    },
+    [SETTINGS_KEY]: settings
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [first, second],
+      selectedSequenceId: first.id
+    },
+    settings,
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.deleteMixtape(second.id);
+
+  assert.equal(store.getState().settings.defaultMixtapeId, undefined);
+  assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
+});
+
+test('updateSettings normalizes settings before publishing visible state', async () => {
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const storage = installChromeStorage();
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'settings',
+    store: null,
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.updateSettings({
+    accentKey: 'purple',
+    language: 'fr',
+    shortcutIn: 'Ctrl+Shift+P',
+    shortcutOut: 'X'
+  });
+
+  assert.equal(store.getState().settings.accentKey, 'peach');
+  assert.equal(store.getState().settings.language, 'ko');
+  assert.equal(store.getState().settings.shortcutIn, 'Alt+I');
+  assert.equal(store.getState().settings.shortcutOut, 'Alt+O');
+  assert.equal(storage[SETTINGS_KEY].accentKey, 'peach');
+  assert.equal(storage[SETTINGS_KEY].language, 'ko');
+  assert.equal(storage[SETTINGS_KEY].shortcutIn, 'Alt+I');
+  assert.equal(storage[SETTINGS_KEY].shortcutOut, 'Alt+O');
 });

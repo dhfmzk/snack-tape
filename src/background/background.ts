@@ -9,6 +9,7 @@ import {
 import type { PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
 import { validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
+import { loadSettings } from '../state/storage.js';
 
 const MAX_MESSAGE_RETRIES = 12;
 const MESSAGE_RETRY_DELAY_MS = 350;
@@ -63,6 +64,11 @@ type PlaybackRequest = {
 
 function normalizePlaybackMode(mode: PlaybackMode | undefined): PlaybackMode {
   return mode === 'shuffle' ? 'shuffle' : 'sequence';
+}
+
+async function playbackModeFromSettings(): Promise<PlaybackMode> {
+  const settings = await loadSettings();
+  return settings.shuffleByDefault ? 'shuffle' : 'sequence';
 }
 
 function canonicalWatchUrl(segment: Segment): string {
@@ -157,7 +163,7 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
   throw new Error('YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.');
 }
 
-export async function startSequence(sequenceId: string, startIndex = 0, mode: PlaybackMode = 'sequence', requestedTabId?: number): Promise<void> {
+export async function startSequence(sequenceId: string, startIndex = 0, mode?: PlaybackMode, requestedTabId?: number): Promise<void> {
   const store = await loadStore();
   const sequence = getSequence(store.sequences, sequenceId);
   const errors = validateSequence(sequence);
@@ -170,7 +176,8 @@ export async function startSequence(sequenceId: string, startIndex = 0, mode: Pl
     throw new Error('재생할 구간을 찾을 수 없습니다.');
   }
 
-  const order = createPlaybackOrder(sequence.segments.length, startIndex, mode);
+  const playbackMode = mode ? normalizePlaybackMode(mode) : await playbackModeFromSettings();
+  const order = createPlaybackOrder(sequence.segments.length, startIndex, playbackMode);
   if (order.length === 0) {
     throw new Error('재생할 구간을 찾을 수 없습니다.');
   }
@@ -183,7 +190,7 @@ export async function startSequence(sequenceId: string, startIndex = 0, mode: Pl
 
   const tabId = await resolvePlaybackTabId(firstSegment, requestedTabId);
   await playSegment(sequenceId, firstSegmentIndex, tabId, {
-    mode,
+    mode: playbackMode,
     order,
     orderSegmentIds: orderSegmentIds(sequence, order),
     orderPosition: 0
@@ -308,7 +315,12 @@ export async function stopPlayback(expectedPlaybackToken?: string): Promise<void
 
 async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {
   if (message.type === 'START_SEQUENCE') {
-    await startSequence(message.sequenceId, message.startIndex ?? 0, normalizePlaybackMode(message.mode), message.tabId);
+    await startSequence(
+      message.sequenceId,
+      message.startIndex ?? 0,
+      message.mode ? normalizePlaybackMode(message.mode) : undefined,
+      message.tabId
+    );
     return { ok: true };
   }
 

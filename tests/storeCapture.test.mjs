@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSequence } from './helpers.mjs';
 
-function installChromeForCapture({ storage = {}, videoState, deferSet = false }) {
+function installChromeForCapture({ storage = {}, videoState, videoError = null, deferSet = false }) {
   const data = { ...storage };
   let releaseSet = null;
   globalThis.window = {
@@ -40,6 +40,10 @@ function installChromeForCapture({ storage = {}, videoState, deferSet = false })
       },
       sendMessage(_tabId, message, callback) {
         if (message.type === 'getVideoState') {
+          if (videoError) {
+            callback({ ok: false, error: videoError });
+            return;
+          }
           callback({ ok: true, data: videoState });
           return;
         }
@@ -201,6 +205,36 @@ test('captureIn updates the visible draft marker before storage persistence fini
   await capture;
 });
 
+test('captureIn uses cached page info immediately when active video refresh cannot read YouTube', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', segments: [] });
+  const storage = installChromeForCapture({
+    videoError: 'Cannot connect to YouTube'
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '캐시된 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 12.345,
+      duration: 300
+    }
+  };
+
+  const capture = store.captureIn();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(store.getState().draftIn, 12.35);
+
+  await capture;
+  assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 12.35);
+});
+
 test('captureOutAndSave appends a clip to the selected mixtape', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -271,6 +305,156 @@ test('captureOutAndSave still saves when OUT is captured at the same timestamp a
   assert.equal(savedSegment.startSeconds, 42);
   assert.equal(savedSegment.endSeconds, 42.03);
   assert.equal(store.getState().draftIn, null);
+});
+
+test('captureOutAndSave uses cached page info when active video refresh cannot read YouTube', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    videoError: 'Cannot connect to YouTube',
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '캐시된 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 45.678,
+      duration: 300
+    },
+    draftIn: 42
+  };
+
+  await store.captureOutAndSave();
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.title, '캐시된 영상');
+  assert.equal(savedSegment.startSeconds, 42);
+  assert.equal(savedSegment.endSeconds, 45.68);
+  assert.equal(store.getState().draftIn, null);
+});
+
+test('captureOutAndSave reports missing preconditions instead of returning silently', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  installChromeForCapture({
+    videoState: {
+      videoId: 'video_12345',
+      title: '저장할 영상',
+      channel: '채널',
+      currentTime: 45.9,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence);
+
+  await store.captureOutAndSave();
+
+  assert.equal(store.getState().captureNotice.kind, 'error');
+  assert.match(store.getState().captureNotice.message, /IN/);
+
+  installChromeForCapture({
+    videoState: {
+      videoId: 'video_12345',
+      title: '저장할 영상',
+      channel: '채널',
+      currentTime: 45.9,
+      duration: 300,
+      paused: false
+    }
+  });
+  const noTargetStore = new SnackTapeAppStore();
+  noTargetStore.state = {
+    ...baseState(sequence),
+    store: { sequences: [], selectedSequenceId: null },
+    draftIn: 42
+  };
+
+  await noTargetStore.captureOutAndSave();
+
+  assert.equal(noTargetStore.getState().captureNotice.kind, 'error');
+  assert.match(noTargetStore.getState().captureNotice.message, /믹스테이프/);
+
+  installChromeForCapture({
+    videoError: 'Cannot connect to YouTube'
+  });
+  const unreadableStore = new SnackTapeAppStore();
+  unreadableStore.state = {
+    ...baseState(sequence),
+    draftIn: 42
+  };
+
+  await unreadableStore.captureOutAndSave();
+
+  assert.equal(unreadableStore.getState().captureNotice.kind, 'error');
+  assert.match(unreadableStore.getState().captureNotice.message, /시간/);
+
+  installChromeForCapture({
+    videoState: {
+      videoId: 'video_12345',
+      title: '저장할 영상',
+      channel: '채널',
+      currentTime: 45.9,
+      duration: 300,
+      paused: false
+    }
+  });
+  const invalidStore = new SnackTapeAppStore();
+  invalidStore.state = {
+    ...baseState(sequence),
+    draftIn: Number.NaN
+  };
+
+  await invalidStore.captureOutAndSave();
+
+  assert.equal(invalidStore.getState().captureNotice.kind, 'error');
+  assert.match(invalidStore.getState().captureNotice.message, /구간/);
+});
+
+test('captureOutAndSave respects disabled automatic title inference', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    },
+    videoState: {
+      videoId: 'video_12345',
+      title: '자동 제목으로 쓰면 안 되는 영상',
+      channel: '채널',
+      currentTime: 45,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    settings: {
+      ...baseState(sequence).settings,
+      autoTitleFromCaptions: false
+    },
+    draftIn: 42
+  };
+
+  await store.captureOutAndSave();
+
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].title, 'YouTube video_12345');
 });
 
 test('Capture OUT button saves through the App wiring path', async () => {

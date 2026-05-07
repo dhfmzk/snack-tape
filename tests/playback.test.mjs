@@ -155,7 +155,7 @@ test('describePlaybackState resolves current segment id after sequence reorder',
   assert.equal(describePlaybackState(store, state)?.positionText, '1 / 3');
 });
 
-test('playbackStateAfterSequenceEdit keeps the current clip and follows the edited queue next', () => {
+test('playbackStateAfterSequenceEdit keeps the current clip, playback mode, and edited queue next', () => {
   const sequence = makeSequence({
     segments: [
       makeSequence().segments[2],
@@ -177,7 +177,7 @@ test('playbackStateAfterSequenceEdit keeps the current clip and follows the edit
 
   assert.equal(synced.currentSegmentId, 'b');
   assert.equal(synced.segmentIndex, 1);
-  assert.equal(synced.mode, 'sequence');
+  assert.equal(synced.mode, 'shuffle');
   assert.deepEqual(synced.orderSegmentIds, ['c', 'b', 'a']);
   assert.equal(synced.orderPosition, 1);
   assert.deepEqual(getNextPlaybackStep(sequence, synced), {

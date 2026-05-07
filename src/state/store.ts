@@ -14,8 +14,8 @@ import {
 import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { createI18n } from '../i18n.js';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from './storage.js';
-import { getActiveVideoState, sendRuntimeMessage } from './youtube.js';
+import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings, type Settings } from './storage.js';
+import { getActiveVideoState, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
 
@@ -34,6 +34,11 @@ export type RenameEditState = {
   sequenceId: string;
 };
 
+export type CaptureNotice = {
+  kind: 'error' | 'info';
+  message: string;
+};
+
 export type AppState = {
   route: AppRoute;
   store: SnackTapeStore | null;
@@ -47,6 +52,7 @@ export type AppState = {
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
   renameEdit: RenameEditState | null;
+  captureNotice: CaptureNotice | null;
   loading: boolean;
 };
 
@@ -62,6 +68,24 @@ function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
 
 function roundedTime(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+type CaptureReadyPageInfo = PageInfo & {
+  videoId: string;
+  currentTime: number;
+};
+
+function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureReadyPageInfo | null {
+  if (
+    pageInfo?.isYouTubeVideoPage
+    && pageInfo.videoId
+    && pageInfo.currentTime !== null
+    && pageInfo.currentTime !== undefined
+  ) {
+    return pageInfo as CaptureReadyPageInfo;
+  }
+
+  return null;
 }
 
 const MIN_CAPTURE_DURATION_SECONDS = 1 / 30;
@@ -84,6 +108,7 @@ export class SnackTapeAppStore {
       queueEdit: null,
       segmentEdit: null,
       renameEdit: null,
+      captureNotice: null,
       loading: true,
     };
   }
@@ -267,10 +292,15 @@ export class SnackTapeAppStore {
     };
     const playbackState = this.state.playbackState ?? await loadPlaybackState();
     const clearsPlayback = playbackState?.sequenceId === sequenceId;
+    const clearsDefaultMixtape = this.state.settings.defaultMixtapeId === sequenceId;
+    const settings = clearsDefaultMixtape
+      ? normalizeSettings({ ...this.state.settings, defaultMixtapeId: undefined })
+      : this.state.settings;
 
     this.setState({
       route: store.sequences.length === 0 ? 'home' : 'capture',
       store,
+      settings,
       playbackState: clearsPlayback ? null : this.state.playbackState,
       playbackDisplay: clearsPlayback ? describePlaybackState(store, null) : this.state.playbackDisplay,
       queueEdit: null,
@@ -284,6 +314,9 @@ export class SnackTapeAppStore {
     }
 
     await saveStore(store);
+    if (clearsDefaultMixtape) {
+      await saveSettings(settings);
+    }
     await this.refreshPlayback();
   }
 
@@ -499,12 +532,13 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
-  async refreshVideo(): Promise<void> {
+  async refreshVideo(): Promise<ActiveVideoResult> {
     const result = await getActiveVideoState();
     this.setState({
       pageInfo: result.info,
       videoState: result.videoState,
     });
+    return result;
   }
 
   async syncActiveVideoForCapture(): Promise<void> {
@@ -545,7 +579,7 @@ export class SnackTapeAppStore {
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
-    const settings = { ...this.state.settings, ...patch };
+    const settings = normalizeSettings({ ...this.state.settings, ...patch });
     this.setState({ settings });
     await saveSettings(settings);
   }
@@ -555,18 +589,28 @@ export class SnackTapeAppStore {
   }
 
   async captureIn(): Promise<void> {
-    await this.refreshVideo();
-    const currentTime = this.state.pageInfo?.currentTime;
-    const videoId = this.state.pageInfo?.videoId;
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    if (cachedInfo) {
+      await this.saveDraftIn(cachedInfo);
+    }
 
-    if (!videoId || currentTime === null || currentTime === undefined) {
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo);
+    if (!pageInfo) {
+      if (!cachedInfo) {
+        this.setCaptureError(createI18n(this.state.settings.language).capture.noticeOpenYoutubeVideo);
+      }
       return;
     }
 
-    const inSec = roundedTime(currentTime);
-    this.setState({ draftIn: inSec });
+    await this.saveDraftIn(pageInfo);
+  }
+
+  private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
+    const inSec = roundedTime(pageInfo.currentTime);
+    this.setState({ draftIn: inSec, captureNotice: null });
     await saveSegmentDraft({
-      videoId,
+      videoId: pageInfo.videoId,
       startSeconds: inSec,
       endSeconds: null,
       updatedAt: Date.now(),
@@ -599,24 +643,29 @@ export class SnackTapeAppStore {
   }
 
   async captureOutAndSave(): Promise<void> {
-    await this.refreshVideo();
     const sequence = this.selectedSequence();
-    const pageInfo = this.state.pageInfo;
     const inSec = this.state.draftIn;
-    const outSec = pageInfo?.currentTime === null || pageInfo?.currentTime === undefined ? null : roundedTime(pageInfo.currentTime);
+    const i18n = createI18n(this.state.settings.language).capture;
 
-    if (!sequence || !pageInfo?.videoId || !pageInfo.isYouTubeVideoPage) {
+    if (!sequence) {
+      this.setCaptureError(i18n.noticeNoSaveTarget);
       return;
     }
 
     if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
       return;
     }
 
-    if (outSec === null) {
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
       return;
     }
 
+    const outSec = roundedTime(pageInfo.currentTime);
     const endSec = outSec <= inSec ? roundedTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
 
     const timestamp = Date.now();
@@ -624,7 +673,7 @@ export class SnackTapeAppStore {
       id: createId('clip'),
       videoId: pageInfo.videoId,
       originalUrl: pageInfo.url,
-      title: pageInfo.title || `YouTube ${pageInfo.videoId}`,
+      title: this.captureTitle(pageInfo),
       startSeconds: inSec,
       endSeconds: endSec,
       createdAt: timestamp,
@@ -633,6 +682,7 @@ export class SnackTapeAppStore {
 
     const errors = validateSegment(segment);
     if (errors.length > 0) {
+      this.setCaptureError(i18n.noticeInvalidSegment);
       return;
     }
 
@@ -652,7 +702,7 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
 
-    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id });
+    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
     await saveStore(nextStore);
     await clearSegmentDraft(pageInfo.videoId);
     await this.refreshStore();
@@ -661,6 +711,19 @@ export class SnackTapeAppStore {
         this.setState({ capturePulseId: null });
       }
     }, 2000);
+  }
+
+  private captureTitle(pageInfo: CaptureReadyPageInfo): string {
+    if (!this.state.settings.autoTitleFromCaptions) {
+      return `YouTube ${pageInfo.videoId}`;
+    }
+
+    const videoTitle = this.state.videoState?.videoId === pageInfo.videoId ? this.state.videoState.title.trim() : '';
+    return videoTitle || pageInfo.title.trim() || `YouTube ${pageInfo.videoId}`;
+  }
+
+  private setCaptureError(message: string): void {
+    this.setState({ captureNotice: { kind: 'error', message } });
   }
 
   async startSequence(startIndex = 0, sequenceId?: string, mode?: PlaybackMode): Promise<void> {

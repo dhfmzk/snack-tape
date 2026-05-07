@@ -175,7 +175,7 @@ export function playbackStateAfterSequenceEdit(state: PlaybackState, sequence: S
     ...state,
     segmentIndex: nextIndex,
     currentSegmentId: currentSegment?.id ?? state.currentSegmentId,
-    mode: 'sequence',
+    mode: state.mode ?? 'sequence',
     order,
     orderSegmentIds,
     orderPosition: nextIndex

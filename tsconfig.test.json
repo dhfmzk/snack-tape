@@ -14,6 +14,7 @@
   },
   "include": [
     "src/App.tsx",
+    "src/background/**/*.ts",
     "src/components/**/*.tsx",
     "src/screens/**/*.tsx",
     "src/shared/**/*.ts",

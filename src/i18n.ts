@@ -57,6 +57,11 @@ export type I18n = {
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
+    noticeOpenYoutubeVideo: string;
+    noticeNoSaveTarget: string;
+    noticeInFirst: string;
+    noticeTimeUnavailable: string;
+    noticeInvalidSegment: string;
   };
   playback: {
     emptyTitle: string;
@@ -175,6 +180,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
+      noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
+      noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
+      noticeInFirst: 'IN 먼저 찍어주세요.',
+      noticeTimeUnavailable: '영상 시간을 읽을 수 없습니다. 새로고침 후 다시 시도해주세요.',
+      noticeInvalidSegment: '구간을 저장할 수 없습니다.',
     },
     playback: {
       emptyTitle: '재생할 클립이 없습니다',
@@ -291,6 +301,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
+      noticeOpenYoutubeVideo: 'Open a YouTube video first.',
+      noticeNoSaveTarget: 'Choose a save mixtape.',
+      noticeInFirst: 'Mark IN first.',
+      noticeTimeUnavailable: 'Cannot read the video time. Refresh YouTube and try again.',
+      noticeInvalidSegment: 'Cannot save this range.',
     },
     playback: {
       emptyTitle: 'No clips to play',

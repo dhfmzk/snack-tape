@@ -14,6 +14,10 @@ export type Settings = {
 };
 
 export const SETTINGS_KEY = 'snacktape.settings.v1';
+export const COMMAND_SHORTCUTS = {
+  captureIn: 'Alt+I',
+  captureOut: 'Alt+O',
+} as const;
 
 export const DEFAULT_SETTINGS: Settings = {
   accentKey: 'peach',
@@ -21,8 +25,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoNext: true,
   fadeOut: true,
   shuffleByDefault: false,
-  shortcutIn: 'I',
-  shortcutOut: 'O',
+  shortcutIn: COMMAND_SHORTCUTS.captureIn,
+  shortcutOut: COMMAND_SHORTCUTS.captureOut,
   autoTitleFromCaptions: true,
 };
 
@@ -36,10 +40,6 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-function text(value: unknown, fallback: string): string {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
-}
-
 export function normalizeSettings(input: unknown): Settings {
   if (!isRecord(input)) {
     return { ...DEFAULT_SETTINGS };
@@ -51,8 +51,8 @@ export function normalizeSettings(input: unknown): Settings {
     autoNext: bool(input.autoNext, DEFAULT_SETTINGS.autoNext),
     fadeOut: bool(input.fadeOut, DEFAULT_SETTINGS.fadeOut),
     shuffleByDefault: bool(input.shuffleByDefault, DEFAULT_SETTINGS.shuffleByDefault),
-    shortcutIn: text(input.shortcutIn, DEFAULT_SETTINGS.shortcutIn),
-    shortcutOut: text(input.shortcutOut, DEFAULT_SETTINGS.shortcutOut),
+    shortcutIn: DEFAULT_SETTINGS.shortcutIn,
+    shortcutOut: DEFAULT_SETTINGS.shortcutOut,
     defaultMixtapeId: typeof input.defaultMixtapeId === 'string' ? input.defaultMixtapeId : undefined,
     autoTitleFromCaptions: bool(input.autoTitleFromCaptions, DEFAULT_SETTINGS.autoTitleFromCaptions),
   };

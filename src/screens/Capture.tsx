@@ -86,6 +86,21 @@ function menuButtonStyle(danger = false): Style {
   };
 }
 
+function closeSegmentActionMenu(event: MouseEvent): void {
+  const trigger = event.currentTarget as ({ closest?: (selector: string) => Element | null } | null);
+  const disclosure = typeof trigger?.closest === 'function'
+    ? trigger.closest('details') as (Element & { open?: boolean }) | null
+    : null;
+  if (!disclosure) {
+    return;
+  }
+
+  disclosure.removeAttribute('open');
+  if ('open' in disclosure) {
+    disclosure.open = false;
+  }
+}
+
 function SegmentActionMenu(
   i18n: I18n,
   segment: Segment,
@@ -134,7 +149,10 @@ function SegmentActionMenu(
       'button',
       {
           ariaLabel: i18n.capture.editSegmentAria(segment.title),
-          onClick: () => onBeginSegmentEdit?.(segment.id),
+          onClick: (event) => {
+            closeSegmentActionMenu(event);
+            onBeginSegmentEdit?.(segment.id);
+          },
           style: menuButtonStyle(),
         },
         Glyph('note', 12),
@@ -144,7 +162,10 @@ function SegmentActionMenu(
         'button',
         {
           ariaLabel: i18n.capture.deleteSegmentAria(segment.title),
-          onClick: () => onDeleteSegment?.(segment.id),
+          onClick: (event) => {
+            closeSegmentActionMenu(event);
+            onDeleteSegment?.(segment.id);
+          },
           style: menuButtonStyle(true),
         },
         Glyph('trash', 12),
@@ -749,6 +770,25 @@ export function Capture(props: Props): HTMLElement {
         },
       })
     ),
+    state.captureNotice
+      ? el(
+          'div',
+          {
+            style: {
+              margin: '0 14px 10px',
+              padding: '9px 10px',
+              border: `1px solid ${state.captureNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent)'}`,
+              background: 'var(--surface)',
+              color: state.captureNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent2)',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: '600',
+              lineHeight: '1.35',
+            },
+          },
+          state.captureNotice.message
+        )
+      : null,
     el(
       'div',
       {

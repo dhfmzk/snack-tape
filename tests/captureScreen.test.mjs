@@ -5,11 +5,15 @@ import { makeSegment, makeSequence } from './helpers.mjs';
 class FakeNode {
   constructor(text = '') {
     this.children = [];
+    this.parentNode = null;
     this.textContent = text;
   }
 
   append(...children) {
-    this.children.push(...children);
+    for (const child of children) {
+      child.parentNode = this;
+      this.children.push(child);
+    }
   }
 }
 
@@ -29,10 +33,37 @@ class FakeElement extends FakeNode {
     };
     this.value = '';
     this.disabled = false;
+    this.open = false;
   }
 
   setAttribute(name, value) {
     this.attributes[name] = String(value);
+    if (name === 'open') {
+      this.open = true;
+    }
+  }
+
+  removeAttribute(name) {
+    delete this.attributes[name];
+    if (name === 'open') {
+      this.open = false;
+    }
+  }
+
+  closest(selector) {
+    if (selector !== 'details') {
+      return null;
+    }
+
+    let current = this;
+    while (current) {
+      if (current.tagName === 'DETAILS') {
+        return current;
+      }
+      current = current.parentNode;
+    }
+
+    return null;
   }
 
   addEventListener(type, listener) {
@@ -60,7 +91,7 @@ class FakeElement extends FakeNode {
 
   click() {
     for (const listener of this.listeners.click ?? []) {
-      listener({ stopPropagation() {} });
+      listener({ currentTarget: this, target: this, stopPropagation() {} });
     }
   }
 }
@@ -336,6 +367,39 @@ test('Capture edit tab opens a segment action menu instead of deleting from the 
   ]);
 });
 
+test('Capture closes segment action menus before running edit or delete actions', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: baseState(),
+    onIn: () => {},
+    onOut: () => {},
+    onBeginSegmentEdit: (segmentId) => calls.push(['edit', segmentId]),
+    onDeleteSegment: (segmentId) => calls.push(['delete', segmentId])
+  });
+  const menus = findAll(page, (node) => node.className === 'segment-action-menu');
+  const menu = menus[0];
+
+  menu.setAttribute('open', '');
+  findByAriaLabel(page, '선택된 클립 구간 편집').click();
+
+  assert.equal(menu.open, false);
+  assert.equal(menu.attributes.open, undefined);
+  assert.deepEqual(calls, [['edit', 'second-clip']]);
+
+  menu.setAttribute('open', '');
+  findByAriaLabel(page, '선택된 클립 삭제').click();
+
+  assert.equal(menu.open, false);
+  assert.equal(menu.attributes.open, undefined);
+  assert.deepEqual(calls, [
+    ['edit', 'second-clip'],
+    ['delete', 'second-clip']
+  ]);
+});
+
 test('Capture edit tab exposes segment range edit controls when a segment is selected for editing', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
@@ -439,6 +503,24 @@ test('Capture OUT button is not primary until an IN marker exists', async () => 
   assert.equal(outButton.style.color, 'var(--mute)');
   assert.doesNotMatch(outButton.style.boxShadow, /var\(--accent-glow\)/);
   assert.match(textOf(outButton), /IN 먼저/);
+});
+
+test('Capture edit tab renders inline capture notices from store state', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({
+      captureNotice: {
+        kind: 'error',
+        message: 'IN 먼저 찍어주세요.'
+      }
+    }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.match(textOf(page), /IN 먼저 찍어주세요\./);
 });
 
 test('Capture edit tab uses the handoff capture layout instead of legacy card classes', async () => {
