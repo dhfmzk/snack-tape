@@ -184,6 +184,7 @@ function DefaultSaveLocationRow(
         ariaLabel: i18n.settings.defaultSaveLocationSelect,
         value: selectedId,
         disabled: sequences.length === 0,
+        dataset: { persistKey: `settings-default-save:${sequences.map((sequence) => sequence.id).join('|')}` },
         onChange: (event) => {
           const value = (event.target as HTMLSelectElement).value;
           if (value) {
@@ -301,6 +302,7 @@ function LanguageSection(state: AppState, i18n: I18n, onSettingChange?: (patch: 
         {
           ariaLabel: i18n.settings.language,
           value: state.settings.language,
+          dataset: { persistKey: 'settings-language' },
           onChange: (event) => {
             const value = (event.target as HTMLSelectElement).value;
             if (value === 'ko' || value === 'en') {

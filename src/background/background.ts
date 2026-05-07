@@ -6,7 +6,7 @@ import {
   loadStore,
   savePlaybackState
 } from '../shared/storage.js';
-import type { PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
+import type { PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
 import { validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 import { loadSettings } from '../state/storage.js';
@@ -55,6 +55,10 @@ function getSequence(storeSequences: Sequence[], sequenceId: string): Sequence {
   return sequence;
 }
 
+function findSequence(storeSequences: Sequence[], sequenceId: string): Sequence | null {
+  return storeSequences.find((item) => item.id === sequenceId) ?? null;
+}
+
 type PlaybackRequest = {
   mode: PlaybackMode;
   order: number[];
@@ -67,6 +71,8 @@ const FADE_OUT_SECONDS = 0.3;
 function normalizePlaybackMode(mode: PlaybackMode | undefined): PlaybackMode {
   return mode === 'shuffle' ? 'shuffle' : 'sequence';
 }
+
+class ContentResponseError extends Error {}
 
 async function playbackModeFromSettings(): Promise<PlaybackMode> {
   const settings = await loadSettings();
@@ -122,13 +128,13 @@ async function createPlaybackTab(segment: Segment): Promise<number> {
 async function resolvePlaybackTabId(firstSegment: Segment, requestedTabId?: number): Promise<number> {
   if (requestedTabId) {
     const requestedTab = await getTab(requestedTabId);
-    if (requestedTab?.id) {
+    if (requestedTab?.id && requestedTab.url && parseYouTubeVideoId(requestedTab.url)) {
       return requestedTab.id;
     }
   }
 
   const activeTab = await getActiveTab();
-  if (!isExtensionPageUrl(activeTab.url)) {
+  if (!isExtensionPageUrl(activeTab.url) && activeTab.url && parseYouTubeVideoId(activeTab.url)) {
     return activeTab.id!;
   }
 
@@ -141,6 +147,33 @@ async function resolvePlaybackTabId(firstSegment: Segment, requestedTabId?: numb
   return createPlaybackTab(firstSegment);
 }
 
+function waitForTabComplete(tabId: number, timeoutMs = 15000): Promise<void> {
+  if (!chrome.tabs.onUpdated?.addListener || !chrome.tabs.onUpdated?.removeListener) {
+    return delay(0);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    };
+    const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        finish();
+      }
+    };
+    const timeout = setTimeout(finish, timeoutMs);
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+}
+
 async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessage): Promise<SnackTapeResponse<T>> {
   let lastError: Error | null = null;
 
@@ -148,12 +181,15 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
     try {
       const response = await sendMessageToTab<T>(tabId, message);
       if (!response.ok) {
-        throw new Error(response.error ?? '요청을 처리하지 못했습니다.');
+        throw new ContentResponseError(response.error ?? '요청을 처리하지 못했습니다.');
       }
 
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      if (lastError instanceof ContentResponseError) {
+        throw lastError;
+      }
       if (attempt === 1) {
         await injectContentScript(tabId);
       }
@@ -232,7 +268,7 @@ export async function playSegment(
     segmentIndex,
     currentSegmentId: segment.id,
     tabId,
-    status: 'playing',
+    status: 'pending',
     startedAt: Date.now(),
     playbackToken,
     mode: playbackRequest?.mode ?? previousState?.mode ?? 'sequence',
@@ -242,24 +278,32 @@ export async function playSegment(
       ?? orderSegmentIds(sequence, createPlaybackOrder(sequence.segments.length, segmentIndex)),
     orderPosition: playbackRequest?.orderPosition ?? previousState?.orderPosition ?? segmentIndex
   };
-  await savePlaybackState(playbackState);
 
   const activeVideoId = tab?.url ? parseYouTubeVideoId(tab.url) : null;
   if (activeVideoId !== segment.videoId) {
+    const tabReady = waitForTabComplete(tabId);
     await chrome.tabs.update(tabId, { url: canonicalWatchUrl(segment) });
-    await delay(700);
+    await tabReady;
   }
 
   try {
     const settings = await loadSettings();
-    await sendMessageWithRetries(tabId, {
+    const response = await sendMessageWithRetries<PlaybackStartResult>(tabId, {
       type: 'PLAY_SEGMENT',
       segment,
       playbackToken,
       fadeOut: settings.fadeOut,
       fadeOutSeconds: FADE_OUT_SECONDS
     });
-    await savePlaybackState({ ...playbackState, startedAt: Date.now() });
+    const startedTime = typeof response.data?.currentTime === 'number' && Number.isFinite(response.data.currentTime)
+      ? response.data.currentTime
+      : segment.startSeconds;
+    const elapsedFromSegmentStart = Math.max(0, startedTime - segment.startSeconds);
+    await savePlaybackState({
+      ...playbackState,
+      status: response.data?.status === 'waiting' ? 'waiting' : 'playing',
+      startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
+    });
   } catch (error) {
     const currentState = await loadPlaybackState();
     if (currentState?.playbackToken === playbackToken) {
@@ -271,7 +315,7 @@ export async function playSegment(
 
 export async function nextSegment(playbackToken?: string): Promise<void> {
   const state = await loadPlaybackState();
-  if (!state || state.status !== 'playing') {
+  if (!state || (state.status !== 'playing' && state.status !== 'waiting')) {
     return;
   }
 
@@ -280,7 +324,11 @@ export async function nextSegment(playbackToken?: string): Promise<void> {
   }
 
   const store = await loadStore();
-  const sequence = getSequence(store.sequences, state.sequenceId);
+  const sequence = findSequence(store.sequences, state.sequenceId);
+  if (!sequence) {
+    await stopPlayback(playbackToken);
+    return;
+  }
   const settings = await loadSettings();
   if (!settings.autoNext) {
     await stopPlayback(playbackToken);
@@ -304,6 +352,28 @@ export async function nextSegment(playbackToken?: string): Promise<void> {
     order: state.order ?? createPlaybackOrder(sequence.segments.length, state.segmentIndex),
     orderSegmentIds: state.orderSegmentIds ?? orderSegmentIds(sequence, state.order ?? createPlaybackOrder(sequence.segments.length, state.segmentIndex)),
     orderPosition: nextStep.orderPosition
+  });
+}
+
+export async function markPlaybackStarted(playbackToken: string, currentTime?: number): Promise<void> {
+  const state = await loadPlaybackState();
+  if (!state || state.playbackToken !== playbackToken || state.status !== 'waiting') {
+    return;
+  }
+
+  const store = await loadStore();
+  const sequence = findSequence(store.sequences, state.sequenceId);
+  const segment = sequence?.segments.find((item) => item.id === state.currentSegmentId)
+    ?? sequence?.segments[state.segmentIndex]
+    ?? null;
+  const elapsedFromSegmentStart = segment && typeof currentTime === 'number' && Number.isFinite(currentTime)
+    ? Math.max(0, currentTime - segment.startSeconds)
+    : 0;
+
+  await savePlaybackState({
+    ...state,
+    status: 'playing',
+    startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
   });
 }
 
@@ -340,13 +410,13 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
     return { ok: true };
   }
 
-  if (message.type === 'STOP_SEQUENCE') {
-    await stopPlayback();
+  if (message.type === 'PLAYBACK_STARTED') {
+    await markPlaybackStarted(message.playbackToken, message.currentTime);
     return { ok: true };
   }
 
-  if (message.type === 'OPEN_EDITOR') {
-    await chrome.runtime.openOptionsPage();
+  if (message.type === 'STOP_SEQUENCE') {
+    await stopPlayback();
     return { ok: true };
   }
 

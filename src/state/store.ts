@@ -23,6 +23,7 @@ export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
 export type QueueEditState = {
   sequenceId: string;
   segmentIds: string[];
+  baseSegmentIds: string[];
 };
 
 export type SegmentEditEdge = 'start' | 'end';
@@ -96,6 +97,24 @@ function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureRea
 }
 
 const MIN_CAPTURE_DURATION_SECONDS = 1 / 30;
+
+function samePageInfo(left: PageInfo | null, right: PageInfo | null): boolean {
+  return left?.isYouTubeVideoPage === right?.isYouTubeVideoPage
+    && left?.videoId === right?.videoId
+    && left?.title === right?.title
+    && left?.url === right?.url
+    && left?.currentTime === right?.currentTime
+    && left?.duration === right?.duration;
+}
+
+function sameVideoState(left: VideoState | null, right: VideoState | null): boolean {
+  return left?.videoId === right?.videoId
+    && left?.title === right?.title
+    && left?.channel === right?.channel
+    && left?.currentTime === right?.currentTime
+    && left?.duration === right?.duration
+    && left?.paused === right?.paused;
+}
 
 export class SnackTapeAppStore {
   private state: AppState;
@@ -198,6 +217,8 @@ export class SnackTapeAppStore {
       return;
     }
 
+    const playbackState = this.state.playbackState ?? await loadPlaybackState();
+    const clearsPlayback = Boolean(playbackState?.sequenceId && playbackState.sequenceId !== sequenceId);
     const store: SnackTapeStore = {
       ...currentStore,
       selectedSequenceId: sequenceId,
@@ -205,12 +226,20 @@ export class SnackTapeAppStore {
     this.setState({
       route: sequence.segments.length === 0 ? 'capture' : 'playback',
       store,
+      playbackState: clearsPlayback ? null : this.state.playbackState,
+      playbackDisplay: clearsPlayback ? null : this.state.playbackDisplay,
       queueEdit: null,
       segmentEdit: null,
       renameEdit: null,
     });
+    if (clearsPlayback) {
+      await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      await clearPlaybackState();
+    }
     await saveStore(store);
-    await this.refreshPlayback();
+    if (!clearsPlayback) {
+      await this.refreshPlayback();
+    }
   }
 
   async editMixtape(sequenceId: string): Promise<void> {
@@ -318,6 +347,7 @@ export class SnackTapeAppStore {
     });
 
     if (clearsPlayback) {
+      await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
       await clearPlaybackState();
     }
 
@@ -441,6 +471,7 @@ export class SnackTapeAppStore {
     await saveStore(store);
     if (playbackState?.sequenceId === updatedSequence.id) {
       if (!nextPlaybackState) {
+        await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
         await clearPlaybackState();
       } else {
         await savePlaybackState(nextPlaybackState);
@@ -459,6 +490,7 @@ export class SnackTapeAppStore {
       queueEdit: {
         sequenceId,
         segmentIds: sequence.segments.map((segment) => segment.id),
+        baseSegmentIds: sequence.segments.map((segment) => segment.id),
       },
     });
   }
@@ -515,7 +547,7 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const updatedSequence = applySegmentOrder(sequence, queueEdit.segmentIds);
+    const updatedSequence = applySegmentOrder(sequence, queueEdit.segmentIds, Date.now, queueEdit.baseSegmentIds);
     const store: SnackTapeStore = {
       ...currentStore,
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
@@ -542,10 +574,12 @@ export class SnackTapeAppStore {
 
   async refreshVideo(): Promise<ActiveVideoResult> {
     const result = await getActiveVideoState();
-    this.setState({
-      pageInfo: result.info,
-      videoState: result.videoState,
-    });
+    if (!samePageInfo(this.state.pageInfo, result.info) || !sameVideoState(this.state.videoState, result.videoState)) {
+      this.setState({
+        pageInfo: result.info,
+        videoState: result.videoState,
+      });
+    }
     return result;
   }
 
@@ -849,6 +883,17 @@ export class SnackTapeAppStore {
       startIndex,
       mode: mode ?? (this.state.settings.shuffleByDefault ? 'shuffle' : 'sequence'),
     };
+    const previousRoute = this.state.route;
+    const previousPlaybackState = this.state.playbackState;
+    const previousPlaybackDisplay = this.state.playbackDisplay;
+    const pendingPlaybackState: PlaybackState = {
+      sequenceId: sequence.id,
+      segmentIndex: startIndex,
+      currentSegmentId: sequence.segments[startIndex]?.id,
+      status: 'pending',
+      startedAt: Date.now(),
+      mode: message.mode,
+    };
 
     if (sequenceId && currentStore) {
       const nextStore = {
@@ -858,32 +903,51 @@ export class SnackTapeAppStore {
       this.setState({
         route: 'playback',
         store: nextStore,
+        playbackState: pendingPlaybackState,
+        playbackDisplay: describePlaybackState(nextStore, pendingPlaybackState),
         queueEdit: null,
         segmentEdit: null,
         renameEdit: null,
       });
       await saveStore(nextStore);
-      await this.refreshStore();
     } else {
       this.setState({
         route: 'playback',
+        playbackState: pendingPlaybackState,
+        playbackDisplay: currentStore ? describePlaybackState(currentStore, pendingPlaybackState) : null,
         queueEdit: null,
         segmentEdit: null,
         renameEdit: null,
       });
     }
 
-    await sendRuntimeMessage(message);
+    const response = await sendRuntimeMessage(message);
+    if (!response.ok) {
+      this.setState({
+        route: previousRoute,
+        playbackState: previousPlaybackState,
+        playbackDisplay: previousPlaybackDisplay,
+      });
+      return;
+    }
     await this.refreshPlayback();
   }
 
   async stopPlayback(): Promise<void> {
-    await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+    this.setState({ playbackState: null, playbackDisplay: null });
+    const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+    if (!response.ok) {
+      await clearPlaybackState();
+      return;
+    }
     await this.refreshPlayback();
   }
 
   async nextClip(): Promise<void> {
-    await sendRuntimeMessage({ type: 'PLAY_NEXT' });
+    const response = await sendRuntimeMessage({ type: 'PLAY_NEXT' });
+    if (!response.ok) {
+      return;
+    }
     await this.refreshPlayback();
   }
 

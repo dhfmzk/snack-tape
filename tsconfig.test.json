@@ -16,6 +16,7 @@
     "src/App.tsx",
     "src/background/**/*.ts",
     "src/components/**/*.tsx",
+    "src/content/**/*.ts",
     "src/screens/**/*.tsx",
     "src/shared/**/*.ts",
     "src/state/**/*.ts",

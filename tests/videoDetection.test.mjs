@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-test('active video detection refreshes the edit tab on tab and page changes', async () => {
+test('active video detection coalesces tab and focus refreshes', async () => {
   const listeners = {};
   globalThis.chrome = {
     tabs: {
@@ -39,6 +39,7 @@ test('active video detection refreshes the edit tab on tab and page changes', as
     }
   };
   const calls = [];
+  const scheduled = [];
   const store = {
     async syncActiveVideoForCapture() {
       calls.push('sync');
@@ -46,7 +47,7 @@ test('active video detection refreshes the edit tab on tab and page changes', as
   };
   const { installActiveVideoDetection } = await import('../.tmp-tests/src/state/videoDetection.js');
 
-  installActiveVideoDetection(store, fakeWindow, fakeDocument);
+  installActiveVideoDetection(store, fakeWindow, fakeDocument, (callback) => scheduled.push(callback));
   listeners.activated({ tabId: 1 });
   listeners.updated(1, { url: 'https://www.youtube.com/watch?v=abc123XYZ_1' }, { active: false });
   listeners.updated(1, { status: 'complete' }, { active: true });
@@ -56,5 +57,8 @@ test('active video detection refreshes the edit tab on tab and page changes', as
   documentListeners.visibilitychange();
   windowListeners.focus();
 
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 0);
+  assert.equal(scheduled.length, 1);
+  scheduled[0]();
+  assert.equal(calls.length, 1);
 });

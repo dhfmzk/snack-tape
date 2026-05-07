@@ -52,6 +52,14 @@ test('applySegmentOrder saves the edited queue as the sequence order', () => {
   assert.equal(edited.updatedAt, 200);
 });
 
+test('applySegmentOrder appends segments added after queue editing started', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = applySegmentOrder(sequence, ['b', 'a'], () => 200, ['a', 'b']);
+
+  assert.deepEqual(edited.segments.map((segment) => segment.id), ['b', 'a', 'c']);
+  assert.equal(edited.updatedAt, 200);
+});
+
 test('removeSegmentFromSequence deletes one segment without mutating the original', () => {
   const sequence = makeSequence({ updatedAt: 100 });
   const edited = removeSegmentFromSequence(sequence, 'b', () => 200);

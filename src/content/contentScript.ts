@@ -1,5 +1,5 @@
 import { removeContinueOverlay, showContinueOverlay } from './overlay.js';
-import type { PageInfo, Segment, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
+import type { PageInfo, PlaybackStartResult, Segment, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 
 declare global {
@@ -184,27 +184,34 @@ function clearPlayback(): void {
   removeContinueOverlay();
 }
 
-async function tryPlay(video: HTMLVideoElement): Promise<void> {
+async function tryPlay(video: HTMLVideoElement, playbackToken?: string): Promise<PlaybackStartResult['status']> {
   try {
     await video.play();
     removeContinueOverlay();
+    return 'playing';
   } catch {
     showContinueOverlay(async () => {
       await video.play();
       removeContinueOverlay();
+      if (playbackToken) {
+        sendMessage({ type: 'PLAYBACK_STARTED', playbackToken, currentTime: roundTime(video.currentTime) });
+      }
     });
+    return 'waiting';
   }
 }
 
-async function playSegment(segment: Segment, playbackToken: string, fadeOut = false, fadeOutSeconds = 0.3): Promise<void> {
-  clearPlayback();
+async function startReadySegment(
+  segment: Segment,
+  playbackToken: string,
+  video: HTMLVideoElement,
+  fadeOut: boolean,
+  fadeOutSeconds: number
+): Promise<PlaybackStartResult> {
+  const targetStart = Math.max(0, segment.startSeconds);
+  video.currentTime = targetStart;
   activeToken = playbackToken;
   activeSegmentVideoId = segment.videoId;
-
-  const video = await waitForSegmentVideo(segment.videoId);
-  const targetStart = Math.max(0, segment.startSeconds);
-  await waitUntilNoAd();
-  video.currentTime = targetStart;
 
   let finished = false;
   const originalVolume = video.volume;
@@ -240,7 +247,7 @@ async function playSegment(segment: Segment, playbackToken: string, fadeOut = fa
       }
     }
 
-    if (segment.endSeconds && segment.endSeconds > 0 && video.currentTime >= segment.endSeconds - 0.15) {
+    if (segment.endSeconds && segment.endSeconds > 0 && video.currentTime >= segment.endSeconds) {
       finish();
     }
   }, 250);
@@ -252,7 +259,54 @@ async function playSegment(segment: Segment, playbackToken: string, fadeOut = fa
     video.volume = originalVolume;
   };
 
-  await tryPlay(video);
+  const status = await tryPlay(video, playbackToken);
+  return { status, currentTime: roundTime(video.currentTime) };
+}
+
+async function startAfterAdWait(
+  segment: Segment,
+  playbackToken: string,
+  video: HTMLVideoElement,
+  fadeOut: boolean,
+  fadeOutSeconds: number
+): Promise<void> {
+  try {
+    await waitUntilNoAd();
+    if (activeToken !== playbackToken) {
+      return;
+    }
+
+    const result = await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+    if (result.status === 'playing') {
+      sendMessage({ type: 'PLAYBACK_STARTED', playbackToken, currentTime: result.currentTime });
+    }
+  } catch (error) {
+    if (activeToken === playbackToken) {
+      clearPlayback();
+      sendMessage({ type: 'STOP_SEQUENCE' });
+    }
+  }
+}
+
+async function playSegment(segment: Segment, playbackToken: string, fadeOut = false, fadeOutSeconds = 0.3): Promise<PlaybackStartResult> {
+  clearPlayback();
+
+  try {
+    const video = await waitForSegmentVideo(segment.videoId);
+    const targetStart = Math.max(0, segment.startSeconds);
+    if (isAdShowing()) {
+      activeToken = playbackToken;
+      activeSegmentVideoId = segment.videoId;
+      void startAfterAdWait(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+      return { status: 'waiting', currentTime: roundTime(targetStart) };
+    }
+
+    await waitUntilNoAd();
+    return await startReadySegment(segment, playbackToken, video, fadeOut, fadeOutSeconds);
+  } catch (error) {
+    clearPlayback();
+    throw error;
+  }
 }
 
 async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeResponse> {
@@ -293,8 +347,10 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
   }
 
   if (message.type === 'PLAY_SEGMENT') {
-    await playSegment(message.segment, message.playbackToken, message.fadeOut, message.fadeOutSeconds);
-    return { ok: true };
+    return {
+      ok: true,
+      data: await playSegment(message.segment, message.playbackToken, message.fadeOut, message.fadeOutSeconds)
+    };
   }
 
   if (message.type === 'STOP_PLAYBACK') {
@@ -312,6 +368,7 @@ function handleUrlChange(): void {
     lastHref = location.href;
     if (activeSegmentVideoId && parseYouTubeVideoId(location.href) !== activeSegmentVideoId) {
       clearPlayback();
+      sendMessage({ type: 'STOP_SEQUENCE' });
       return;
     }
     removeContinueOverlay();

@@ -11,16 +11,35 @@ type VisibilityDocumentLike = {
   addEventListener(type: string, listener: () => void): void;
 };
 
-function runSync(store: CaptureVideoSyncTarget): void {
-  void store.syncActiveVideoForCapture();
+type ScheduleSync = (callback: () => void) => void;
+
+function defaultSchedule(callback: () => void): void {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(callback);
+    return;
+  }
+
+  window.setTimeout(callback, 0);
 }
 
 export function installActiveVideoDetection(
   store: CaptureVideoSyncTarget,
   targetWindow: EventTargetLike = window,
-  targetDocument: VisibilityDocumentLike = document
+  targetDocument: VisibilityDocumentLike = document,
+  schedule: ScheduleSync = defaultSchedule
 ): void {
-  const sync = () => runSync(store);
+  let queued = false;
+  const sync = () => {
+    if (queued) {
+      return;
+    }
+
+    queued = true;
+    schedule(() => {
+      queued = false;
+      void store.syncActiveVideoForCapture();
+    });
+  };
 
   chrome.tabs?.onActivated?.addListener(sync);
   chrome.tabs?.onUpdated?.addListener((_tabId, changeInfo, tab) => {

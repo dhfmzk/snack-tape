@@ -32,6 +32,8 @@ class FakeElement extends FakeNode {
     this.innerHTML = '';
     this.listeners = {};
     this.style = {};
+    this.draggable = false;
+    this.disabled = false;
   }
 
   setAttribute(name, value) {
@@ -47,8 +49,24 @@ class FakeElement extends FakeNode {
   }
 
   click() {
+    if (this.disabled) {
+      return;
+    }
+
     for (const listener of this.listeners.click ?? []) {
       listener({ stopPropagation() {} });
+    }
+  }
+
+  dragStart(dataTransfer) {
+    for (const listener of this.listeners.dragstart ?? []) {
+      listener({ currentTarget: this, target: this, dataTransfer });
+    }
+  }
+
+  drop(dataTransfer) {
+    for (const listener of this.listeners.drop ?? []) {
+      listener({ currentTarget: this, target: this, dataTransfer, preventDefault() {} });
     }
   }
 }
@@ -85,6 +103,18 @@ function findByAriaLabel(node, label) {
   }
 
   return null;
+}
+
+function findAll(node, predicate, results = []) {
+  if (predicate(node)) {
+    results.push(node);
+  }
+
+  for (const child of node.children ?? []) {
+    findAll(child, predicate, results);
+  }
+
+  return results;
 }
 
 function installDomShim() {
@@ -160,6 +190,82 @@ test('Playback progress uses playback state timing when live page info is unavai
     assert.equal(progressBar.dataset.progressRatio, '0.5');
     assert.match(progressBar.children[0].style.cssText, /width: 50%/);
     assert.match(progressBar.children[0].style.cssText, /snacktape-progress-fill 5s linear forwards/);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('Playback progress prefers live YouTube page time and does not animate while waiting', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const originalNow = Date.now;
+  Date.now = () => 1700000015000;
+  const sequence = makeSequence({
+    id: 'sequence-live-progress',
+    name: '라이브 진행률 믹스테이프',
+    segments: [makeSegment({ id: 'clip-live-progress', title: '라이브 진행률 클립', videoId: 'video-live', startSeconds: 10, endSeconds: 20 })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video-live',
+      title: '라이브 진행률 클립',
+      url: 'https://www.youtube.com/watch?v=video-live',
+      currentTime: 12,
+      duration: 100
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-live-progress',
+      status: 'waiting',
+      startedAt: 1700000000000
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '라이브 진행률 클립',
+      positionText: '1 / 1',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    loading: false
+  };
+
+  try {
+    const page = Playback({
+      state,
+      onBack: () => {},
+      onPlay: () => {},
+      onStop: () => {},
+      onNext: () => {},
+      onEditSequence: () => {},
+      onCancelQueueEdit: () => {},
+      onSaveQueueEdit: () => {},
+      onMoveQueueSegment: () => {},
+      onRemoveQueueSegment: () => {}
+    });
+    const progressBar = findByAriaLabel(page, '재생 진행률');
+
+    assert.equal(progressBar.dataset.progressRatio, '0.2');
+    assert.match(progressBar.children[0].style.cssText, /width: 20%/);
+    assert.doesNotMatch(progressBar.children[0].style.cssText, /snacktape-progress-fill/);
   } finally {
     Date.now = originalNow;
   }
@@ -360,8 +466,167 @@ test('Playback edit button opens the current mixtape in the edit tab', async () 
 
   findByAriaLabel(page, '믹스테이프 편집').click();
 
-  assert.equal(findByAriaLabel(page, '큐 편집'), null);
   assert.deepEqual(calls, [['edit', sequence.id]]);
+});
+
+test('Playback queue header exposes up-next count and explicit queue edit action', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-entry',
+    name: '큐 편집 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '현재 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-3', title: '다음 클립', videoId: 'video3' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: 'clip-2',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence',
+      orderSegmentIds: ['clip-1', 'clip-2', 'clip-3'],
+      orderPosition: 1
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '현재 클립',
+      positionText: '2 / 3',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: (sequenceId) => calls.push(['edit', sequenceId]),
+    onBeginQueueEdit: (sequenceId) => calls.push(['queue', sequenceId]),
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+
+  findByAriaLabel(page, '큐 편집').click();
+  findByAriaLabel(page, '믹스테이프 편집').click();
+
+  assert.match(textOf(page), /1 UP NEXT/);
+  assert.deepEqual(calls, [
+    ['queue', sequence.id],
+    ['edit', sequence.id]
+  ]);
+});
+
+test('Playback previous and next controls are disabled at queue boundaries', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-boundaries',
+    name: '경계 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '마지막 클립', videoId: 'video2' })
+    ]
+  });
+  const baseState = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+  const handlers = {
+    onBack: () => {},
+    onPlay: (index) => calls.push(index),
+    onStop: () => {},
+    onNext: () => calls.push('next'),
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  };
+
+  const firstPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-1',
+        status: 'paused',
+        startedAt: 1700000000000
+      }
+    },
+    ...handlers
+  });
+  findByAriaLabel(firstPage, '이전 클립').click();
+
+  const finalPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        sequenceId: sequence.id,
+        segmentIndex: 1,
+        currentSegmentId: 'clip-2',
+        status: 'paused',
+        startedAt: 1700000000000
+      }
+    },
+    ...handlers
+  });
+  findByAriaLabel(finalPage, '다음 클립').click();
+
+  assert.equal(findByAriaLabel(firstPage, '이전 클립').disabled, true);
+  assert.equal(findByAriaLabel(finalPage, '다음 클립').disabled, true);
+  assert.deepEqual(calls, []);
 });
 
 test('Playback title rename button opens the current mixtape rename flow', async () => {
@@ -516,4 +781,83 @@ test('Playback queue edit mode exposes reorder, remove, cancel, and save callbac
     ['cancel'],
     ['save']
   ]);
+});
+
+test('Playback queue drag reorder survives a rerender by using dataTransfer', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-drag',
+    name: '드래그 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '현재 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-3', title: '다음 클립', videoId: 'video3' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: 'clip-2',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '현재 클립',
+      positionText: '2 / 3',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: {
+      sequenceId: sequence.id,
+      segmentIds: ['clip-1', 'clip-2', 'clip-3']
+    },
+    loading: false
+  };
+  const moves = [];
+  const handlers = {
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: (fromIndex, toIndex) => moves.push([fromIndex, toIndex]),
+    onRemoveQueueSegment: () => {}
+  };
+  const dataTransferValues = new Map();
+  const dataTransfer = {
+    setData: (type, value) => dataTransferValues.set(type, value),
+    getData: (type) => dataTransferValues.get(type) ?? ''
+  };
+
+  const firstRender = Playback({ state, ...handlers });
+  findAll(firstRender, (node) => node.draggable)[0].dragStart(dataTransfer);
+
+  const secondRender = Playback({ state, ...handlers });
+  findAll(secondRender, (node) => node.draggable)[2].drop(dataTransfer);
+
+  assert.deepEqual(moves, [[0, 2]]);
 });

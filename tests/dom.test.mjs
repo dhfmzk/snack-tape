@@ -30,6 +30,9 @@ class FakeElement extends FakeNode {
     this.style = { cssText: '' };
     this.value = '';
     this.checked = false;
+    this.selectionStart = null;
+    this.selectionEnd = null;
+    this.selectionDirection = 'none';
   }
 
   get children() {
@@ -156,6 +159,16 @@ class FakeElement extends FakeNode {
     for (const listener of this.listeners.click ?? []) {
       listener({ currentTarget: this, target: this });
     }
+  }
+
+  focus() {
+    document.activeElement = this;
+  }
+
+  setSelectionRange(start, end, direction = 'none') {
+    this.selectionStart = start;
+    this.selectionEnd = end;
+    this.selectionDirection = direction;
   }
 }
 
@@ -302,10 +315,13 @@ test('clearAndAppend replaces nodes when only one side has a scroll key', () => 
   assert.equal(parent.children[0].textContent, '믹스테이프 화면');
 });
 
-test('clearAndAppend replaces active native form controls with the rendered state', () => {
+test('clearAndAppend preserves active keyed select nodes across rerenders', () => {
   installDomShim();
   const oldRoot = el('div');
-  const oldSelect = el('select', { value: 'second' });
+  const oldSelect = el('select', {
+    value: 'second',
+    dataset: { persistKey: 'capture-target:first|second' },
+  });
   oldSelect.value = 'user-choice';
   oldRoot.append(oldSelect);
   const parent = el('div');
@@ -313,11 +329,78 @@ test('clearAndAppend replaces active native form controls with the rendered stat
   document.activeElement = oldSelect;
 
   const nextRoot = el('div');
-  const nextSelect = el('select', { value: 'second' });
+  const nextSelect = el('select', {
+    value: 'second',
+    dataset: { persistKey: oldSelect.dataset.persistKey },
+  });
   nextRoot.append(nextSelect);
 
   clearAndAppend(parent, nextRoot);
 
   assert.equal(parent.children[0], nextRoot);
-  assert.equal(nextSelect.value, 'second');
+  assert.equal(nextRoot.children[0], oldSelect);
+  assert.equal(oldSelect.value, 'user-choice');
+  assert.equal(document.activeElement, oldSelect);
+});
+
+test('clearAndAppend replaces active keyed selects when option identity changes', () => {
+  installDomShim();
+  const oldRoot = el('div');
+  const oldSelect = el('select', {
+    value: 'second',
+    dataset: { persistKey: 'capture-target:first|second' },
+  });
+  oldSelect.value = 'user-choice';
+  oldRoot.append(oldSelect);
+  const parent = el('div');
+  parent.append(oldRoot);
+  document.activeElement = oldSelect;
+
+  const nextRoot = el('div');
+  const nextSelect = el('select', {
+    value: 'third',
+    dataset: { persistKey: 'capture-target:first|third' },
+  });
+  nextRoot.append(nextSelect);
+
+  clearAndAppend(parent, nextRoot);
+
+  assert.equal(parent.children[0], nextRoot);
+  assert.equal(nextRoot.children[0], nextSelect);
+  assert.equal(nextSelect.value, 'third');
+});
+
+test('clearAndAppend restores focused input value and caret on a stable key', () => {
+  installDomShim();
+  const oldRoot = el('div');
+  const oldInput = el('input', {
+    value: 'stored name',
+    dataset: { persistKey: 'rename-mixtape:sequence-1' },
+  });
+  oldInput.value = 'user draft';
+  oldInput.selectionStart = 4;
+  oldInput.selectionEnd = 8;
+  oldInput.selectionDirection = 'forward';
+  oldRoot.append(oldInput);
+  const parent = el('div');
+  parent.append(oldRoot);
+  document.activeElement = oldInput;
+
+  const nextRoot = el('div');
+  const nextInput = el('input', {
+    value: 'stored name',
+    dataset: { persistKey: oldInput.dataset.persistKey },
+  });
+  nextRoot.append(nextInput);
+
+  clearAndAppend(parent, nextRoot);
+
+  assert.equal(parent.children[0], nextRoot);
+  assert.equal(nextRoot.children[0], nextInput);
+  assert.notEqual(nextInput, oldInput);
+  assert.equal(nextInput.value, 'user draft');
+  assert.equal(nextInput.selectionStart, 4);
+  assert.equal(nextInput.selectionEnd, 8);
+  assert.equal(nextInput.selectionDirection, 'forward');
+  assert.equal(document.activeElement, nextInput);
 });

@@ -19,7 +19,12 @@ function installChromeStorage(initial = {}) {
   };
 
   globalThis.chrome = {
-    runtime: { lastError: null },
+    runtime: {
+      lastError: null,
+      sendMessage(_message, callback) {
+        callback?.({ ok: true });
+      }
+    },
     storage: {
       local: area,
       session: area
@@ -112,6 +117,60 @@ test('openMixtape keeps filled mixtapes on playback', async () => {
   assert.equal(store.getState().store.selectedSequenceId, filled.id);
 });
 
+test('openMixtape clears stale playback state from a different mixtape', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'first-sequence', name: '재생 중이던 믹스테이프', segments: [makeSegment({ id: 'first-clip' })] });
+  const second = makeSequence({ id: 'second-sequence', name: '열 믹스테이프', segments: [makeSegment({ id: 'second-clip' })] });
+  const playbackState = {
+    sequenceId: first.id,
+    segmentIndex: 0,
+    currentSegmentId: 'first-clip',
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, second],
+      selectedSequenceId: first.id
+    },
+    [PLAYBACK_STATE_KEY]: playbackState
+  });
+  const runtimeMessages = [];
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessages.push(message);
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [first, second],
+      selectedSequenceId: first.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.openMixtape(second.id);
+
+  assert.equal(store.getState().route, 'playback');
+  assert.equal(store.getState().store.selectedSequenceId, second.id);
+  assert.equal(store.getState().playbackState, null);
+  assert.equal(storage[PLAYBACK_STATE_KEY], undefined);
+  assert.deepEqual(runtimeMessages.map((message) => message.type), ['STOP_SEQUENCE']);
+});
+
 test('editMixtape sends any existing mixtape to edit with that mixtape selected as save target', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -199,6 +258,95 @@ test('startSequence switches to playback before runtime playback handoff finishe
   assert.equal(store.getState().segmentEdit, null);
   assert.equal(store.getState().renameEdit, null);
   assert.equal(runtimeMessage.type, 'START_SEQUENCE');
+
+  releaseRuntime();
+  await pending;
+});
+
+test('startSequence rolls back pending playback when runtime handoff fails', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-fail', name: '실패할 믹스테이프', segments: [makeSegment({ id: 'clip-fail' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, error: 'runtime failed' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(store.getState().route, 'home');
+  assert.equal(store.getState().playbackState, null);
+  assert.equal(store.getState().playbackDisplay, null);
+});
+
+test('startSequence publishes a pending playback state immediately while runtime handoff is in flight', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-pending', name: '대기 믹스테이프', segments: [makeSegment({ id: 'clip-pending' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  let releaseRuntime = null;
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    releaseRuntime = () => callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  const pending = store.startSequence(0, sequence.id);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(store.getState().route, 'playback');
+  assert.equal(store.getState().playbackState.status, 'pending');
+  assert.equal(store.getState().playbackDisplay.canStop, true);
 
   releaseRuntime();
   await pending;
@@ -408,6 +556,11 @@ test('deleteMixtape removes the selected mixtape and clears its playback state',
     },
     [PLAYBACK_STATE_KEY]: playbackState
   });
+  const runtimeMessages = [];
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessages.push(message);
+    callback({ ok: true });
+  };
 
   const store = new SnackTapeAppStore();
   store.state = {
@@ -437,6 +590,7 @@ test('deleteMixtape removes the selected mixtape and clears its playback state',
   assert.equal(store.getState().store.selectedSequenceId, first.id);
   assert.equal(store.getState().segmentEdit, null);
   assert.equal(store.getState().playbackState, null);
+  assert.deepEqual(runtimeMessages.map((message) => message.type), ['STOP_SEQUENCE']);
 });
 
 test('deleteMixtape removes the final mixtape instead of recreating a default one', async () => {

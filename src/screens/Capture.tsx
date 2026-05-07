@@ -383,6 +383,7 @@ function SaveTargetSelect(
       {
         ariaLabel: i18n.capture.saveLocationSelect,
         value: sequence?.id ?? '',
+        dataset: { persistKey: `capture-save-target:${sequences.map((item) => item.id).join('|')}` },
         onChange: (event) => {
           const target = event.target as HTMLSelectElement;
           if (target.value) {
@@ -428,6 +429,7 @@ function RenameTargetEditor(
   const input = el('input', {
     ariaLabel: i18n.capture.mixtapeName,
     value: sequence.name,
+    dataset: { persistKey: `rename-mixtape:${sequence.id}` },
     onInput: (event) => {
       const target = event.target as HTMLInputElement;
       saveButton.disabled = target.value.trim().length === 0;

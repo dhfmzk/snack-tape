@@ -70,6 +70,8 @@ export type I18n = {
     renameMixtape: string;
     nowPlaying: string;
     ready: string;
+    starting: string;
+    waiting: string;
     progress: string;
     shuffle: string;
     previous: string;
@@ -81,6 +83,8 @@ export type I18n = {
     editing: string;
     edit: string;
     editMixtape: string;
+    editQueue: string;
+    upNextCount: (count: number) => string;
     moveUp: (title: string) => string;
     moveDown: (title: string) => string;
     removeFromQueue: (title: string) => string;
@@ -204,6 +208,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       renameMixtape: '믹스테이프 이름 변경',
       nowPlaying: 'NOW PLAYING',
       ready: 'READY',
+      starting: 'STARTING',
+      waiting: 'WAITING',
       progress: '재생 진행률',
       shuffle: '셔플 재생',
       previous: '이전 클립',
@@ -215,6 +221,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       editing: '편집 중',
       edit: '편집',
       editMixtape: '믹스테이프 편집',
+      editQueue: '큐 편집',
+      upNextCount: (count) => `${count} UP NEXT`,
       moveUp: (title) => `${title} 위로 이동`,
       moveDown: (title) => `${title} 아래로 이동`,
       removeFromQueue: (title) => `${title} 큐에서 제거`,
@@ -336,6 +344,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       renameMixtape: 'Rename mixtape',
       nowPlaying: 'NOW PLAYING',
       ready: 'READY',
+      starting: 'STARTING',
+      waiting: 'WAITING',
       progress: 'Playback progress',
       shuffle: 'Shuffle play',
       previous: 'Previous clip',
@@ -347,6 +357,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       editing: 'Editing',
       edit: 'Edit',
       editMixtape: 'Edit mixtape',
+      editQueue: 'Edit queue',
+      upNextCount: (count) => `${count} UP NEXT`,
       moveUp: (title) => `Move ${title} up`,
       moveDown: (title) => `Move ${title} down`,
       removeFromQueue: (title) => `Remove ${title} from queue`,

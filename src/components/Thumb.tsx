@@ -21,9 +21,25 @@ export function Thumb({ themeKey, videoId, variant = 0, duration = null, classNa
 
   const imageUrl = youtubeThumbUrl(videoId);
   if (imageUrl) {
-    thumb.style.backgroundImage = `url("${imageUrl}")`;
-    thumb.style.backgroundSize = 'cover';
-    thumb.style.backgroundPosition = 'center';
+    let image: HTMLImageElement;
+    image = el('img', {
+      src: imageUrl,
+      alt: '',
+      loading: 'lazy',
+      onError: () => {
+        thumb.dataset.thumbFailed = 'true';
+        image.remove();
+      },
+      style: {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+      },
+    });
+    thumb.append(image);
   }
 
   if (duration !== null && Number.isFinite(duration)) {

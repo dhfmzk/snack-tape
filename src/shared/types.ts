@@ -25,13 +25,18 @@ export type PlaybackState = {
   segmentIndex: number;
   currentSegmentId?: string;
   tabId?: number;
-  status: 'idle' | 'playing' | 'paused' | 'stopped';
+  status: 'idle' | 'pending' | 'waiting' | 'playing' | 'paused' | 'stopped';
   startedAt: number;
   playbackToken?: string;
   mode?: PlaybackMode;
   order?: number[];
   orderSegmentIds?: string[];
   orderPosition?: number;
+};
+
+export type PlaybackStartResult = {
+  status: 'playing' | 'waiting';
+  currentTime: number;
 };
 
 export type PageInfo = {
@@ -70,10 +75,10 @@ export type SnackTapeMessage =
   | { type: 'PLAY_SEGMENT'; segment: Segment; playbackToken: string; fadeOut?: boolean; fadeOutSeconds?: number }
   | { type: 'STOP_PLAYBACK' }
   | { type: 'SEGMENT_ENDED'; playbackToken: string }
+  | { type: 'PLAYBACK_STARTED'; playbackToken: string; currentTime?: number }
   | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number }
   | { type: 'PLAY_NEXT'; playbackToken?: string }
   | { type: 'STOP_SEQUENCE' }
-  | { type: 'OPEN_EDITOR' }
   | { type: 'getVideoState' }
   | { type: 'seek'; sec: number }
   | { type: 'play' }

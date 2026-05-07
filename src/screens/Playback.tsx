@@ -14,6 +14,7 @@ type Props = {
   onStop: () => void;
   onNext: () => void;
   onEditSequence: (sequenceId: string) => void;
+  onBeginQueueEdit: (sequenceId: string) => void;
   onRenameSequence?: (sequenceId: string) => void;
   onCancelQueueEdit: () => void;
   onSaveQueueEdit: () => void;
@@ -82,17 +83,15 @@ function progress(state: AppState, segment: Segment | null): { ratio: number; el
   }
 
   let elapsed: number | null = null;
-  if (
+  const pageTime = state.pageInfo?.videoId === segment.videoId ? state.pageInfo.currentTime : null;
+  if (pageTime !== null && pageTime !== undefined) {
+    elapsed = pageTime - segment.startSeconds;
+  } else if (
     state.playbackState?.status === 'playing'
     && (!state.playbackState.currentSegmentId || state.playbackState.currentSegmentId === segment.id)
     && Number.isFinite(state.playbackState.startedAt)
   ) {
     elapsed = (Date.now() - state.playbackState.startedAt) / 1000;
-  } else {
-    const pageTime = state.pageInfo?.videoId === segment.videoId ? state.pageInfo.currentTime : null;
-    if (pageTime !== null && pageTime !== undefined) {
-      elapsed = pageTime - segment.startSeconds;
-    }
   }
 
   if (elapsed === null) {
@@ -125,19 +124,62 @@ function progressAnimation(progressState: ReturnType<typeof progress>, target: '
 }
 
 function btnIconStyle(extra: Style = {}): Style {
+  const disabled = extra.cursor === 'not-allowed';
   return {
     width: '30px',
     height: '30px',
     border: 'none',
     background: 'transparent',
     color: 'var(--text2)',
-    cursor: 'pointer',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? '0.35' : '1',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: '6px',
     ...extra,
   };
+}
+
+function playbackStatusText(state: AppState, isPlaying: boolean, i18n: I18n): string {
+  if (state.playbackState?.status === 'pending') {
+    return i18n.playback.starting;
+  }
+
+  if (state.playbackState?.status === 'waiting') {
+    return i18n.playback.waiting;
+  }
+
+  return isPlaying ? i18n.playback.nowPlaying : i18n.playback.ready;
+}
+
+function playbackOrderPosition(state: AppState, sequence: Sequence, index: number): number {
+  const playbackState = state.playbackState;
+  if (playbackState?.sequenceId !== sequence.id) {
+    return index;
+  }
+
+  if (Number.isInteger(playbackState.orderPosition) && playbackState.orderPosition !== undefined) {
+    return playbackState.orderPosition;
+  }
+
+  if (playbackState.orderSegmentIds && playbackState.currentSegmentId) {
+    const orderPosition = playbackState.orderSegmentIds.findIndex((segmentId) => segmentId === playbackState.currentSegmentId);
+    if (orderPosition >= 0) {
+      return orderPosition;
+    }
+  }
+
+  return index;
+}
+
+function playbackOrderCount(state: AppState, sequence: Sequence): number {
+  const playbackState = state.playbackState;
+  if (playbackState?.sequenceId === sequence.id && playbackState.orderSegmentIds && playbackState.orderSegmentIds.length > 0) {
+    return playbackState.orderSegmentIds.length;
+  }
+
+  return sequence.segments.length;
 }
 
 function thumbStyle(thumb: HTMLElement, width: number | string, height: number | string, dim = false): HTMLElement {
@@ -196,6 +238,7 @@ export function Playback(props: Props): HTMLElement {
     onStop,
     onNext,
     onEditSequence,
+    onBeginQueueEdit,
     onRenameSequence,
     onCancelQueueEdit,
     onSaveQueueEdit,
@@ -234,7 +277,11 @@ export function Playback(props: Props): HTMLElement {
   const currentMode = modeFromState(state);
   const nextIndex = Math.min(index + 1, sequence.segments.length - 1);
   const previousIndex = Math.max(0, index - 1);
-  const upNextCount = Math.max(0, sequence.segments.length - index - 1);
+  const orderPosition = playbackOrderPosition(state, sequence, index);
+  const orderCount = playbackOrderCount(state, sequence);
+  const upNextCount = Math.max(0, orderCount - orderPosition - 1);
+  const hasPrevious = index > 0;
+  const hasNext = upNextCount > 0 || index < sequence.segments.length - 1;
   const queueEdit = state.queueEdit?.sequenceId === sequence.id ? state.queueEdit : null;
   const isEditingQueue = Boolean(queueEdit);
   const queueSegments = queueEdit
@@ -242,7 +289,6 @@ export function Playback(props: Props): HTMLElement {
         .map((segmentId) => sequence.segments.find((item) => item.id === segmentId) ?? null)
         .filter((item): item is Segment => item !== null)
     : sequence.segments;
-  let draggedIndex: number | null = null;
 
   return el(
     'div',
@@ -264,7 +310,7 @@ export function Playback(props: Props): HTMLElement {
           'div',
           { style: { flex: '1', minWidth: '0' } },
           el('span', {
-            text: isPlaying ? i18n.playback.nowPlaying : i18n.playback.ready,
+            text: playbackStatusText(state, isPlaying, i18n),
             style: {
               fontSize: '9.5px',
               color: 'var(--accent)',
@@ -389,7 +435,12 @@ export function Playback(props: Props): HTMLElement {
         'div',
         { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginTop: '12px', color: 'var(--text2)' } },
         el('button', { ariaLabel: i18n.playback.shuffle, onClick: () => onPlay(index, sequence.id, 'shuffle'), style: btnIconStyle() }, Glyph('shuffle', 14)),
-        el('button', { ariaLabel: i18n.playback.previous, onClick: () => onPlay(previousIndex, sequence.id, currentMode), style: btnIconStyle({ width: '32px', height: '32px' }) }, Glyph('prev', 16)),
+        el('button', {
+          ariaLabel: i18n.playback.previous,
+          disabled: !hasPrevious,
+          onClick: () => hasPrevious && onPlay(previousIndex, sequence.id, currentMode),
+          style: btnIconStyle({ width: '32px', height: '32px', cursor: hasPrevious ? 'pointer' : 'not-allowed' }),
+        }, Glyph('prev', 16)),
         el(
           'button',
           {
@@ -413,8 +464,9 @@ export function Playback(props: Props): HTMLElement {
         ),
         el('button', {
           ariaLabel: i18n.playback.next,
-          onClick: () => (isPlaying ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
-          style: btnIconStyle({ width: '32px', height: '32px' }),
+          disabled: !hasNext,
+          onClick: () => hasNext && (isPlaying ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
+          style: btnIconStyle({ width: '32px', height: '32px', cursor: hasNext ? 'pointer' : 'not-allowed' }),
         }, Glyph('next', 16)),
         el('button', { ariaLabel: i18n.playback.repeatCurrent, onClick: () => onPlay(index, sequence.id, currentMode), style: btnIconStyle() }, Glyph('repeat', 14))
       )
@@ -431,22 +483,46 @@ export function Playback(props: Props): HTMLElement {
             text: i18n.playback.editing,
             style: { fontFamily: 'JetBrains Mono', fontSize: '9.5px', color: 'var(--accent)' },
           })
-        : el('button', {
-            text: i18n.playback.edit,
-            ariaLabel: i18n.playback.editMixtape,
-            onClick: () => onEditSequence(sequence.id),
-            style: {
-              border: '1px solid var(--hairline2)',
-              background: 'var(--surface2)',
-              color: 'var(--text2)',
-              height: '26px',
-              padding: '0 10px',
-              borderRadius: '6px',
-              fontSize: '10.5px',
-              fontWeight: '600',
-              cursor: 'pointer',
-            },
-          })
+        : el(
+            'div',
+            { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+            el('span', {
+              text: i18n.playback.upNextCount(upNextCount),
+              style: { fontFamily: 'JetBrains Mono', fontSize: '9.5px', color: 'var(--mute)' },
+            }),
+            el('button', {
+              text: i18n.playback.editQueue,
+              ariaLabel: i18n.playback.editQueue,
+              onClick: () => onBeginQueueEdit(sequence.id),
+              style: {
+                border: '1px solid var(--hairline2)',
+                background: 'var(--surface2)',
+                color: 'var(--text2)',
+                height: '26px',
+                padding: '0 10px',
+                borderRadius: '6px',
+                fontSize: '10.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              },
+            }),
+            el('button', {
+              text: i18n.playback.edit,
+              ariaLabel: i18n.playback.editMixtape,
+              onClick: () => onEditSequence(sequence.id),
+              style: {
+                border: '1px solid var(--hairline2)',
+                background: 'var(--surface2)',
+                color: 'var(--text2)',
+                height: '26px',
+                padding: '0 10px',
+                borderRadius: '6px',
+                fontSize: '10.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              },
+            })
+          )
     ),
     el(
       'div',
@@ -468,21 +544,16 @@ export function Playback(props: Props): HTMLElement {
             {
               draggable: true,
               onDragStart: (event) => {
-                draggedIndex = queueIndex;
                 event.dataTransfer?.setData('text/plain', String(queueIndex));
               },
               onDragOver: (event) => event.preventDefault(),
               onDrop: (event) => {
                 event.preventDefault();
                 const transferIndex = Number(event.dataTransfer?.getData('text/plain'));
-                const fromIndex = draggedIndex ?? (Number.isInteger(transferIndex) ? transferIndex : -1);
-                draggedIndex = null;
+                const fromIndex = Number.isInteger(transferIndex) ? transferIndex : -1;
                 if (fromIndex >= 0 && fromIndex !== queueIndex) {
                   onMoveQueueSegment(fromIndex, queueIndex);
                 }
-              },
-              onDragEnd: () => {
-                draggedIndex = null;
               },
               style: {
                 width: '100%',

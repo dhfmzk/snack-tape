@@ -668,6 +668,41 @@ test('syncActiveVideoForCapture detects the active YouTube video for the edit ta
   assert.equal(store.getState().draftIn, 15.25);
 });
 
+test('refreshVideo skips publishing state when detected video data is unchanged', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', segments: [] });
+  const videoState = {
+    videoId: 'sameVideo_123',
+    title: '같은 영상',
+    channel: '채널',
+    currentTime: 88.123,
+    duration: 600,
+    paused: false
+  };
+  installChromeForCapture({ videoState });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'sameVideo_123',
+      title: '같은 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 88.12,
+      duration: 600
+    },
+    videoState
+  };
+  let published = 0;
+  store.subscribe(() => {
+    published += 1;
+  });
+
+  await store.refreshVideo();
+
+  assert.equal(published, 1);
+});
+
 test('syncActiveVideoForCapture ignores active tab changes outside the edit tab', async () => {
   const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

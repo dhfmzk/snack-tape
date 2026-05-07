@@ -45,10 +45,16 @@ export function moveSegmentDown(sequence: Sequence, segmentId: string): Sequence
   return moveSegment(sequence, segmentId, 1);
 }
 
-export function applySegmentOrder(sequence: Sequence, segmentIds: string[], now: () => number = Date.now): Sequence {
+export function applySegmentOrder(
+  sequence: Sequence,
+  segmentIds: string[],
+  now: () => number = Date.now,
+  baseSegmentIds?: string[]
+): Sequence {
   const segmentsById = new Map(sequence.segments.map((segment) => [segment.id, segment]));
+  const baseIds = new Set(baseSegmentIds ?? sequence.segments.map((segment) => segment.id));
   const seen = new Set<string>();
-  const segments = segmentIds
+  const editedSegments = segmentIds
     .map((segmentId) => {
       if (seen.has(segmentId)) {
         return null;
@@ -57,10 +63,13 @@ export function applySegmentOrder(sequence: Sequence, segmentIds: string[], now:
       return segmentsById.get(segmentId) ?? null;
     })
     .filter((segment): segment is Sequence['segments'][number] => segment !== null);
+  const addedAfterEdit = baseSegmentIds
+    ? sequence.segments.filter((segment) => !baseIds.has(segment.id) && !seen.has(segment.id))
+    : [];
 
   return {
     ...sequence,
-    segments,
+    segments: [...editedSegments, ...addedAfterEdit],
     updatedAt: now()
   };
 }

@@ -4,6 +4,7 @@ type Events = {
   onClick?: (event: MouseEvent) => void;
   onChange?: (event: Event) => void;
   onInput?: (event: Event) => void;
+  onError?: (event: Event) => void;
   onKeyDown?: (event: KeyboardEvent) => void;
   onDragStart?: (event: DragEvent) => void;
   onDragOver?: (event: DragEvent) => void;
@@ -20,6 +21,9 @@ type Attrs = Events & {
   title?: string;
   role?: string;
   type?: string;
+  src?: string;
+  alt?: string;
+  loading?: string;
   value?: string;
   disabled?: boolean;
   selected?: boolean;
@@ -44,6 +48,9 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (attrs.title) node.title = attrs.title;
   if (attrs.role) node.setAttribute('role', attrs.role);
   if (attrs.type && 'type' in node) (node as HTMLButtonElement | HTMLInputElement).type = attrs.type;
+  if (attrs.src && 'src' in node) (node as HTMLImageElement).src = attrs.src;
+  if (attrs.alt !== undefined && 'alt' in node) (node as HTMLImageElement).alt = attrs.alt;
+  if (attrs.loading) node.setAttribute('loading', attrs.loading);
   if (attrs.value !== undefined && 'value' in node) (node as HTMLInputElement | HTMLOptionElement).value = attrs.value;
   if (attrs.disabled !== undefined && 'disabled' in node) (node as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = attrs.disabled;
   if (attrs.selected !== undefined && 'selected' in node) (node as HTMLOptionElement).selected = attrs.selected;
@@ -59,6 +66,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (attrs.onClick) node.addEventListener('click', attrs.onClick as EventListener);
   if (attrs.onChange) node.addEventListener('change', attrs.onChange as EventListener);
   if (attrs.onInput) node.addEventListener('input', attrs.onInput as EventListener);
+  if (attrs.onError) node.addEventListener('error', attrs.onError as EventListener);
   if (attrs.onKeyDown) node.addEventListener('keydown', attrs.onKeyDown as EventListener);
   if (attrs.onDragStart) node.addEventListener('dragstart', attrs.onDragStart as EventListener);
   if (attrs.onDragOver) node.addEventListener('dragover', attrs.onDragOver as EventListener);
@@ -76,9 +84,113 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+type ActiveFormSnapshot = {
+  element: HTMLElement;
+  persistKey: string;
+  tagName: string;
+  value?: string;
+  checked?: boolean;
+  selectionStart?: number | null;
+  selectionEnd?: number | null;
+  selectionDirection?: 'forward' | 'backward' | 'none' | null;
+};
+
+function childElements(node: Node): HTMLElement[] {
+  return Array.from((node as ParentNode).children ?? []) as HTMLElement[];
+}
+
+function findPersistedElement(root: Node, persistKey: string, tagName: string): HTMLElement | null {
+  const element = root as HTMLElement;
+  if (
+    element.tagName === tagName
+    && element.dataset?.persistKey === persistKey
+  ) {
+    return element;
+  }
+
+  for (const child of childElements(root)) {
+    const found = findPersistedElement(child, persistKey, tagName);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function activeFormSnapshot(): ActiveFormSnapshot | null {
+  const element = document.activeElement as HTMLElement | null;
+  const persistKey = element?.dataset?.persistKey;
+  if (!element || !persistKey) {
+    return null;
+  }
+
+  const tagName = element.tagName;
+  if (tagName !== 'INPUT' && tagName !== 'TEXTAREA' && tagName !== 'SELECT') {
+    return null;
+  }
+
+  const formElement = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  const selectable = formElement as HTMLInputElement | HTMLTextAreaElement;
+  return {
+    element,
+    persistKey,
+    tagName,
+    value: formElement.value,
+    checked: 'checked' in formElement ? formElement.checked : undefined,
+    selectionStart: 'selectionStart' in selectable ? selectable.selectionStart : null,
+    selectionEnd: 'selectionEnd' in selectable ? selectable.selectionEnd : null,
+    selectionDirection: 'selectionDirection' in selectable ? selectable.selectionDirection : null,
+  };
+}
+
+function preserveActiveSelect(child: Node, snapshot: ActiveFormSnapshot | null): boolean {
+  if (!snapshot || snapshot.tagName !== 'SELECT') {
+    return false;
+  }
+
+  const next = findPersistedElement(child, snapshot.persistKey, snapshot.tagName);
+  if (!next) {
+    return false;
+  }
+
+  next.replaceWith(snapshot.element);
+  return true;
+}
+
+function restoreActiveInput(child: Node, snapshot: ActiveFormSnapshot | null): void {
+  if (!snapshot || snapshot.tagName === 'SELECT') {
+    return;
+  }
+
+  const next = findPersistedElement(child, snapshot.persistKey, snapshot.tagName) as HTMLInputElement | HTMLTextAreaElement | null;
+  if (!next) {
+    return;
+  }
+
+  if (snapshot.value !== undefined) {
+    next.value = snapshot.value;
+  }
+  if (snapshot.checked !== undefined && 'checked' in next) {
+    next.checked = snapshot.checked;
+  }
+
+  next.focus({ preventScroll: true });
+  if (
+    snapshot.selectionStart !== null
+    && snapshot.selectionStart !== undefined
+    && snapshot.selectionEnd !== null
+    && snapshot.selectionEnd !== undefined
+    && typeof next.setSelectionRange === 'function'
+  ) {
+    next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd, snapshot.selectionDirection ?? 'none');
+  }
+}
+
 export function clearAndAppend(parent: HTMLElement, child: Node): void {
   const scrollPositions = new Map<string, { left: number; top: number }>();
   const openDisclosures = new Set<string>();
+  const activeSnapshot = activeFormSnapshot();
 
   for (const node of Array.from(parent.querySelectorAll<HTMLElement>('[data-scroll-key]'))) {
     const key = node.dataset.scrollKey;
@@ -94,7 +206,11 @@ export function clearAndAppend(parent: HTMLElement, child: Node): void {
     }
   }
 
+  const preservedSelect = preserveActiveSelect(child, activeSnapshot);
   parent.replaceChildren(child);
+  if (!preservedSelect) {
+    restoreActiveInput(child, activeSnapshot);
+  }
 
   for (const node of Array.from(parent.querySelectorAll<HTMLElement>('[data-scroll-key]'))) {
     const key = node.dataset.scrollKey;
