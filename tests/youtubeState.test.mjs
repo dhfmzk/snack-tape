@@ -60,6 +60,6 @@ test('getActiveVideoState injects content.js and retries when the existing YouTu
     }
   ]);
   assert.equal(result.error, null);
-  assert.equal(result.info.currentTime, 12.35);
-  assert.equal(result.info.duration, 98.77);
+  assert.equal(result.info.currentTime, 12.345);
+  assert.equal(result.info.duration, 98.765);
 });

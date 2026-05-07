@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSequence } from './helpers.mjs';
 
-function installChromeForCapture({ storage = {}, videoState, videoError = null, deferSet = false }) {
+function installChromeForCapture({ storage = {}, videoState, videoError = null, tabsQueryError = null, deferSet = false }) {
   const data = { ...storage };
   let releaseSet = null;
   globalThis.window = {
@@ -36,6 +36,9 @@ function installChromeForCapture({ storage = {}, videoState, videoError = null, 
     },
     tabs: {
       async query() {
+        if (tabsQueryError) {
+          throw new Error(tabsQueryError);
+        }
         return [{ id: 7, url: 'https://www.youtube.com/watch?v=video_12345', title: '테스트 영상 - YouTube' }];
       },
       sendMessage(_tabId, message, callback) {
@@ -174,9 +177,9 @@ test('captureIn stores the current YouTube time as the visible draft marker', as
 
   await store.captureIn();
 
-  assert.equal(store.getState().draftIn, 42.35);
+  assert.equal(store.getState().draftIn, 42.345);
   assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
-  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 42.35);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 42.345);
 });
 
 test('captureIn updates the visible draft marker before storage persistence finishes', async () => {
@@ -199,7 +202,7 @@ test('captureIn updates the visible draft marker before storage persistence fini
   const capture = store.captureIn();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(store.getState().draftIn, 42.35);
+  assert.equal(store.getState().draftIn, 42.345);
 
   storage.releaseSet();
   await capture;
@@ -228,11 +231,11 @@ test('captureIn uses cached page info immediately when active video refresh cann
   const capture = store.captureIn();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(store.getState().draftIn, 12.35);
+  assert.equal(store.getState().draftIn, 12.345);
 
   await capture;
   assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
-  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 12.35);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 12.345);
 });
 
 test('captureOutAndSave appends a clip to the selected mixtape', async () => {
@@ -303,7 +306,7 @@ test('captureOutAndSave still saves when OUT is captured at the same timestamp a
   const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
   assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 1);
   assert.equal(savedSegment.startSeconds, 42);
-  assert.equal(savedSegment.endSeconds, 42.03);
+  assert.equal(savedSegment.endSeconds, 42 + 1 / 30);
   assert.equal(store.getState().draftIn, null);
 });
 
@@ -339,7 +342,7 @@ test('captureOutAndSave uses cached page info when active video refresh cannot r
   const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
   assert.equal(savedSegment.title, '캐시된 영상');
   assert.equal(savedSegment.startSeconds, 42);
-  assert.equal(savedSegment.endSeconds, 45.68);
+  assert.equal(savedSegment.endSeconds, 45.678);
   assert.equal(store.getState().draftIn, null);
 });
 
@@ -501,7 +504,7 @@ test('Capture OUT button saves through the App wiring path', async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 1);
-  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].endSeconds, 42.03);
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].endSeconds, 42 + 1 / 30);
 });
 
 test('captureOutAndSave updates the visible mixtape before storage persistence finishes', async () => {
@@ -575,9 +578,9 @@ test('nudgeDraft adjusts the current IN marker and persists the draft', async ()
 
   await store.nudgeDraft(1 / 30);
 
-  assert.equal(store.getState().draftIn, 10.03);
+  assert.equal(store.getState().draftIn, 10 + 1 / 30);
   assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
-  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10.03);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10 + 1 / 30);
 });
 
 test('nudgeSegmentTime adjusts a saved segment range in the selected mixtape', async () => {
@@ -619,8 +622,49 @@ test('nudgeSegmentTime adjusts a saved segment range in the selected mixtape', a
 
   const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
   assert.equal(store.getState().segmentEdit.segmentId, 'clip-1');
-  assert.equal(savedSegment.startSeconds, 10.03);
+  assert.equal(savedSegment.startSeconds, 10 + 1 / 30);
   assert.equal(savedSegment.endSeconds, 21);
+});
+
+test('nudgeSegmentTime keeps frame nudges at higher precision instead of accumulating hundredth drift', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const segment = {
+    id: 'clip-precision',
+    videoId: 'video_12345',
+    originalUrl: 'https://www.youtube.com/watch?v=video_12345',
+    title: '정밀 구간',
+    startSeconds: 10,
+    endSeconds: 20,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000
+  };
+  const sequence = makeSequence({ id: 'sequence-precision', segments: [segment] });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    },
+    videoState: {
+      videoId: 'video_12345',
+      title: '테스트 영상',
+      channel: '채널',
+      currentTime: 42,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence);
+
+  for (let index = 0; index < 30; index += 1) {
+    await store.nudgeSegmentTime('clip-precision', 'start', 1 / 30);
+  }
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.ok(Math.abs(savedSegment.startSeconds - 11) < 1e-9);
 });
 
 test('syncActiveVideoForCapture detects the active YouTube video for the edit tab', async () => {
@@ -664,7 +708,7 @@ test('syncActiveVideoForCapture detects the active YouTube video for the edit ta
 
   assert.equal(store.getState().pageInfo.videoId, 'nextVideo_123');
   assert.equal(store.getState().pageInfo.title, '새로 감지된 영상');
-  assert.equal(store.getState().pageInfo.currentTime, 88.12);
+  assert.equal(store.getState().pageInfo.currentTime, 88.123);
   assert.equal(store.getState().draftIn, 15.25);
 });
 
@@ -688,7 +732,7 @@ test('refreshVideo skips publishing state when detected video data is unchanged'
       videoId: 'sameVideo_123',
       title: '같은 영상',
       url: 'https://www.youtube.com/watch?v=video_12345',
-      currentTime: 88.12,
+      currentTime: 88.123,
       duration: 600
     },
     videoState
@@ -701,6 +745,23 @@ test('refreshVideo skips publishing state when detected video data is unchanged'
   await store.refreshVideo();
 
   assert.equal(published, 1);
+});
+
+test('refreshVideo converts active tab detection failures into an edit-tab notice', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-refresh-error', segments: [] });
+  installChromeForCapture({ tabsQueryError: 'Cannot query active tab' });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    route: 'capture'
+  };
+
+  const result = await store.refreshVideo();
+
+  assert.equal(result.error, 'Cannot query active tab');
+  assert.equal(store.getState().captureNotice.kind, 'error');
+  assert.match(store.getState().captureNotice.message, /Cannot query active tab/);
 });
 
 test('syncActiveVideoForCapture ignores active tab changes outside the edit tab', async () => {

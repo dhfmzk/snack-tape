@@ -15,7 +15,7 @@ function optionalSeconds(value: unknown): number | null | 'invalid' {
     return 'invalid';
   }
 
-  return Math.round(value * 100) / 100;
+  return value;
 }
 
 export function normalizeSegmentDraft(input: unknown): SegmentDraft | null {

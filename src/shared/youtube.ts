@@ -20,10 +20,6 @@ export function parseYouTubeVideoId(input: string): string | null {
 
   const host = url.hostname.toLowerCase();
 
-  if (host === 'youtu.be') {
-    return cleanVideoId(url.pathname.split('/').filter(Boolean)[0] ?? null);
-  }
-
   const isYouTubeHost =
     host === 'youtube.com' ||
     host === 'www.youtube.com' ||
@@ -35,11 +31,6 @@ export function parseYouTubeVideoId(input: string): string | null {
 
   if (url.pathname === '/watch') {
     return cleanVideoId(url.searchParams.get('v'));
-  }
-
-  const parts = url.pathname.split('/').filter(Boolean);
-  if ((parts[0] === 'shorts' || parts[0] === 'embed') && parts[1]) {
-    return cleanVideoId(parts[1]);
   }
 
   return null;

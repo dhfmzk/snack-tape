@@ -110,6 +110,8 @@ function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, da
           {
             type: 'button',
             ariaLabel: `${label} ${on ? i18n.settings.turnOff : i18n.settings.turnOn}`,
+            ariaChecked: on ? 'true' : 'false',
+            role: 'switch',
             onClick: () => onToggle?.(),
             style: {
               width: '32px',

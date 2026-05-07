@@ -36,7 +36,8 @@ export function showContinueOverlay(onContinue: () => Promise<void>): void {
   button.style.cursor = 'pointer';
   button.addEventListener('click', () => {
     onContinue().catch(() => {
-      label.textContent = '자동 재생이 허용되지 않아 직접 클릭이 필요합니다.';
+      label.textContent = 'YouTube 플레이어를 직접 한 번 클릭한 뒤 다시 시도해주세요.';
+      button.textContent = '다시 시도';
     });
   });
 

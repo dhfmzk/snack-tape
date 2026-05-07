@@ -425,6 +425,50 @@ test('Capture edit tab exposes segment range edit controls when a segment is sel
   ]);
 });
 
+test('Capture edit tab renders zero-second OUT values as saved times, not END', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const zeroSegment = makeSegment({
+    id: 'zero-clip',
+    title: '0초 클립',
+    startSeconds: 0,
+    endSeconds: 0
+  });
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [makeSequence({ id: 'zero-sequence', name: '0초 테이프', segments: [zeroSegment] })],
+        selectedSequenceId: 'zero-sequence'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const text = textOf(page);
+
+  assert.match(text, /00:00\.00/);
+  assert.doesNotMatch(text, /END/);
+});
+
+test('Capture segment action menus expose expanded state and menu item roles', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: baseState(),
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const menuButton = findByAriaLabel(page, '선택된 클립 메뉴');
+  const menuItems = findAll(page, (node) => node.attributes?.role === 'menuitem');
+
+  assert.equal(menuButton.attributes['aria-haspopup'], 'menu');
+  assert.equal(menuButton.attributes['aria-expanded'], 'false');
+  assert.equal(menuItems.length, 2);
+});
+
 test('Capture edit tab wires every enabled button', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
@@ -540,4 +584,44 @@ test('Capture edit tab uses the handoff capture layout instead of legacy card cl
   assert.notEqual(page.children[2].className, 'capture-buttons');
   assert.notEqual(page.children[3].className, 'section-block');
   assert.equal(page.children[2].style.gridTemplateColumns, '1fr 1fr');
+});
+
+test('Capture edit tab exposes a create target action when no mixtapes exist', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [],
+        selectedSequenceId: null
+      }
+    },
+    onIn: () => {},
+    onOut: () => {},
+    onCreateMixtape: () => calls.push('create')
+  });
+
+  findByAriaLabel(page, '새 테이프 만들기').click();
+
+  assert.deepEqual(calls, ['create']);
+});
+
+test('Capture video header can request a manual current-time refresh', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState(),
+    onIn: () => {},
+    onOut: () => {},
+    onRefreshVideo: () => calls.push('refresh')
+  });
+
+  findByAriaLabel(page, '영상 시간 새로고침').click();
+
+  assert.deepEqual(calls, ['refresh']);
 });

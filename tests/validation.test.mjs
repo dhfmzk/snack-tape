@@ -19,6 +19,11 @@ test('validateSegment rejects end time before start time', () => {
   assert.match(validateSegment(makeSegment({ startSeconds: 20, endSeconds: 10 })).join('\n'), /끝점/);
 });
 
+test('validateSegment rejects a zero-length saved range', () => {
+  assert.match(validateSegment(makeSegment({ startSeconds: 0, endSeconds: 0 })).join('\n'), /끝점/);
+  assert.match(validateSegment(makeSegment({ startSeconds: 12, endSeconds: 12 })).join('\n'), /끝점/);
+});
+
 test('validateSequence rejects empty sequences before playback', () => {
   assert.match(validateSequence(makeSequence({ segments: [] })).join('\n'), /재생할 구간/);
 });

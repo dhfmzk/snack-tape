@@ -61,7 +61,10 @@ export type I18n = {
     noticeNoSaveTarget: string;
     noticeInFirst: string;
     noticeTimeUnavailable: string;
+    noticeVideoRefreshFailed: (message: string) => string;
     noticeInvalidSegment: string;
+    createSaveTarget: string;
+    refreshVideoTime: string;
   };
   playback: {
     emptyTitle: string;
@@ -199,7 +202,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
       noticeInFirst: 'IN 먼저 찍어주세요.',
       noticeTimeUnavailable: '영상 시간을 읽을 수 없습니다. 새로고침 후 다시 시도해주세요.',
+      noticeVideoRefreshFailed: (message) => `영상 정보를 갱신할 수 없습니다. ${message}`,
       noticeInvalidSegment: '구간을 저장할 수 없습니다.',
+      createSaveTarget: '새 테이프 만들기',
+      refreshVideoTime: '영상 시간 새로고침',
     },
     playback: {
       emptyTitle: '재생할 클립이 없습니다',
@@ -335,7 +341,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeNoSaveTarget: 'Choose a save mixtape.',
       noticeInFirst: 'Mark IN first.',
       noticeTimeUnavailable: 'Cannot read the video time. Refresh YouTube and try again.',
+      noticeVideoRefreshFailed: (message) => `Cannot refresh video info. ${message}`,
       noticeInvalidSegment: 'Cannot save this range.',
+      createSaveTarget: 'Create new tape',
+      refreshVideoTime: 'Refresh video time',
     },
     playback: {
       emptyTitle: 'No clips to play',

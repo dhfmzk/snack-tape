@@ -9,7 +9,22 @@ export type ActiveVideoResult = {
 };
 
 function roundTime(value: number | null | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function emptyPageInfo(): PageInfo {
+  return {
+    isYouTubeVideoPage: false,
+    videoId: null,
+    title: '',
+    url: '',
+    currentTime: null,
+    duration: null,
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error || 'YouTube 페이지를 확인할 수 없습니다.');
 }
 
 export function pageInfoFromTab(tab: chrome.tabs.Tab | null): PageInfo {
@@ -103,7 +118,16 @@ function activeVideoResult(tab: chrome.tabs.Tab, videoState: VideoState): Active
 }
 
 export async function getActiveVideoState(): Promise<ActiveVideoResult> {
-  const tab = await getActiveTab();
+  let tab: chrome.tabs.Tab | null;
+  try {
+    tab = await getActiveTab();
+  } catch (error) {
+    return {
+      info: emptyPageInfo(),
+      videoState: null,
+      error: errorMessage(error),
+    };
+  }
   const fallback = pageInfoFromTab(tab);
 
   if (!tab?.id || !fallback.videoId) {

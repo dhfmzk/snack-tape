@@ -11,8 +11,10 @@ function installChrome(initial = {}, options = {}) {
   };
   const currentWindowTabs = options.currentWindowTabs ?? [activeTab];
   const messages = [];
+  const runtimeMessages = [];
   const createdTabs = [];
   const updatedListeners = [];
+  const commandListeners = [];
 
   const area = {
     get(key, callback) {
@@ -31,12 +33,26 @@ function installChrome(initial = {}, options = {}) {
   globalThis.chrome = {
     runtime: {
       lastError: null,
+      sendMessage(message, callback) {
+        runtimeMessages.push(message);
+        if (options.runtimeSendMessageError) {
+          globalThis.chrome.runtime.lastError = { message: options.runtimeSendMessageError };
+          callback?.();
+          globalThis.chrome.runtime.lastError = null;
+          return;
+        }
+        callback?.(options.runtimeSendMessageResponse);
+      },
       onMessage: { addListener() {} },
       onInstalled: { addListener() {} },
       onStartup: { addListener() {} }
     },
     commands: {
-      onCommand: { addListener() {} }
+      onCommand: {
+        addListener(listener) {
+          commandListeners.push(listener);
+        }
+      }
     },
     sidePanel: {
       setPanelBehavior: async () => {}
@@ -91,7 +107,9 @@ function installChrome(initial = {}, options = {}) {
   };
 
   data.messages = messages;
+  data.runtimeMessages = runtimeMessages;
   data.createdTabs = createdTabs;
+  data.commandListeners = commandListeners;
   data.activeTab = activeTab;
   return data;
 }
@@ -352,4 +370,86 @@ test('background clears playback state when the backing sequence was deleted bef
 
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
   assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), true);
+});
+
+test('background capture command saves IN when the side panel is not receiving commands', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const data = installChrome(
+    {},
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.',
+      sendMessageResponse(message) {
+        if (message.type === 'getVideoState') {
+          return {
+            ok: true,
+            data: {
+              videoId: 'video-1',
+              title: 'Command Video',
+              channel: 'Channel',
+              currentTime: 12.5,
+              duration: 90,
+              paused: false
+            }
+          };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-capture-in');
+
+  data.commandListeners[0]('capture-in');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data.runtimeMessages[0].type, 'COMMAND_EVENT');
+  assert.equal(data[SEGMENT_DRAFT_KEY].videoId, 'video-1');
+  assert.equal(data[SEGMENT_DRAFT_KEY].startSeconds, 12.5);
+});
+
+test('background capture command saves OUT into the selected mixtape when the side panel is closed', async () => {
+  const { STORAGE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({ id: 'sequence-command-capture', segments: [] });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SEGMENT_DRAFT_KEY]: {
+        videoId: 'video-1',
+        startSeconds: 12,
+        endSeconds: null,
+        updatedAt: 1
+      }
+    },
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.',
+      sendMessageResponse(message) {
+        if (message.type === 'getVideoState') {
+          return {
+            ok: true,
+            data: {
+              videoId: 'video-1',
+              title: 'Command Video',
+              channel: 'Channel',
+              currentTime: 15,
+              duration: 90,
+              paused: false
+            }
+          };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-capture-out');
+
+  data.commandListeners[0]('capture-out');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data[STORAGE_KEY].sequences[0].segments.length, 1);
+  assert.equal(data[STORAGE_KEY].sequences[0].segments[0].title, 'Command Video');
+  assert.equal(data[STORAGE_KEY].sequences[0].segments[0].startSeconds, 12);
+  assert.equal(data[STORAGE_KEY].sequences[0].segments[0].endSeconds, 15);
+  assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
 });

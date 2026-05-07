@@ -18,7 +18,7 @@ type Style = Partial<CSSStyleDeclaration>;
 
 function totalDuration(sequence: Sequence): number {
   return sequence.segments.reduce((sum, segment) => {
-    if (!segment.endSeconds || segment.endSeconds <= segment.startSeconds) {
+    if (segment.endSeconds === null || segment.endSeconds <= segment.startSeconds) {
       return sum;
     }
 

@@ -21,6 +21,8 @@ type Props = {
   onCancelRenameMixtape?: () => void;
   onRenameMixtape?: (sequenceId: string, name: string) => void;
   onDeleteMixtape?: (sequenceId: string) => void;
+  onCreateMixtape?: () => void;
+  onRefreshVideo?: () => void;
 };
 
 type Style = Partial<CSSStyleDeclaration>;
@@ -35,7 +37,7 @@ function editableSegments(sequence: Sequence | null): Segment[] {
 }
 
 function clipDuration(segment: Segment): string {
-  if (!segment.endSeconds || segment.endSeconds <= segment.startSeconds) {
+  if (segment.endSeconds === null || segment.endSeconds <= segment.startSeconds) {
     return '0:00.00';
   }
 
@@ -121,6 +123,8 @@ function SegmentActionMenu(
       'summary',
       {
         ariaLabel: i18n.capture.segmentMenu(segment.title),
+        ariaHasPopup: 'menu',
+        ariaExpanded: 'false',
         style: {
           ...btnIconStyle(),
           listStyle: 'none',
@@ -146,8 +150,9 @@ function SegmentActionMenu(
         },
       },
       el(
-      'button',
-      {
+        'button',
+        {
+          role: 'menuitem',
           ariaLabel: i18n.capture.editSegmentAria(segment.title),
           onClick: (event) => {
             closeSegmentActionMenu(event);
@@ -161,6 +166,7 @@ function SegmentActionMenu(
       el(
         'button',
         {
+          role: 'menuitem',
           ariaLabel: i18n.capture.deleteSegmentAria(segment.title),
           onClick: (event) => {
             closeSegmentActionMenu(event);
@@ -273,9 +279,29 @@ function SaveTargetBar(
   onBeginRenameMixtape?: (sequenceId: string) => void,
   onCancelRenameMixtape?: () => void,
   onRenameMixtape?: (sequenceId: string, name: string) => void,
-  onDeleteMixtape?: (sequenceId: string) => void
+  onDeleteMixtape?: (sequenceId: string) => void,
+  onCreateMixtape?: () => void
 ): HTMLElement {
-  const nameControl = sequence && isRenaming
+  const nameControl = !sequence && sequences.length === 0
+    ? el('button', {
+        type: 'button',
+        text: i18n.capture.createSaveTarget,
+        ariaLabel: i18n.capture.createSaveTarget,
+        onClick: () => onCreateMixtape?.(),
+        style: {
+          flex: '1',
+          minWidth: '0',
+          height: '28px',
+          border: '1px solid var(--accent)',
+          background: 'var(--accent)',
+          color: 'var(--accent-ink)',
+          borderRadius: '6px',
+          cursor: onCreateMixtape ? 'pointer' : 'default',
+          fontSize: '11px',
+          fontWeight: '700',
+        },
+      })
+    : sequence && isRenaming
     ? RenameTargetEditor(i18n, sequence, onCancelRenameMixtape, onRenameMixtape)
     : SaveTargetSelect(i18n, sequence, sequences, onTargetSequence);
 
@@ -534,6 +560,8 @@ export function Capture(props: Props): HTMLElement {
     onCancelRenameMixtape,
     onRenameMixtape,
     onDeleteMixtape,
+    onCreateMixtape,
+    onRefreshVideo,
   } = props;
   const i18n = props.i18n ?? createI18n(state.settings.language);
   const pageInfo = state.pageInfo;
@@ -575,7 +603,8 @@ export function Capture(props: Props): HTMLElement {
       onBeginRenameMixtape,
       onCancelRenameMixtape,
       onRenameMixtape,
-      onDeleteMixtape
+      onDeleteMixtape,
+      onCreateMixtape
     ),
     el(
       'div',
@@ -625,13 +654,35 @@ export function Capture(props: Props): HTMLElement {
           }),
           el('span', { text: '/', style: { color: 'var(--mute2)', fontSize: '9px' } }),
           el('span', {
-            text: pageInfo?.duration ? formatTimecode(pageInfo.duration) : '--:--.--',
+            text: pageInfo?.duration !== null && pageInfo?.duration !== undefined ? formatTimecode(pageInfo.duration) : '--:--.--',
             style: {
               color: 'var(--mute)',
               fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: '9.5px',
             },
-          })
+          }),
+          el(
+            'button',
+            {
+              type: 'button',
+              ariaLabel: i18n.capture.refreshVideoTime,
+              title: i18n.capture.refreshVideoTime,
+              onClick: () => onRefreshVideo?.(),
+              style: {
+                width: '22px',
+                height: '22px',
+                border: '0',
+                background: 'transparent',
+                color: 'var(--text2)',
+                cursor: onRefreshVideo ? 'pointer' : 'default',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '5px',
+              },
+            },
+            Glyph('repeat', 10)
+          )
         )
       )
     ),
@@ -853,7 +904,7 @@ export function Capture(props: Props): HTMLElement {
             }),
             el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
             el('span', {
-              text: segment.endSeconds ? formatTimecode(segment.endSeconds) : i18n.common.end,
+              text: segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
               style: {
                 padding: '2px 6px',
                 background: 'var(--surface3)',

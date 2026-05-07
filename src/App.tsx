@@ -41,6 +41,8 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onBeginRenameMixtape: (sequenceId) => void store.beginRenameMixtape(sequenceId),
       onCancelRenameMixtape: () => store.cancelRenameMixtape(),
       onRenameMixtape: (sequenceId, name) => void store.renameMixtape(sequenceId, name),
+      onCreateMixtape: () => void store.createMixtape(),
+      onRefreshVideo: () => void store.refreshVideo(),
       onDeleteMixtape: (sequenceId) => {
         const sequence = state.store?.sequences.find((item) => item.id === sequenceId);
         const name = sequence?.name ?? i18n.common.unnamedMixtape;

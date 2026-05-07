@@ -57,7 +57,7 @@ function currentSegment(state: AppState, sequence: Sequence | null): { segment: 
 }
 
 function clipDuration(segment: Segment): number {
-  if (!segment.endSeconds || segment.endSeconds <= segment.startSeconds) {
+  if (segment.endSeconds === null || segment.endSeconds <= segment.startSeconds) {
     return 0;
   }
 
@@ -69,7 +69,7 @@ function totalDuration(sequence: Sequence): number {
 }
 
 function timeRange(segment: Segment, i18n: I18n): string {
-  return `${formatSeconds(segment.startSeconds)} → ${segment.endSeconds ? formatSeconds(segment.endSeconds) : i18n.common.end}`;
+  return `${formatSeconds(segment.startSeconds)} → ${segment.endSeconds !== null ? formatSeconds(segment.endSeconds) : i18n.common.end}`;
 }
 
 function progress(state: AppState, segment: Segment | null): { ratio: number; elapsed: number; duration: number; remaining: number; animate: boolean } {
@@ -414,6 +414,10 @@ export function Playback(props: Props): HTMLElement {
           {
             ariaLabel: i18n.playback.progress,
             role: 'progressbar',
+            ariaValueMin: '0',
+            ariaValueMax: String(Number(progressState.duration.toFixed(2))),
+            ariaValueNow: String(Number(progressState.elapsed.toFixed(2))),
+            ariaValueText: `${formatSeconds(progressState.elapsed)} / ${formatSeconds(progressState.duration)}`,
             dataset: { progressRatio: String(Number(progressState.ratio.toFixed(4))) },
             style: { height: '5px', background: 'var(--surface3)', borderRadius: '999px', position: 'relative' },
           },
@@ -434,7 +438,12 @@ export function Playback(props: Props): HTMLElement {
       el(
         'div',
         { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginTop: '12px', color: 'var(--text2)' } },
-        el('button', { ariaLabel: i18n.playback.shuffle, onClick: () => onPlay(index, sequence.id, 'shuffle'), style: btnIconStyle() }, Glyph('shuffle', 14)),
+        el('button', {
+          ariaLabel: i18n.playback.shuffle,
+          ariaPressed: currentMode === 'shuffle' ? 'true' : 'false',
+          onClick: () => onPlay(index, sequence.id, 'shuffle'),
+          style: btnIconStyle(currentMode === 'shuffle' ? { color: 'var(--accent)', background: 'var(--accent-soft)' } : {}),
+        }, Glyph('shuffle', 14)),
         el('button', {
           ariaLabel: i18n.playback.previous,
           disabled: !hasPrevious,
@@ -468,7 +477,12 @@ export function Playback(props: Props): HTMLElement {
           onClick: () => hasNext && (isPlaying ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
           style: btnIconStyle({ width: '32px', height: '32px', cursor: hasNext ? 'pointer' : 'not-allowed' }),
         }, Glyph('next', 16)),
-        el('button', { ariaLabel: i18n.playback.repeatCurrent, onClick: () => onPlay(index, sequence.id, currentMode), style: btnIconStyle() }, Glyph('repeat', 14))
+        el('button', {
+          ariaLabel: i18n.playback.repeatCurrent,
+          ariaPressed: 'false',
+          onClick: () => onPlay(index, sequence.id, currentMode),
+          style: btnIconStyle(),
+        }, Glyph('repeat', 14))
       )
     ),
     el(

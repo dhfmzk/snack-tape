@@ -271,6 +271,142 @@ test('Playback progress prefers live YouTube page time and does not animate whil
   }
 });
 
+test('Playback renders zero-second OUT values as saved times, not END', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-zero',
+    name: '0초 믹스테이프',
+    segments: [makeSegment({ id: 'clip-zero', title: '0초 클립', startSeconds: 0, endSeconds: 0 })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-zero',
+      status: 'paused',
+      startedAt: 1700000000000
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const text = textOf(page);
+
+  assert.match(text, /00:00 → 00:00/);
+  assert.doesNotMatch(text, /END/);
+});
+
+test('Playback progress and mode controls expose semantic state', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-a11y',
+    name: '접근성 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '현재 클립', videoId: 'video2' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video1',
+      title: '첫 클립',
+      url: 'https://www.youtube.com/watch?v=video1',
+      currentTime: 15,
+      duration: 100
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-1',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'shuffle'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '첫 클립',
+      positionText: '1 / 2',
+      modeLabel: '셔플 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const progressBar = findByAriaLabel(page, '재생 진행률');
+  const shuffleButton = findByAriaLabel(page, '셔플 재생');
+  const repeatButton = findByAriaLabel(page, '현재 클립 다시 재생');
+
+  assert.equal(progressBar.attributes['aria-valuemin'], '0');
+  assert.equal(progressBar.attributes['aria-valuemax'], '10');
+  assert.equal(progressBar.attributes['aria-valuenow'], '5');
+  assert.equal(shuffleButton.attributes['aria-pressed'], 'true');
+  assert.equal(repeatButton.attributes['aria-pressed'], 'false');
+});
+
 test('Playback renders the active playback sequence instead of the first mixtape', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');

@@ -74,8 +74,8 @@ function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
   return store.sequences.find((sequence) => sequence.id === store.selectedSequenceId) ?? store.sequences[0] ?? null;
 }
 
-function roundedTime(value: number): number {
-  return Math.round(value * 100) / 100;
+function preciseTime(value: number): number {
+  return value;
 }
 
 type CaptureReadyPageInfo = PageInfo & {
@@ -402,7 +402,7 @@ export class SnackTapeAppStore {
 
       if (edge === 'start') {
         const maxStart = segment.endSeconds === null ? Number.POSITIVE_INFINITY : Math.max(0, segment.endSeconds - 0.01);
-        const startSeconds = roundedTime(Math.min(maxStart, Math.max(0, segment.startSeconds + deltaSeconds)));
+        const startSeconds = preciseTime(Math.min(maxStart, Math.max(0, segment.startSeconds + deltaSeconds)));
         changed = startSeconds !== segment.startSeconds;
         return { ...segment, startSeconds, updatedAt: timestamp };
       }
@@ -411,7 +411,7 @@ export class SnackTapeAppStore {
         return segment;
       }
 
-      const endSeconds = roundedTime(Math.max(segment.startSeconds + 0.01, segment.endSeconds + deltaSeconds));
+      const endSeconds = preciseTime(Math.max(segment.startSeconds + MIN_CAPTURE_DURATION_SECONDS, segment.endSeconds + deltaSeconds));
       changed = endSeconds !== segment.endSeconds;
       return { ...segment, endSeconds, updatedAt: timestamp };
     });
@@ -574,11 +574,14 @@ export class SnackTapeAppStore {
 
   async refreshVideo(): Promise<ActiveVideoResult> {
     const result = await getActiveVideoState();
-    if (!samePageInfo(this.state.pageInfo, result.info) || !sameVideoState(this.state.videoState, result.videoState)) {
+    if (!result.error && (!samePageInfo(this.state.pageInfo, result.info) || !sameVideoState(this.state.videoState, result.videoState))) {
       this.setState({
         pageInfo: result.info,
         videoState: result.videoState,
       });
+    }
+    if (result.error && this.state.route === 'capture') {
+      this.setCaptureError(createI18n(this.state.settings.language).capture.noticeVideoRefreshFailed(result.error));
     }
     return result;
   }
@@ -744,7 +747,7 @@ export class SnackTapeAppStore {
   }
 
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
-    const inSec = roundedTime(pageInfo.currentTime);
+    const inSec = preciseTime(pageInfo.currentTime);
     this.setState({ draftIn: inSec, captureNotice: null });
     await saveSegmentDraft({
       videoId: pageInfo.videoId,
@@ -769,7 +772,7 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const nextIn = roundedTime(Math.max(0, draftIn + deltaSeconds));
+    const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
     this.setState({ draftIn: nextIn });
     await saveSegmentDraft({
       videoId,
@@ -802,8 +805,8 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const outSec = roundedTime(pageInfo.currentTime);
-    const endSec = outSec <= inSec ? roundedTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const outSec = preciseTime(pageInfo.currentTime);
+    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
 
     const timestamp = Date.now();
     const segment: Segment = {

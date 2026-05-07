@@ -49,7 +49,7 @@ function findByText(node, text) {
   return null;
 }
 
-function installContentEnvironment({ playRejects = false, adChecksBeforeClear = 0 } = {}) {
+function installContentEnvironment({ playRejects = false, adChecksBeforeClear = 0, titleSelectors = {}, documentTitle = '테스트 영상 - YouTube' } = {}) {
   const runtimeMessages = [];
   const intervals = [];
   const windowListeners = {};
@@ -113,7 +113,7 @@ function installContentEnvironment({ playRejects = false, adChecksBeforeClear = 
     }
   };
   globalThis.document = {
-    title: '테스트 영상 - YouTube',
+    title: documentTitle,
     documentElement,
     createElement: (tagName) => new FakeElement(tagName),
     getElementById: (id) => findById(documentElement, id),
@@ -129,7 +129,14 @@ function installContentEnvironment({ playRejects = false, adChecksBeforeClear = 
           }
         };
       }
-      if (selector === 'h1.ytd-watch-metadata yt-formatted-string') {
+      if (selector in titleSelectors) {
+        const value = titleSelectors[selector];
+        if (value && typeof value === 'object') {
+          return value;
+        }
+        return value ? { textContent: value } : null;
+      }
+      if (Object.keys(titleSelectors).length === 0 && selector === 'h1.ytd-watch-metadata yt-formatted-string') {
         return { textContent: '테스트 영상' };
       }
       return null;
@@ -201,6 +208,32 @@ test('content playback reports waiting and promotes playback after the continue 
   ]);
 });
 
+test('continue overlay keeps retry actionable after a failed manual play attempt', async () => {
+  const { env, getContentListener } = installContentEnvironment({ playRejects: true });
+  await import('../.tmp-tests/src/content/contentScript.js?retry-overlay');
+  const listener = getContentListener();
+
+  await sendContentMessage(listener, {
+    type: 'PLAY_SEGMENT',
+    segment: makeSegment({ id: 'clip-retry', videoId: 'video-1', startSeconds: 10, endSeconds: 20 }),
+    playbackToken: 'token-retry'
+  });
+
+  findByText(env.documentElement, '계속 재생').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.notEqual(findByText(env.documentElement, '다시 시도'), null);
+  assert.match(findByText(env.documentElement, 'YouTube 플레이어를 직접 한 번 클릭한 뒤 다시 시도해주세요.').textContent, /직접/);
+
+  env.playRejects = false;
+  findByText(env.documentElement, '다시 시도').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(env.runtimeMessages, [
+    { type: 'PLAYBACK_STARTED', playbackToken: 'token-retry', currentTime: 10 }
+  ]);
+});
+
 test('content playback reports waiting while an ad is showing and starts after the ad clears', async () => {
   const { env, getContentListener } = installContentEnvironment({ adChecksBeforeClear: 1 });
   await import('../.tmp-tests/src/content/contentScript.js?ad-wait');
@@ -264,4 +297,38 @@ test('content playback clears background playback state when YouTube navigates a
   }
 
   assert.equal(env.runtimeMessages.some((message) => message.type === 'STOP_SEQUENCE'), true);
+});
+
+test('content page info reads fallback YouTube title selectors before document title', async () => {
+  const { getContentListener } = installContentEnvironment({
+    titleSelectors: {
+      'h1.ytd-watch-metadata yt-formatted-string': null,
+      'meta[property="og:title"]': { getAttribute: (name) => (name === 'content' ? '메타 제목 - YouTube' : null) }
+    },
+    documentTitle: '브라우저 탭 제목 - YouTube'
+  });
+  await import('../.tmp-tests/src/content/contentScript.js?title-meta');
+  const listener = getContentListener();
+
+  const response = await sendContentMessage(listener, { type: 'GET_PAGE_INFO' });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.data.title, '메타 제목');
+});
+
+test('content page info falls back to a visible generated title when YouTube title is empty', async () => {
+  const { getContentListener } = installContentEnvironment({
+    titleSelectors: {
+      'h1.ytd-watch-metadata yt-formatted-string': null,
+      'meta[property="og:title"]': null
+    },
+    documentTitle: ''
+  });
+  await import('../.tmp-tests/src/content/contentScript.js?title-generated');
+  const listener = getContentListener();
+
+  const response = await sendContentMessage(listener, { type: 'GET_PAGE_INFO' });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.data.title, 'YouTube video-1');
 });

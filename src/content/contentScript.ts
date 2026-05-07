@@ -22,7 +22,24 @@ function getVideo(): HTMLVideoElement | null {
 }
 
 function roundTime(value: number): number {
-  return Math.round(value * 100) / 100;
+  return value;
+}
+
+function stripYouTubeSuffix(value: string): string {
+  return value.replace(/\s+-\s+YouTube$/, '').trim();
+}
+
+function selectorText(selector: string, attribute?: string): string {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return '';
+  }
+
+  if (attribute && 'getAttribute' in element) {
+    return stripYouTubeSuffix(element.getAttribute(attribute) ?? '');
+  }
+
+  return stripYouTubeSuffix(element.textContent ?? '');
 }
 
 function isAdShowing(): boolean {
@@ -125,13 +142,22 @@ async function waitForSegmentVideo(videoId: string, timeoutMs = 12000): Promise<
 }
 
 function getTitle(): string {
-  const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
-  const title = titleElement?.textContent?.trim();
-  if (title) {
-    return title;
+  const candidates = [
+    selectorText('h1.ytd-watch-metadata yt-formatted-string'),
+    selectorText('h1.title yt-formatted-string'),
+    selectorText('meta[property="og:title"]', 'content'),
+    selectorText('meta[name="title"]', 'content'),
+    stripYouTubeSuffix(document.title),
+  ];
+
+  for (const title of candidates) {
+    if (title) {
+      return title;
+    }
   }
 
-  return document.title.replace(/\s+-\s+YouTube$/, '').trim();
+  const videoId = parseYouTubeVideoId(location.href);
+  return videoId ? `YouTube ${videoId}` : 'YouTube video';
 }
 
 function getChannel(): string {
@@ -226,7 +252,7 @@ async function startReadySegment(
   };
 
   const endedHandler = () => {
-    if (!segment.endSeconds || segment.endSeconds <= 0) {
+    if (segment.endSeconds === null) {
       finish();
     }
   };
@@ -237,7 +263,7 @@ async function startReadySegment(
       return;
     }
 
-    if (fadeOut && segment.endSeconds && segment.endSeconds > 0 && fadeOutSeconds > 0) {
+    if (fadeOut && segment.endSeconds !== null && segment.endSeconds > 0 && fadeOutSeconds > 0) {
       const remainingSeconds = segment.endSeconds - video.currentTime;
       if (remainingSeconds <= fadeOutSeconds) {
         const ratio = Math.max(0, remainingSeconds / fadeOutSeconds);
@@ -247,7 +273,7 @@ async function startReadySegment(
       }
     }
 
-    if (segment.endSeconds && segment.endSeconds > 0 && video.currentTime >= segment.endSeconds) {
+    if (segment.endSeconds !== null && video.currentTime >= segment.endSeconds) {
       finish();
     }
   }, 250);

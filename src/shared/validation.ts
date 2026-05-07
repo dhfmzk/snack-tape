@@ -22,7 +22,7 @@ export function validateSegment(segment: Segment): string[] {
   if (segment.endSeconds !== null) {
     if (!isFiniteNonNegative(segment.endSeconds)) {
       errors.push('끝점은 비워두거나 0초 이상이어야 합니다.');
-    } else if (segment.endSeconds > 0 && segment.endSeconds <= segment.startSeconds) {
+    } else if (segment.endSeconds <= segment.startSeconds) {
       errors.push('끝점은 시작점보다 뒤에 있어야 합니다.');
     }
   }

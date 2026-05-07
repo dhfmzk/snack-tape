@@ -1,5 +1,6 @@
 import { normalizeSegmentDraft } from './draft.js';
 import type { PlaybackState, Segment, SegmentDraft, Sequence, SnackTapeStore } from './types.js';
+import { validateSegment } from './validation.js';
 
 export const STORAGE_KEY = 'snacktape.store.v1';
 export const PLAYBACK_STATE_KEY = 'snacktape.playback.v1';
@@ -47,7 +48,7 @@ function timestamp(value: unknown, fallback: number): number {
 }
 
 function preciseSeconds(value: number): number {
-  return Math.round(value * 100) / 100;
+  return value;
 }
 
 function seconds(value: unknown, fallback: number): number {
@@ -83,7 +84,7 @@ export function normalizeSegment(input: unknown, index = 0): Segment | null {
   const timestampValue = now();
   const title = text(input.title, `영상 ${videoId}`);
 
-  return {
+  const segment: Segment = {
     id: text(input.id, createId('segment')),
     videoId,
     originalUrl: text(input.originalUrl, `https://www.youtube.com/watch?v=${videoId}`),
@@ -94,6 +95,8 @@ export function normalizeSegment(input: unknown, index = 0): Segment | null {
     createdAt: timestamp(input.createdAt, timestampValue + index),
     updatedAt: timestamp(input.updatedAt, timestampValue + index)
   };
+
+  return validateSegment(segment).length === 0 ? segment : null;
 }
 
 export function normalizeSequence(input: unknown, index = 0): Sequence | null {

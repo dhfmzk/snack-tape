@@ -89,3 +89,36 @@ test('SidePanel screen-level scroll containers have stable scroll keys', async (
   assert.equal(Settings({ state: baseState(), onAccent: () => {} }).dataset.scrollKey, 'settings-screen');
   assert.equal(Detail().dataset.scrollKey, 'detail-screen');
 });
+
+test('primary side-panel screens render an empty store without a selected mixtape', async () => {
+  installDomShim();
+  const [{ Home }, { Capture }, { Playback }, { Settings }] = await Promise.all([
+    import('../.tmp-tests/src/screens/Home.js'),
+    import('../.tmp-tests/src/screens/Capture.js'),
+    import('../.tmp-tests/src/screens/Playback.js'),
+    import('../.tmp-tests/src/screens/Settings.js')
+  ]);
+  const state = baseState({
+    store: {
+      sequences: [],
+      selectedSequenceId: null
+    }
+  });
+
+  assert.doesNotThrow(() => Home({ state, onCreate: () => {}, onOpenSequence: () => {}, onPlaySequence: () => {} }));
+  assert.doesNotThrow(() => Capture({ state, onIn: () => {}, onOut: () => {}, onCreateMixtape: () => {} }));
+  assert.doesNotThrow(() => Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  }));
+  assert.doesNotThrow(() => Settings({ state, onAccent: () => {} }));
+});

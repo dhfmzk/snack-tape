@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeSequence } from './helpers.mjs';
+import { makeSegment, makeSequence } from './helpers.mjs';
 
 class FakeNode {
   constructor(text = '') {
@@ -55,6 +55,10 @@ function findAllByAriaLabel(node, label) {
   }
 
   return matches;
+}
+
+function textOf(node) {
+  return [node.textContent, ...(node.children ?? []).map(textOf)].join('');
 }
 
 function homeState(sequences) {
@@ -122,4 +126,24 @@ test('Home empty state shows a single new tape action', async () => {
   });
 
   assert.equal(findAllByAriaLabel(page, '새 테이프 만들기').length, 1);
+});
+
+test('Home total duration treats zero-second OUT as a saved boundary, not missing data', async () => {
+  installDomShim();
+  const { Home } = await import('../.tmp-tests/src/screens/Home.js');
+
+  const page = Home({
+    state: homeState([
+      makeSequence({
+        id: 'sequence-zero',
+        name: '0초 테이프',
+        segments: [makeSegment({ id: 'zero-clip', startSeconds: 0, endSeconds: 0 })]
+      })
+    ]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+
+  assert.match(textOf(page), /00:00/);
 });

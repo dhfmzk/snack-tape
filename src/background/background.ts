@@ -1,19 +1,26 @@
 import { createPlaybackOrder, getNextPlaybackStep } from '../shared/playback.js';
 import { findYouTubePlaybackTab, isExtensionPageUrl } from '../shared/playbackTarget.js';
 import {
+  clearSegmentDraft,
   clearPlaybackState,
+  createId,
+  loadSegmentDraft,
   loadPlaybackState,
   loadStore,
-  savePlaybackState
+  savePlaybackState,
+  saveSegmentDraft,
+  saveStore
 } from '../shared/storage.js';
-import type { PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse } from '../shared/types.js';
-import { validateSequence } from '../shared/validation.js';
+import type { PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
+import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 import { loadSettings } from '../state/storage.js';
 
 const MAX_MESSAGE_RETRIES = 12;
 const MESSAGE_RETRY_DELAY_MS = 350;
 const COMMAND_NAMES = ['capture-in', 'capture-out', 'play-pause', 'next-clip'] as const;
+type CommandName = (typeof COMMAND_NAMES)[number];
+const MIN_CAPTURE_DURATION_SECONDS = 1 / 30;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,6 +32,10 @@ function createPlaybackToken(): string {
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isCommandName(command: string): command is CommandName {
+  return COMMAND_NAMES.includes(command as CommandName);
 }
 
 async function getActiveTab(): Promise<chrome.tabs.Tab> {
@@ -81,6 +92,21 @@ async function playbackModeFromSettings(): Promise<PlaybackMode> {
 
 function canonicalWatchUrl(segment: Segment): string {
   return `https://www.youtube.com/watch?v=${encodeURIComponent(segment.videoId)}&t=${Math.floor(segment.startSeconds)}s`;
+}
+
+function fallbackVideoTitle(tab: chrome.tabs.Tab, videoId: string): string {
+  return tab.title?.replace(/\s+-\s+YouTube$/, '').trim() || `YouTube ${videoId}`;
+}
+
+function selectCaptureSequence(sequences: Sequence[], selectedSequenceId: string | null, defaultMixtapeId?: string): Sequence | null {
+  if (defaultMixtapeId) {
+    const defaultSequence = sequences.find((sequence) => sequence.id === defaultMixtapeId);
+    if (defaultSequence) {
+      return defaultSequence;
+    }
+  }
+
+  return sequences.find((sequence) => sequence.id === selectedSequenceId) ?? sequences[0] ?? null;
 }
 
 function orderSegmentIds(sequence: Sequence, order: number[]): string[] {
@@ -199,6 +225,78 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
 
   void lastError;
   throw new Error('YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.');
+}
+
+async function readActiveVideoForCapture(): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
+  const tab = await getActiveTab();
+  if (!tab.id || !tab.url || !parseYouTubeVideoId(tab.url)) {
+    throw new Error('YouTube 영상을 열어주세요.');
+  }
+
+  const response = await sendMessageWithRetries<VideoState>(tab.id, { type: 'getVideoState' });
+  const videoState = response.data;
+  if (!videoState?.videoId || !Number.isFinite(videoState.currentTime)) {
+    throw new Error('영상 시간을 읽을 수 없습니다.');
+  }
+
+  return { tab, videoState };
+}
+
+export async function captureInFromCommand(): Promise<void> {
+  const { videoState } = await readActiveVideoForCapture();
+  await saveSegmentDraft({
+    videoId: videoState.videoId!,
+    startSeconds: videoState.currentTime,
+    endSeconds: null,
+    updatedAt: Date.now(),
+  });
+}
+
+export async function captureOutFromCommand(): Promise<void> {
+  const { tab, videoState } = await readActiveVideoForCapture();
+  const draft = await loadSegmentDraft(videoState.videoId!);
+  if (!draft || draft.startSeconds === null) {
+    throw new Error('IN 먼저 찍어주세요.');
+  }
+
+  const [store, settings] = await Promise.all([loadStore(), loadSettings()]);
+  const sequence = selectCaptureSequence(store.sequences, store.selectedSequenceId, settings.defaultMixtapeId);
+  if (!sequence) {
+    throw new Error('저장할 믹스테이프를 선택하세요.');
+  }
+
+  const timestamp = Date.now();
+  const outSeconds = videoState.currentTime;
+  const endSeconds = outSeconds <= draft.startSeconds ? draft.startSeconds + MIN_CAPTURE_DURATION_SECONDS : outSeconds;
+  const title = settings.autoTitleFromCaptions
+    ? videoState.title.trim() || fallbackVideoTitle(tab, videoState.videoId!)
+    : `YouTube ${videoState.videoId}`;
+  const segment: Segment = {
+    id: createId('clip'),
+    videoId: videoState.videoId!,
+    originalUrl: tab.url ?? `https://www.youtube.com/watch?v=${encodeURIComponent(videoState.videoId!)}`,
+    title,
+    startSeconds: draft.startSeconds,
+    endSeconds,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  const errors = validateSegment(segment);
+  if (errors.length > 0) {
+    throw new Error(errors[0]);
+  }
+
+  const updatedSequence: Sequence = {
+    ...sequence,
+    segments: [...sequence.segments, segment],
+    updatedAt: timestamp,
+  };
+  await saveStore({
+    ...store,
+    selectedSequenceId: sequence.id,
+    sequences: store.sequences.map((item) => (item.id === sequence.id ? updatedSequence : item)),
+  });
+  await clearSegmentDraft(videoState.videoId!);
 }
 
 export async function startSequence(sequenceId: string, startIndex = 0, mode?: PlaybackMode, requestedTabId?: number): Promise<void> {
@@ -423,6 +521,53 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
   return { ok: false, error: '지원하지 않는 요청입니다.' };
 }
 
+export async function handleCommand(command: CommandName): Promise<void> {
+  if (command === 'capture-in') {
+    await captureInFromCommand();
+    return;
+  }
+
+  if (command === 'capture-out') {
+    await captureOutFromCommand();
+    return;
+  }
+
+  if (command === 'next-clip') {
+    await nextSegment();
+    return;
+  }
+
+  const playbackState = await loadPlaybackState();
+  if (playbackState) {
+    await stopPlayback();
+    return;
+  }
+
+  const store = await loadStore();
+  const sequence = selectCaptureSequence(store.sequences, store.selectedSequenceId);
+  if (sequence?.segments.length) {
+    await startSequence(sequence.id, 0);
+  }
+}
+
+function sendCommandToExtensionViews(command: CommandName): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'COMMAND_EVENT', name: command }, () => {
+      const error = chrome.runtime.lastError;
+      resolve(!error);
+    });
+  });
+}
+
+async function dispatchCommand(command: CommandName): Promise<void> {
+  const deliveredToView = await sendCommandToExtensionViews(command);
+  if (deliveredToView) {
+    return;
+  }
+
+  await handleCommand(command);
+}
+
 function enableSidePanelBehavior(): void {
   if (!chrome.sidePanel?.setPanelBehavior) {
     return;
@@ -451,11 +596,9 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.commands?.onCommand.addListener((command) => {
-  if (!COMMAND_NAMES.includes(command as (typeof COMMAND_NAMES)[number])) {
+  if (!isCommandName(command)) {
     return;
   }
 
-  chrome.runtime.sendMessage({ type: 'COMMAND_EVENT', name: command }, () => {
-    void chrome.runtime.lastError;
-  });
+  void dispatchCommand(command);
 });

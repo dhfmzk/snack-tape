@@ -38,3 +38,22 @@ test('serializeStoreCsv exports one row per saved segment', async () => {
   assert.match(csv, /"Comma, Tape",Plain title/);
   assert.match(csv, /"Quoted ""title"""/);
 });
+
+test('parseImportedStoreJson drops normalized segments whose end is not after start', async () => {
+  const { parseImportedStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const valid = makeSegment({ id: 'clip-valid', startSeconds: 20, endSeconds: 22 });
+  const invalidEqual = makeSegment({ id: 'clip-equal', startSeconds: 12, endSeconds: 12 });
+  const invalidZero = makeSegment({ id: 'clip-zero', startSeconds: 0, endSeconds: 0 });
+  const parsed = parseImportedStoreJson(JSON.stringify({
+    sequences: [
+      makeSequence({
+        id: 'sequence-import-repair',
+        segments: [invalidEqual, invalidZero, valid]
+      })
+    ],
+    selectedSequenceId: 'sequence-import-repair'
+  }));
+
+  assert.equal(parsed.sequences[0].segments.length, 1);
+  assert.equal(parsed.sequences[0].segments[0].id, 'clip-valid');
+});
