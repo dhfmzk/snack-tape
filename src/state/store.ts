@@ -19,6 +19,7 @@ import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings, type S
 import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
+export type HomeSort = 'manual' | 'updated' | 'name' | 'clipCount';
 
 export type QueueEditState = {
   sequenceId: string;
@@ -61,6 +62,8 @@ export type AppState = {
   renameEdit: RenameEditState | null;
   captureNotice: CaptureNotice | null;
   settingsNotice: SettingsNotice | null;
+  homeSearch: string;
+  homeSort: HomeSort;
   loading: boolean;
 };
 
@@ -77,6 +80,48 @@ function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
 
 function preciseTime(value: number): number {
   return value;
+}
+
+function nextNumberedName(baseName: string, sequences: Sequence[]): string {
+  const used = new Set(sequences.map((sequence) => sequence.name.trim()));
+  for (let index = 1; index <= sequences.length + 1; index += 1) {
+    const candidate = `${baseName} ${index}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${baseName} ${sequences.length + 1}`;
+}
+
+function uniqueName(baseName: string, sequences: Sequence[]): string {
+  const used = new Set(sequences.map((sequence) => sequence.name.trim()));
+  const trimmed = baseName.trim();
+  if (!used.has(trimmed)) {
+    return trimmed;
+  }
+
+  for (let index = 2; index <= sequences.length + 2; index += 1) {
+    const candidate = `${trimmed} ${index}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${trimmed} ${sequences.length + 2}`;
+}
+
+function cloneSegment(segment: Segment, timestamp: number, preserveId = false): Segment {
+  return {
+    ...segment,
+    id: preserveId ? segment.id : createId('clip'),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function cloneSegments(segments: Segment[], timestamp: number): Segment[] {
+  return segments.map((segment) => cloneSegment(segment, timestamp));
 }
 
 type CaptureReadyPageInfo = PageInfo & {
@@ -137,6 +182,8 @@ export class SnackTapeAppStore {
       renameEdit: null,
       captureNotice: null,
       settingsNotice: null,
+      homeSearch: '',
+      homeSort: 'manual',
       loading: true,
     };
   }
@@ -227,6 +274,14 @@ export class SnackTapeAppStore {
     }
   }
 
+  setHomeSearch(query: string): void {
+    this.setState({ homeSearch: query });
+  }
+
+  setHomeSort(sort: HomeSort): void {
+    this.setState({ homeSort: sort });
+  }
+
   async createMixtape(): Promise<void> {
     const currentStore = this.state.store;
     if (!currentStore) {
@@ -237,7 +292,7 @@ export class SnackTapeAppStore {
     const timestamp = Date.now();
     const sequence: Sequence = {
       id: createId('sequence'),
-      name: `${createI18n(this.state.settings.language).common.unnamedMixtape} ${currentStore.sequences.length + 1}`,
+      name: nextNumberedName(createI18n(this.state.settings.language).common.unnamedMixtape, currentStore.sequences),
       segments: [],
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -247,6 +302,37 @@ export class SnackTapeAppStore {
       sequences: [...currentStore.sequences, sequence],
       selectedSequenceId: sequence.id,
     };
+    this.setState({ store });
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
+  async duplicateMixtape(sequenceId: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = currentStore?.sequences.find((item) => item.id === sequenceId);
+    if (!currentStore || !sequence) {
+      return;
+    }
+    const previousState = this.state;
+
+    const timestamp = Date.now();
+    const i18n = createI18n(this.state.settings.language);
+    const copy: Sequence = {
+      ...sequence,
+      id: createId('sequence'),
+      name: uniqueName(i18n.common.copyName(sequence.name), currentStore.sequences),
+      segments: cloneSegments(sequence.segments, timestamp),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      sequences: [...currentStore.sequences, copy],
+      selectedSequenceId: copy.id,
+    };
+
     this.setState({ store });
     const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
     if (!persisted) {
@@ -431,6 +517,70 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async mergeMixtapeInto(sourceSequenceId: string, targetSequenceId: string): Promise<void> {
+    if (sourceSequenceId === targetSequenceId) {
+      return;
+    }
+
+    const currentStore = this.state.store;
+    const source = currentStore?.sequences.find((item) => item.id === sourceSequenceId);
+    const target = currentStore?.sequences.find((item) => item.id === targetSequenceId);
+    if (!currentStore || !source || !target) {
+      return;
+    }
+    const previousState = this.state;
+
+    const timestamp = Date.now();
+    const updatedTarget: Sequence = {
+      ...target,
+      segments: [...target.segments, ...cloneSegments(source.segments, timestamp)],
+      updatedAt: timestamp,
+    };
+    const nextSequences = currentStore.sequences
+      .filter((item) => item.id !== sourceSequenceId)
+      .map((item) => (item.id === targetSequenceId ? updatedTarget : item));
+    const store: SnackTapeStore = {
+      sequences: nextSequences,
+      selectedSequenceId: currentStore.selectedSequenceId === sourceSequenceId ? targetSequenceId : currentStore.selectedSequenceId,
+    };
+    const clearsDefaultMixtape = this.state.settings.defaultMixtapeId === sourceSequenceId;
+    const settings = clearsDefaultMixtape
+      ? normalizeSettings({ ...this.state.settings, defaultMixtapeId: targetSequenceId })
+      : this.state.settings;
+    const playbackState = this.state.playbackState ?? await loadPlaybackState();
+    const clearsPlayback = playbackState?.sequenceId === sourceSequenceId;
+    const nextPlaybackState = clearsPlayback ? null : playbackState ?? null;
+
+    this.setState({
+      store,
+      settings,
+      playbackState: nextPlaybackState,
+      playbackDisplay: describePlaybackState(store, nextPlaybackState),
+      queueEdit: this.state.queueEdit?.sequenceId === sourceSequenceId ? null : this.state.queueEdit,
+      segmentEdit: null,
+      renameEdit: this.state.renameEdit?.sequenceId === sourceSequenceId ? null : this.state.renameEdit,
+      capturePulseId: null,
+    });
+
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), async () => {
+      await saveStore(store);
+      if (clearsDefaultMixtape) {
+        await saveSettings(settings);
+      }
+    });
+    if (!persisted) {
+      return;
+    }
+
+    if (clearsPlayback) {
+      const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      if (!response.ok) {
+        await clearPlaybackState();
+      }
+    }
+    await this.refreshPlayback();
+  }
+
   async selectCaptureTarget(sequenceId: string): Promise<void> {
     const currentStore = this.state.store;
     if (!currentStore?.sequences.some((sequence) => sequence.id === sequenceId)) {
@@ -562,6 +712,92 @@ export class SnackTapeAppStore {
       return;
     }
     if (playbackState?.sequenceId === updatedSequence.id && !nextPlaybackState) {
+      const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
+      if (!response.ok) {
+        await clearPlaybackState();
+      }
+    }
+    await this.refreshPlayback();
+  }
+
+  async copySegmentToMixtape(segmentId: string, targetSequenceId: string): Promise<void> {
+    await this.transferSegmentToMixtape(segmentId, targetSequenceId, 'copy');
+  }
+
+  async moveSegmentToMixtape(segmentId: string, targetSequenceId: string): Promise<void> {
+    await this.transferSegmentToMixtape(segmentId, targetSequenceId, 'move');
+  }
+
+  private async transferSegmentToMixtape(segmentId: string, targetSequenceId: string, mode: 'copy' | 'move'): Promise<void> {
+    const currentStore = this.state.store;
+    const source = this.selectedSequence();
+    const target = currentStore?.sequences.find((item) => item.id === targetSequenceId);
+    const segment = source?.segments.find((item) => item.id === segmentId);
+    if (!currentStore || !source || !target || !segment) {
+      return;
+    }
+    if (mode === 'move' && source.id === target.id) {
+      return;
+    }
+    const previousState = this.state;
+
+    const timestamp = Date.now();
+    const copiedSegment = cloneSegment(segment, timestamp, mode === 'move');
+    const updatedSource: Sequence = mode === 'move'
+      ? {
+          ...source,
+          segments: source.segments.filter((item) => item.id !== segmentId),
+          updatedAt: timestamp,
+        }
+      : source;
+    const updatedTarget: Sequence = {
+      ...target,
+      segments: [...target.segments, copiedSegment],
+      updatedAt: timestamp,
+    };
+
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => {
+        if (item.id === target.id) {
+          return updatedTarget;
+        }
+        if (item.id === source.id) {
+          return updatedSource;
+        }
+        return item;
+      }),
+    };
+
+    const playbackState = this.state.playbackState;
+    let nextPlaybackState: PlaybackState | null = playbackState ?? null;
+    if (mode === 'move' && playbackState?.sequenceId === source.id) {
+      if (updatedSource.segments.length === 0 || playbackState.currentSegmentId === segmentId) {
+        nextPlaybackState = null;
+      } else {
+        nextPlaybackState = playbackStateAfterSequenceEdit(playbackState, updatedSource);
+      }
+    }
+
+    this.setState({
+      store,
+      playbackState: nextPlaybackState,
+      playbackDisplay: describePlaybackState(store, nextPlaybackState),
+      segmentEdit: this.state.segmentEdit?.segmentId === segmentId ? null : this.state.segmentEdit,
+    });
+
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(store);
+      if (mode === 'move' && playbackState?.sequenceId === source.id) {
+        if (nextPlaybackState) {
+          await savePlaybackState(nextPlaybackState);
+        }
+      }
+    });
+    if (!persisted) {
+      return;
+    }
+    if (mode === 'move' && playbackState?.sequenceId === source.id && !nextPlaybackState) {
       const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
       if (!response.ok) {
         await clearPlaybackState();

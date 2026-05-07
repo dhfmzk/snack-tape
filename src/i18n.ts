@@ -7,12 +7,14 @@ export type I18n = {
   app: {
     loading: string;
     deleteMixtapeConfirm: (name: string, clipCount: number) => string;
+    mergeMixtapeConfirm: (sourceName: string, targetName: string, clipCount: number) => string;
   };
   common: {
     noMixtape: string;
     unnamedMixtape: string;
     readingTitle: string;
     openYoutubeVideo: string;
+    copyName: (name: string) => string;
     saveFailed: (message: string) => string;
     end: string;
   };
@@ -27,6 +29,24 @@ export type I18n = {
     newTape: string;
     newTapeAria: string;
     emptyTitle: string;
+    search: string;
+    sort: string;
+    sortManual: string;
+    sortUpdated: string;
+    sortName: string;
+    sortClipCount: string;
+    menu: (name: string) => string;
+    editAction: string;
+    renameAction: string;
+    duplicateAction: string;
+    deleteAction: string;
+    mergeAction: string;
+    edit: (name: string) => string;
+    rename: (name: string) => string;
+    duplicate: (name: string) => string;
+    delete: (name: string) => string;
+    mergeTarget: (name: string) => string;
+    merge: (name: string) => string;
     playAria: (name: string) => string;
     clipCount: (count: number) => string;
   };
@@ -43,6 +63,11 @@ export type I18n = {
     editSegmentAria: (title: string) => string;
     deleteSegment: string;
     deleteSegmentAria: (title: string) => string;
+    segmentTransferTarget: (title: string) => string;
+    copySegment: string;
+    copySegmentAria: (title: string) => string;
+    moveSegment: string;
+    moveSegmentAria: (title: string) => string;
     segmentEditDone: (title: string) => string;
     segmentEdit: string;
     done: string;
@@ -156,12 +181,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     app: {
       loading: '불러오는 중...',
       deleteMixtapeConfirm: (name, clipCount) => `"${name}" 믹스테이프를 삭제할까요? 저장된 구간 ${clipCount}개도 함께 삭제됩니다.`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `"${sourceName}"의 구간 ${clipCount}개를 "${targetName}"에 병합할까요? 원본 테이프는 삭제됩니다.`,
     },
     common: {
       noMixtape: '믹스테이프 없음',
       unnamedMixtape: '믹스테이프',
       readingTitle: '제목을 읽는 중',
       openYoutubeVideo: 'YouTube 영상에서 열어주세요',
+      copyName: (name) => `${name} 복사본`,
       saveFailed: (message) => `저장하지 못했습니다.${message ? ` ${message}` : ''}`,
       end: 'END',
     },
@@ -176,6 +203,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '새 테이프',
       newTapeAria: '새 테이프 만들기',
       emptyTitle: '첫 믹스테이프를 만들어보세요',
+      search: '믹스테이프 검색',
+      sort: '믹스테이프 정렬',
+      sortManual: '직접 순서',
+      sortUpdated: '최근 수정',
+      sortName: '이름',
+      sortClipCount: '클립 수',
+      menu: (name) => `${name} 메뉴`,
+      editAction: '편집',
+      renameAction: '이름 변경',
+      duplicateAction: '복제',
+      deleteAction: '삭제',
+      mergeAction: '병합',
+      edit: (name) => `${name} 편집`,
+      rename: (name) => `${name} 이름 변경`,
+      duplicate: (name) => `${name} 복제`,
+      delete: (name) => `${name} 삭제`,
+      mergeTarget: (name) => `${name} 병합 대상`,
+      merge: (name) => `${name} 병합`,
       playAria: (name) => `${name} 재생`,
       clipCount: (count) => `${count} CLIPS`,
     },
@@ -192,6 +237,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       editSegmentAria: (title) => `${title} 구간 편집`,
       deleteSegment: '삭제',
       deleteSegmentAria: (title) => `${title} 삭제`,
+      segmentTransferTarget: (title) => `${title} 이동/복사 대상`,
+      copySegment: '복사',
+      copySegmentAria: (title) => `${title} 복사`,
+      moveSegment: '이동',
+      moveSegmentAria: (title) => `${title} 이동`,
       segmentEditDone: (title) => `${title} 편집 완료`,
       segmentEdit: '구간 편집',
       done: '완료',
@@ -303,12 +353,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     app: {
       loading: '読み込み中...',
       deleteMixtapeConfirm: (name, clipCount) => `「${name}」を削除しますか？保存済みクリップ${clipCount}件も削除されます。`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `「${sourceName}」のクリップ${clipCount}件を「${targetName}」に結合しますか？元のテープは削除されます。`,
     },
     common: {
       noMixtape: 'ミックステープなし',
       unnamedMixtape: 'ミックステープ',
       readingTitle: 'タイトルを読み込み中',
       openYoutubeVideo: 'YouTube動画を開いてください',
+      copyName: (name) => `${name} コピー`,
       saveFailed: (message) => `保存できませんでした。${message ? ` ${message}` : ''}`,
       end: 'END',
     },
@@ -323,6 +375,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '新規テープ',
       newTapeAria: '新規テープを作成',
       emptyTitle: '最初のミックステープを作成しましょう',
+      search: 'ミックステープを検索',
+      sort: 'ミックステープを並べ替え',
+      sortManual: '手動順',
+      sortUpdated: '最近更新',
+      sortName: '名前',
+      sortClipCount: 'クリップ数',
+      menu: (name) => `${name} メニュー`,
+      editAction: '編集',
+      renameAction: '名前を変更',
+      duplicateAction: '複製',
+      deleteAction: '削除',
+      mergeAction: '結合',
+      edit: (name) => `${name}を編集`,
+      rename: (name) => `${name}の名前を変更`,
+      duplicate: (name) => `${name}を複製`,
+      delete: (name) => `${name}を削除`,
+      mergeTarget: (name) => `${name}の結合先`,
+      merge: (name) => `${name}を結合`,
       playAria: (name) => `${name}を再生`,
       clipCount: (count) => `${count} CLIPS`,
     },
@@ -339,6 +409,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       editSegmentAria: (title) => `${title}の範囲を編集`,
       deleteSegment: '削除',
       deleteSegmentAria: (title) => `${title}を削除`,
+      segmentTransferTarget: (title) => `${title}の移動/コピー先`,
+      copySegment: 'コピー',
+      copySegmentAria: (title) => `${title}をコピー`,
+      moveSegment: '移動',
+      moveSegmentAria: (title) => `${title}を移動`,
       segmentEditDone: (title) => `${title}の編集を完了`,
       segmentEdit: '範囲を編集',
       done: '完了',
@@ -450,12 +525,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     app: {
       loading: 'Loading...',
       deleteMixtapeConfirm: (name, clipCount) => `Delete "${name}"? ${clipCount} saved clip${clipCount === 1 ? '' : 's'} will be deleted too.`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `Merge ${clipCount} clip${clipCount === 1 ? '' : 's'} from "${sourceName}" into "${targetName}"? The source tape will be deleted.`,
     },
     common: {
       noMixtape: 'No mixtape',
       unnamedMixtape: 'Mixtape',
       readingTitle: 'Reading title',
       openYoutubeVideo: 'Open a YouTube video',
+      copyName: (name) => `${name} Copy`,
       saveFailed: (message) => `Could not save.${message ? ` ${message}` : ''}`,
       end: 'END',
     },
@@ -470,6 +547,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: 'New Tape',
       newTapeAria: 'Create new tape',
       emptyTitle: 'Create your first mixtape',
+      search: 'Search mixtapes',
+      sort: 'Sort mixtapes',
+      sortManual: 'Manual order',
+      sortUpdated: 'Recently updated',
+      sortName: 'Name',
+      sortClipCount: 'Clip count',
+      menu: (name) => `${name} menu`,
+      editAction: 'Edit',
+      renameAction: 'Rename',
+      duplicateAction: 'Duplicate',
+      deleteAction: 'Delete',
+      mergeAction: 'Merge',
+      edit: (name) => `Edit ${name}`,
+      rename: (name) => `Rename ${name}`,
+      duplicate: (name) => `Duplicate ${name}`,
+      delete: (name) => `Delete ${name}`,
+      mergeTarget: (name) => `Merge target for ${name}`,
+      merge: (name) => `Merge ${name}`,
       playAria: (name) => `Play ${name}`,
       clipCount: (count) => `${count} ${count === 1 ? 'CLIP' : 'CLIPS'}`,
     },
@@ -486,6 +581,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       editSegmentAria: (title) => `Edit range for ${title}`,
       deleteSegment: 'Delete',
       deleteSegmentAria: (title) => `Delete ${title}`,
+      segmentTransferTarget: (title) => `Move/copy target for ${title}`,
+      copySegment: 'Copy',
+      copySegmentAria: (title) => `Copy ${title}`,
+      moveSegment: 'Move',
+      moveSegmentAria: (title) => `Move ${title}`,
       segmentEditDone: (title) => `Finish editing ${title}`,
       segmentEdit: 'Edit range',
       done: 'Done',

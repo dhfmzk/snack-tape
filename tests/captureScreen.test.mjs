@@ -400,6 +400,31 @@ test('Capture closes segment action menus before running edit or delete actions'
   ]);
 });
 
+test('Capture segment menu can copy or move a clip to another mixtape', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: baseState(),
+    onIn: () => {},
+    onOut: () => {},
+    onCopySegmentToMixtape: (segmentId, targetSequenceId) => calls.push(['copy', segmentId, targetSequenceId]),
+    onMoveSegmentToMixtape: (segmentId, targetSequenceId) => calls.push(['move', segmentId, targetSequenceId])
+  });
+
+  const target = findByAriaLabel(page, '선택된 클립 이동/복사 대상');
+  target.value = 'first';
+  target.change();
+  findByAriaLabel(page, '선택된 클립 복사').click();
+  findByAriaLabel(page, '선택된 클립 이동').click();
+
+  assert.deepEqual(calls, [
+    ['copy', 'second-clip', 'first'],
+    ['move', 'second-clip', 'first']
+  ]);
+});
+
 test('Capture edit tab exposes segment range edit controls when a segment is selected for editing', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
@@ -466,7 +491,7 @@ test('Capture segment action menus expose expanded state and menu item roles', a
 
   assert.equal(menuButton.attributes['aria-haspopup'], 'menu');
   assert.equal(menuButton.attributes['aria-expanded'], 'false');
-  assert.equal(menuItems.length, 2);
+  assert.equal(menuItems.length, 4);
 });
 
 test('Capture edit tab wires every enabled button', async () => {

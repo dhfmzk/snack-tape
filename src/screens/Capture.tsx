@@ -17,6 +17,8 @@ type Props = {
   onCancelSegmentEdit?: () => void;
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void;
   onDeleteSegment?: (segmentId: string) => void;
+  onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
+  onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onBeginRenameMixtape?: (sequenceId: string) => void;
   onCancelRenameMixtape?: () => void;
   onRenameMixtape?: (sequenceId: string, name: string) => void;
@@ -106,9 +108,14 @@ function closeSegmentActionMenu(event: MouseEvent): void {
 function SegmentActionMenu(
   i18n: I18n,
   segment: Segment,
+  transferTargets: Sequence[],
   onBeginSegmentEdit?: (segmentId: string) => void,
-  onDeleteSegment?: (segmentId: string) => void
+  onDeleteSegment?: (segmentId: string) => void,
+  onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void,
+  onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void
 ): HTMLElement {
+  let transferTargetId = transferTargets[0]?.id ?? '';
+
   return el(
     'details',
     {
@@ -141,7 +148,7 @@ function SegmentActionMenu(
           zIndex: '20',
           right: '0',
           top: '32px',
-          minWidth: '104px',
+          minWidth: transferTargets.length > 0 ? '176px' : '104px',
           padding: '6px',
           border: '1px solid var(--hairline2)',
           background: 'var(--surface2)',
@@ -163,6 +170,66 @@ function SegmentActionMenu(
         Glyph('note', 12),
         i18n.capture.editSegment
       ),
+      transferTargets.length > 0
+        ? el(
+            'div',
+            { style: { padding: '5px 4px 4px', display: 'grid', gap: '6px' } },
+            el(
+              'select',
+              {
+                ariaLabel: i18n.capture.segmentTransferTarget(segment.title),
+                value: transferTargetId,
+                onChange: (event) => {
+                  transferTargetId = (event.target as HTMLSelectElement).value;
+                },
+                style: {
+                  width: '100%',
+                  height: '28px',
+                  border: '1px solid var(--hairline2)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  borderRadius: '6px',
+                  fontSize: '10.5px',
+                },
+              },
+              ...transferTargets.map((target) => el('option', { value: target.id, selected: target.id === transferTargetId, text: target.name }))
+            ),
+            el(
+              'div',
+              { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' } },
+              el(
+                'button',
+                {
+                  role: 'menuitem',
+                  ariaLabel: i18n.capture.copySegmentAria(segment.title),
+                  onClick: (event) => {
+                    closeSegmentActionMenu(event);
+                    if (transferTargetId) {
+                      onCopySegmentToMixtape?.(segment.id, transferTargetId);
+                    }
+                  },
+                  style: menuButtonStyle(),
+                },
+                i18n.capture.copySegment
+              ),
+              el(
+                'button',
+                {
+                  role: 'menuitem',
+                  ariaLabel: i18n.capture.moveSegmentAria(segment.title),
+                  onClick: (event) => {
+                    closeSegmentActionMenu(event);
+                    if (transferTargetId) {
+                      onMoveSegmentToMixtape?.(segment.id, transferTargetId);
+                    }
+                  },
+                  style: menuButtonStyle(),
+                },
+                i18n.capture.moveSegment
+              )
+            )
+          )
+        : null,
       el(
         'button',
         {
@@ -556,6 +623,8 @@ export function Capture(props: Props): HTMLElement {
     onCancelSegmentEdit,
     onNudgeSegment,
     onDeleteSegment,
+    onCopySegmentToMixtape,
+    onMoveSegmentToMixtape,
     onBeginRenameMixtape,
     onCancelRenameMixtape,
     onRenameMixtape,
@@ -571,6 +640,7 @@ export function Capture(props: Props): HTMLElement {
   const segments = editableSegments(sequence);
   const segmentCount = sequence?.segments.length ?? 0;
   const sequences = state.store?.sequences ?? [];
+  const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
   const draftText = state.draftIn === null ? '—:—' : formatTimecode(state.draftIn);
   const canNudgeDraft = state.draftIn !== null;
   const hasDraftIn = state.draftIn !== null;
@@ -886,7 +956,7 @@ export function Capture(props: Props): HTMLElement {
                 whiteSpace: 'nowrap',
               },
             }),
-            SegmentActionMenu(i18n, segment, onBeginSegmentEdit, onDeleteSegment)
+            SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
           ),
           el(
             'div',

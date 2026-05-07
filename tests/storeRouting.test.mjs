@@ -134,6 +134,46 @@ test('createMixtape rolls back visible state when store persistence fails', asyn
   assert.match(store.getState().settingsNotice.message, /quota exceeded/);
 });
 
+test('createMixtape uses the next unused visible number after deletions', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'sequence-1', name: '믹스테이프 1', segments: [] });
+  const third = makeSequence({ id: 'sequence-3', name: '믹스테이프 3', segments: [] });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, third],
+      selectedSequenceId: first.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [first, third],
+      selectedSequenceId: first.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.createMixtape();
+
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.name), ['믹스테이프 1', '믹스테이프 3', '믹스테이프 2']);
+  assert.equal(store.getState().store.selectedSequenceId, storage[STORAGE_KEY].sequences[2].id);
+});
+
 test('openMixtape keeps filled mixtapes on playback', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -853,6 +893,148 @@ test('deleteMixtape clears a deleted mixtape from the default save target', asyn
 
   assert.equal(store.getState().settings.defaultMixtapeId, undefined);
   assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
+});
+
+test('duplicateMixtape creates an independent copied mixtape with fresh ids', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const original = makeSequence({
+    id: 'source-sequence',
+    name: 'ASMR 조각 모음',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '첫 클립' }),
+      makeSegment({ id: 'clip-b', title: '둘째 클립' })
+    ]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [original],
+      selectedSequenceId: original.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [original],
+      selectedSequenceId: original.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.duplicateMixtape(original.id);
+
+  const copy = storage[STORAGE_KEY].sequences[1];
+  assert.equal(copy.name, 'ASMR 조각 모음 복사본');
+  assert.equal(copy.segments.length, 2);
+  assert.notEqual(copy.id, original.id);
+  assert.notEqual(copy.segments[0].id, 'clip-a');
+  assert.notEqual(copy.segments[1].id, 'clip-b');
+  assert.equal(store.getState().store.selectedSequenceId, copy.id);
+});
+
+test('mergeMixtapeInto appends copied clips to the target and removes the source', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const target = makeSequence({ id: 'target-sequence', name: 'Target', segments: [makeSegment({ id: 'target-clip', title: 'Target clip' })] });
+  const source = makeSequence({ id: 'source-sequence', name: 'Source', segments: [makeSegment({ id: 'source-clip', title: 'Source clip' })] });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [target, source],
+      selectedSequenceId: source.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [target, source],
+      selectedSequenceId: source.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.mergeMixtapeInto(source.id, target.id);
+
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [target.id]);
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 2);
+  assert.deepEqual(storage[STORAGE_KEY].sequences[0].segments.map((segment) => segment.title), ['Target clip', 'Source clip']);
+  assert.notEqual(storage[STORAGE_KEY].sequences[0].segments[1].id, 'source-clip');
+  assert.equal(store.getState().store.selectedSequenceId, target.id);
+});
+
+test('copySegmentToMixtape and moveSegmentToMixtape transfer clips between mixtapes', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const source = makeSequence({
+    id: 'source-sequence',
+    name: 'Source',
+    segments: [makeSegment({ id: 'clip-a', title: 'Move me' }), makeSegment({ id: 'clip-b', title: 'Keep me' })]
+  });
+  const target = makeSequence({ id: 'target-sequence', name: 'Target', segments: [] });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [source, target],
+      selectedSequenceId: source.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [source, target],
+      selectedSequenceId: source.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.copySegmentToMixtape('clip-a', target.id);
+  await store.moveSegmentToMixtape('clip-b', target.id);
+
+  const [nextSource, nextTarget] = storage[STORAGE_KEY].sequences;
+  assert.deepEqual(nextSource.segments.map((segment) => segment.id), ['clip-a']);
+  assert.deepEqual(nextTarget.segments.map((segment) => segment.title), ['Move me', 'Keep me']);
+  assert.notEqual(nextTarget.segments[0].id, 'clip-a');
+  assert.equal(nextTarget.segments[1].id, 'clip-b');
 });
 
 test('updateSettings normalizes settings before publishing visible state', async () => {

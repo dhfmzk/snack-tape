@@ -7,12 +7,12 @@ Scope: repository audit only. This document does not implement fixes. It separat
 Counts:
 
 - Potential bugs and regressions: 50 total, 50 fixed, 0 open
-- Unfinished areas and follow-up work: 50 total, 16 fixed, 34 open
+- Unfinished areas and follow-up work: 50 total, 22 fixed, 28 open
 
 Open severity:
 
 - Open bugs: P0 Critical 0, P1 High 0, P2 Medium 0, P3 Low 0
-- Open unfinished work: P0 Critical 1, P1 High 7, P2 Medium 15, P3 Low 11
+- Open unfinished work: P0 Critical 1, P1 High 7, P2 Medium 14, P3 Low 6
 
 Severity model:
 
@@ -27,7 +27,7 @@ Fix first:
 
 - P0/P1 first: `ST-GAP-042`, `ST-GAP-015`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
 - P2 next: queue and segment editing depth, playback control clarity, localization, accessibility, and browser-level QA confidence.
-- P3 later: library-scale conveniences, visual polish, optional metadata, and release packaging.
+- P3 later: visual polish, optional metadata, and release packaging.
 
 ## Fixed Bugs
 
@@ -113,12 +113,12 @@ Fix first:
 | ST-GAP-013 | P2 Medium | Queue editing | Queue edit supports reorder/remove but not direct segment time edits inside the Playback queue. | `src/screens/Playback.tsx:462-550`, `src/screens/Capture.tsx:172-243` | Keep time editing in Edit tab or add an inline range editor in queue edit. |
 | ST-GAP-014 | P2 Medium | Segment editing | Segment range editing is nudge-only; there is no direct time input. | `src/screens/Capture.tsx:172-243` | Add exact start/end text fields with validation and keyboard commit. |
 | ST-GAP-015 | P1 High | Segment editing | Segment deletion has no undo or confirmation, despite permanently mutating local storage. | `src/screens/Capture.tsx:143-151`, `src/state/store.ts:371-408` | Add undo, confirmation, or a short-lived recovery affordance that matches the template. |
-| ST-GAP-016 | P2 Medium | Mixtapes | Home cards do not expose rename/delete/edit actions directly; users must enter Playback or Edit first. | `src/screens/Home.tsx:100-210`, `src/screens/Capture.tsx:246-340`, `src/screens/Playback.tsx:293-301` | Add a template-aligned card menu if Home is meant to manage mixtapes. |
-| ST-GAP-017 | P3 Low | Mixtapes | There is no duplicate/copy mixtape flow. | `src/state/store.ts:137-287` | Add copy if users need variants of the same queue. |
-| ST-GAP-018 | P3 Low | Mixtapes | There is no merge or move-clips-between-mixtapes flow. | `src/state/store.ts:290-408` | Add "move to" or "copy to" actions for saved segments. |
-| ST-GAP-019 | P3 Low | Mixtapes | There is no sorting option for many mixtapes beyond insertion order. | `src/screens/Home.tsx:260-307` | Add sort by recent update, name, clip count, or manual order. |
-| ST-GAP-020 | P3 Low | Mixtapes | There is no search/filter for large mixtape libraries. | `src/screens/Home.tsx:260-307` | Add local search once card count becomes large. |
-| ST-GAP-021 | P3 Low | Mixtapes | Mixtape creation names use count-based numbering, which can repeat names after deletion. | `src/state/store.ts:137-158` | Generate the next unused visible number or open rename immediately. |
+| ST-GAP-016 | Fixed | Mixtapes | Fixed: Home cards now expose direct edit, rename, duplicate, delete, and merge actions through a template-aligned card menu. | `src/screens/Home.tsx`, `src/App.tsx`, `tests/homeScreen.test.mjs` | Keep Home card action wiring tests. |
+| ST-GAP-017 | Fixed | Mixtapes | Fixed: mixtapes can be duplicated with fresh sequence and segment IDs plus a unique localized copy name. | `src/state/store.ts`, `src/i18n.ts`, `tests/storeRouting.test.mjs` | Keep duplicate persistence and ID independence tests. |
+| ST-GAP-018 | Fixed | Mixtapes | Fixed: users can merge one mixtape into another, and copy or move individual clips between mixtapes from the Edit segment menu. | `src/state/store.ts`, `src/screens/Capture.tsx`, `src/screens/Home.tsx`, `tests/storeRouting.test.mjs`, `tests/captureScreen.test.mjs` | Add richer undo/backup safety in the data-safety pass. |
+| ST-GAP-019 | Fixed | Mixtapes | Fixed: Home supports manual, recently updated, name, and clip-count sorting. | `src/screens/Home.tsx`, `src/state/store.ts`, `tests/homeScreen.test.mjs` | Keep sort select focus/persistence coverage. |
+| ST-GAP-020 | Fixed | Mixtapes | Fixed: Home supports local search across mixtape names and saved clip titles. | `src/screens/Home.tsx`, `src/state/store.ts`, `tests/homeScreen.test.mjs` | Keep search rendering tests. |
+| ST-GAP-021 | Fixed | Mixtapes | Fixed: new mixtape names now use the next unused visible number instead of raw sequence count. | `src/state/store.ts`, `tests/storeRouting.test.mjs` | Keep deletion-gap naming coverage. |
 | ST-GAP-023 | P1 High | Capture | Capture guards fail silently instead of explaining whether the active tab is missing, not YouTube, unreadable, or has no current time. | `src/state/store.ts:557-620`, `src/state/youtube.ts:105-135` | Add inline error/status area in the template. |
 | ST-GAP-024 | P3 Low | Capture | Saved clip cards show only title and range; there is no thumbnail in the Edit list, unlike Playback queue and Home covers. | `src/screens/Capture.tsx:752-839` | Add compact thumbnails if the template expects visual continuity. |
 | ST-GAP-025 | P3 Low | Capture | The Edit tab does not show the active channel metadata even though content script reads it. | `src/content/contentScript.ts:137-152`, `src/screens/Capture.tsx:557-614` | Surface channel when useful or remove it from `VideoState`. |
@@ -149,5 +149,5 @@ Fix first:
 
 1. Close remaining P0 data-safety work: `ST-GAP-042`.
 2. Close P1 core-flow blockers: `ST-GAP-015`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-036`, `ST-GAP-037`, `ST-GAP-043`, `ST-GAP-049`.
-3. Work P2 usability, precision, and QA confidence: `ST-GAP-013`, `ST-GAP-014`, `ST-GAP-016`, `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-029` through `ST-GAP-033`, `ST-GAP-035`, `ST-GAP-039`, `ST-GAP-044` through `ST-GAP-046`.
-4. Keep P3 polish, scope, and release items for later: `ST-GAP-017` through `ST-GAP-021`, `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.
+3. Work P2 usability, precision, and QA confidence: `ST-GAP-013`, `ST-GAP-014`, `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-029` through `ST-GAP-033`, `ST-GAP-035`, `ST-GAP-039`, `ST-GAP-044` through `ST-GAP-046`.
+4. Keep P3 polish, scope, and release items for later: `ST-GAP-024`, `ST-GAP-025`, `ST-GAP-028`, `ST-GAP-040`, `ST-GAP-041`, `ST-GAP-050`.

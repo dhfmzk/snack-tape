@@ -38,6 +38,8 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onCancelSegmentEdit: () => store.cancelSegmentEdit(),
       onNudgeSegment: (segmentId, edge, deltaSeconds) => void store.nudgeSegmentTime(segmentId, edge, deltaSeconds),
       onDeleteSegment: (segmentId) => void store.deleteSegmentFromSelected(segmentId),
+      onCopySegmentToMixtape: (segmentId, targetSequenceId) => void store.copySegmentToMixtape(segmentId, targetSequenceId),
+      onMoveSegmentToMixtape: (segmentId, targetSequenceId) => void store.moveSegmentToMixtape(segmentId, targetSequenceId),
       onBeginRenameMixtape: (sequenceId) => void store.beginRenameMixtape(sequenceId),
       onCancelRenameMixtape: () => store.cancelRenameMixtape(),
       onRenameMixtape: (sequenceId, name) => void store.renameMixtape(sequenceId, name),
@@ -100,6 +102,26 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
     onCreate: () => void store.createMixtape(),
     onOpenSequence: (sequenceId) => void store.openMixtape(sequenceId),
     onPlaySequence: (sequenceId) => void store.startSequence(0, sequenceId),
+    onEditSequence: (sequenceId) => void store.editMixtape(sequenceId),
+    onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
+    onDuplicateSequence: (sequenceId) => void store.duplicateMixtape(sequenceId),
+    onDeleteSequence: (sequenceId) => {
+      const sequence = state.store?.sequences.find((item) => item.id === sequenceId);
+      const name = sequence?.name ?? i18n.common.unnamedMixtape;
+      const clipCount = sequence?.segments.length ?? 0;
+      if (window.confirm(i18n.app.deleteMixtapeConfirm(name, clipCount))) {
+        void store.deleteMixtape(sequenceId);
+      }
+    },
+    onMergeSequence: (sourceSequenceId, targetSequenceId) => {
+      const source = state.store?.sequences.find((item) => item.id === sourceSequenceId);
+      const target = state.store?.sequences.find((item) => item.id === targetSequenceId);
+      if (source && target && window.confirm(i18n.app.mergeMixtapeConfirm(source.name, target.name, source.segments.length))) {
+        void store.mergeMixtapeInto(sourceSequenceId, targetSequenceId);
+      }
+    },
+    onHomeSearch: (query) => store.setHomeSearch(query),
+    onHomeSort: (sort) => store.setHomeSort(sort),
   });
 }
 
