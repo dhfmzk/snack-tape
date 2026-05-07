@@ -16,7 +16,7 @@ It is built around a simple loop: mark an IN point, mark an OUT point, save the 
 
 SnackTape is intentionally local-first and YouTube-focused. It does not download, reupload, scrape, or bypass access controls for videos. It only controls playback position for videos the user can already view in the browser.
 
-This repository currently targets the Chrome side panel experience. Legacy editor source may remain in the tree, but the extension entry point is the MV3 side panel defined in `manifest.json`.
+This repository targets the Chrome side panel experience defined in `manifest.json`.
 
 ## License
 

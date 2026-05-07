@@ -111,13 +111,24 @@ export type I18n = {
     capture: string;
     shortcutIn: string;
     shortcutOut: string;
+    shortcutHelp: string;
     defaultSaveLocation: string;
+    defaultSaveLocationSelect: string;
     autoTitle: string;
     autoTitleHelp: string;
     data: string;
     export: string;
+    exportJson: string;
+    exportCsv: string;
     import: string;
+    importHelp: string;
     deleteAllClips: string;
+    deleteAllClipsHelp: string;
+    deleteAllClipsConfirm: (clipCount: number) => string;
+    exportReady: (format: string) => string;
+    importReady: (mixtapeCount: number) => string;
+    importFailed: string;
+    deleteAllDone: string;
   };
   detail: {
     title: string;
@@ -234,13 +245,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       capture: '캡처',
       shortcutIn: '단축키 — IN',
       shortcutOut: '단축키 — OUT + 저장',
+      shortcutHelp: 'Chrome 확장 프로그램 단축키에서 변경할 수 있습니다.',
       defaultSaveLocation: '기본 저장 위치',
+      defaultSaveLocationSelect: '기본 저장 위치 선택',
       autoTitle: 'OUT 시 자동 제목 추론',
       autoTitleHelp: '자막·챕터에서 추출',
       data: '데이터',
       export: '내보내기',
+      exportJson: 'JSON',
+      exportCsv: 'CSV',
       import: '가져오기',
+      importHelp: 'JSON 백업 파일로 교체',
       deleteAllClips: '모든 클립 삭제',
+      deleteAllClipsHelp: '믹스테이프와 저장된 구간을 비웁니다.',
+      deleteAllClipsConfirm: (clipCount) => `저장된 클립 ${clipCount}개와 모든 믹스테이프를 삭제할까요?`,
+      exportReady: (format) => `${format.toUpperCase()} 내보내기를 준비했습니다.`,
+      importReady: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 가져왔습니다.`,
+      importFailed: '가져올 수 없는 JSON 파일입니다.',
+      deleteAllDone: '모든 클립을 삭제했습니다.',
     },
     detail: {
       title: '상세 편집은 M2 범위입니다',
@@ -355,13 +377,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       capture: 'Capture',
       shortcutIn: 'Shortcut — IN',
       shortcutOut: 'Shortcut — OUT + save',
+      shortcutHelp: 'Change these in Chrome extension shortcuts.',
       defaultSaveLocation: 'Default save location',
+      defaultSaveLocationSelect: 'Choose default save location',
       autoTitle: 'Infer title on OUT',
       autoTitleHelp: 'Extract from captions and chapters',
       data: 'Data',
       export: 'Export',
+      exportJson: 'JSON',
+      exportCsv: 'CSV',
       import: 'Import',
+      importHelp: 'Replace from a JSON backup',
       deleteAllClips: 'Delete all clips',
+      deleteAllClipsHelp: 'Clear mixtapes and saved ranges.',
+      deleteAllClipsConfirm: (clipCount) => `Delete ${clipCount} saved clip${clipCount === 1 ? '' : 's'} and all mixtapes?`,
+      exportReady: (format) => `${format.toUpperCase()} export is ready.`,
+      importReady: (mixtapeCount) => `Imported ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importFailed: 'This JSON file cannot be imported.',
+      deleteAllDone: 'Deleted all clips.',
     },
     detail: {
       title: 'Detailed editing is planned for M2',

@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+
+async function pathExists(url) {
+  try {
+    await stat(url);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return false;
+    }
+
+    throw error;
+  }
+}
 
 test('manifest uses Chrome-loadable command defaults', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
@@ -22,6 +35,12 @@ test('README stays as a concise project introduction', async () => {
   assert.match(readme, /Chrome MV3 side-panel extension/);
   assert.match(readme, /Edit \/ Mixtapes \/ Settings/);
   assert.doesNotMatch(readme, /Manual QA Checklist|Load in Chrome|How to Use|Install and Build/);
+});
+
+test('legacy editor source is removed from the MV3 side-panel app', async () => {
+  assert.equal(await pathExists(new URL('../src/editor/editor.html', import.meta.url)), false);
+  assert.equal(await pathExists(new URL('../src/editor/editor.css', import.meta.url)), false);
+  assert.equal(await pathExists(new URL('../src/editor/editor.ts', import.meta.url)), false);
 });
 
 test('manifest metadata uses Chrome locale messages with English default locale', async () => {

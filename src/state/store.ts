@@ -1,5 +1,6 @@
 import { describePlaybackState, playbackStateAfterSequenceEdit, type PlaybackDisplayState } from '../shared/playback.js';
 import { applySegmentOrder, moveItem, removeSegmentFromSequence } from '../shared/reorder.js';
+import { parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFormat } from '../shared/dataTransfer.js';
 import {
   clearPlaybackState,
   clearSegmentDraft,
@@ -39,6 +40,11 @@ export type CaptureNotice = {
   message: string;
 };
 
+export type SettingsNotice = {
+  kind: 'error' | 'info';
+  message: string;
+};
+
 export type AppState = {
   route: AppRoute;
   store: SnackTapeStore | null;
@@ -53,6 +59,7 @@ export type AppState = {
   segmentEdit: SegmentEditState | null;
   renameEdit: RenameEditState | null;
   captureNotice: CaptureNotice | null;
+  settingsNotice: SettingsNotice | null;
   loading: boolean;
 };
 
@@ -109,6 +116,7 @@ export class SnackTapeAppStore {
       segmentEdit: null,
       renameEdit: null,
       captureNotice: null,
+      settingsNotice: null,
       loading: true,
     };
   }
@@ -586,6 +594,101 @@ export class SnackTapeAppStore {
 
   async setAccentKey(accentKey: Settings['accentKey']): Promise<void> {
     await this.updateSettings({ accentKey });
+  }
+
+  async setDefaultMixtape(sequenceId: string): Promise<void> {
+    if (!this.state.store?.sequences.some((sequence) => sequence.id === sequenceId)) {
+      return;
+    }
+
+    await this.updateSettings({ defaultMixtapeId: sequenceId });
+  }
+
+  async exportData(format: ExportFormat): Promise<void> {
+    if (!this.state.store) {
+      return;
+    }
+
+    const extension = format === 'json' ? 'json' : 'csv';
+    const mimeType = format === 'json' ? 'application/json' : 'text/csv';
+    const text = format === 'json' ? serializeStoreJson(this.state.store) : serializeStoreCsv(this.state.store);
+    this.downloadTextFile(`snacktape-export-${Date.now()}.${extension}`, mimeType, text);
+    this.setSettingsInfo(createI18n(this.state.settings.language).settings.exportReady(format));
+  }
+
+  async importDataFile(file: Pick<File, 'text'>): Promise<void> {
+    const i18n = createI18n(this.state.settings.language).settings;
+    const store = parseImportedStoreJson(await file.text());
+    if (!store) {
+      this.setSettingsError(i18n.importFailed);
+      return;
+    }
+
+    const previousSettings = this.state.settings;
+    const settings = store.sequences.some((sequence) => sequence.id === previousSettings.defaultMixtapeId)
+      ? this.state.settings
+      : normalizeSettings({ ...this.state.settings, defaultMixtapeId: undefined });
+    const settingsChanged = settings !== previousSettings;
+    this.setState({
+      store,
+      settings,
+      playbackState: null,
+      playbackDisplay: null,
+      draftIn: null,
+      capturePulseId: null,
+      queueEdit: null,
+      segmentEdit: null,
+      renameEdit: null,
+      settingsNotice: { kind: 'info', message: i18n.importReady(store.sequences.length) },
+    });
+    await saveStore(store);
+    if (settingsChanged) {
+      await saveSettings(settings);
+    }
+    await clearPlaybackState();
+    await clearSegmentDraft();
+  }
+
+  async deleteAllData(): Promise<void> {
+    const emptyStore: SnackTapeStore = {
+      sequences: [],
+      selectedSequenceId: null,
+    };
+    const settings = normalizeSettings({ ...this.state.settings, defaultMixtapeId: undefined });
+    this.setState({
+      store: emptyStore,
+      settings,
+      playbackState: null,
+      playbackDisplay: null,
+      draftIn: null,
+      capturePulseId: null,
+      queueEdit: null,
+      segmentEdit: null,
+      renameEdit: null,
+      settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.deleteAllDone },
+    });
+    await saveStore(emptyStore);
+    await saveSettings(settings);
+    await clearPlaybackState();
+    await clearSegmentDraft();
+  }
+
+  private downloadTextFile(filename: string, mimeType: string, text: string): void {
+    const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  private setSettingsInfo(message: string): void {
+    this.setState({ settingsNotice: { kind: 'info', message } });
+  }
+
+  private setSettingsError(message: string): void {
+    this.setState({ settingsNotice: { kind: 'error', message } });
   }
 
   async captureIn(): Promise<void> {

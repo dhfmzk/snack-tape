@@ -7,7 +7,7 @@ Scope: repository audit only. This document does not implement fixes. It separat
 Counts:
 
 - Potential bugs and regressions: 50 total, 8 fixed, 42 open
-- Unfinished areas and follow-up work: 50 total
+- Unfinished areas and follow-up work: 50 total, 11 fixed, 39 open
 
 ## Priority Summary
 
@@ -15,7 +15,7 @@ Fix first:
 
 - `ST-BUG-001`, `ST-BUG-002`, `ST-BUG-004` through `ST-BUG-007`, `ST-BUG-009`, and `ST-BUG-010`: rendering/focus, queue editing, and state-loss risks that directly match recent UI complaints.
 - `ST-BUG-021` through `ST-BUG-033`: capture/playback commands can appear to work while runtime failures are swallowed or the wrong tab is targeted.
-- `ST-GAP-001` through `ST-GAP-015`: visible Settings/Edit/Playback surfaces that render controls without complete behavior.
+- `ST-GAP-012` through `ST-GAP-015`: visible edit/playback surfaces that render controls without complete behavior.
 
 ## Fixed Bugs
 
@@ -81,17 +81,17 @@ Fix first:
 
 | ID | Area | Missing or incomplete area | Evidence | Recommended next step |
 | --- | --- | --- | --- | --- |
-| ST-GAP-001 | Settings | Export row is visible but has no click handler or export implementation in the side panel. | `src/screens/Settings.tsx:403-408` | Implement JSON and CSV export from the side panel or remove the chevron row. |
-| ST-GAP-002 | Settings | Import row is visible but has no click handler or import flow in the side panel. | `src/screens/Settings.tsx:403-408` | Add file picker, validation, preview, merge/replace choice, and error UI. |
-| ST-GAP-003 | Settings | Delete-all row is visible but has no click handler or confirmation flow. | `src/screens/Settings.tsx:403-408` | Add a confirm flow plus playback stop and storage clear behavior. |
-| ST-GAP-004 | Settings | Default save location is displayed but cannot be changed from Settings. | `src/screens/Settings.tsx:28-38`, `src/screens/Settings.tsx:390-395` | Add a sequence picker that writes `defaultMixtapeId`. |
-| ST-GAP-005 | Settings | Shortcut rows are display-only and do not explain Chrome's command-shortcut management path. | `src/screens/Settings.tsx:390-394`, `manifest.json:26-43` | Add help text or a button that opens Chrome shortcut settings if feasible. |
-| ST-GAP-006 | Settings | `autoTitleFromCaptions` has a toggle but no capture implementation. | `src/state/storage.ts:13`, `src/screens/Settings.tsx:395-400`, `src/state/store.ts:622-632` | Implement the feature or label it unavailable. |
-| ST-GAP-007 | Settings | `fadeOut` has a toggle but content playback does not apply fade behavior. | `src/state/storage.ts:8`, `src/screens/Settings.tsx:376-382`, `src/content/contentScript.ts:199-244` | Pass settings into playback messages and fade volume near the segment end. |
-| ST-GAP-008 | Settings | `autoNext` has a toggle but background playback always advances through the order until completion. | `src/state/storage.ts:7`, `src/screens/Settings.tsx:369-375`, `src/background/background.ts:260-290` | Respect `autoNext` in `nextSegment` or remove the toggle. |
-| ST-GAP-009 | Settings | Fixed: background playback now reads `shuffleByDefault` when a start request does not provide an explicit mode. | `src/state/store.ts:680-685`, `src/background/background.ts:160-190`, `tests/backgroundPlaybackMode.test.mjs` | Keep coverage for side-panel and background default-mode paths. |
-| ST-GAP-010 | Data | JSON/CSV export is mentioned in project scope but is only present in the legacy editor source, not the current side panel. | `docs/snacktape-goal.md:29-31`, `src/editor/editor.html:49-51`, `src/screens/Settings.tsx:403-408` | Move export/import into the side panel and retire the legacy editor. |
-| ST-GAP-011 | Legacy source | `src/editor/*` remains in the tree with Korean UI and old flows, but the manifest no longer exposes it. | `README.md:15-20`, `src/editor/editor.html:1-59`, `manifest.json:1-44` | Delete it or explicitly quarantine it as migration reference. |
+| ST-GAP-001 | Settings | Fixed: Settings export now downloads JSON backups and CSV clip rows from the side panel. | `src/state/store.ts:607-616`, `src/shared/dataTransfer.ts`, `src/screens/Settings.tsx:528-538` | Keep export serialization and Settings action wiring tests. |
+| ST-GAP-002 | Settings | Fixed: Settings import now opens a JSON picker, validates the payload, replaces the store, and shows inline status. | `src/App.tsx:11-21`, `src/state/store.ts:619-649`, `src/shared/dataTransfer.ts` | Keep import success and invalid-file regression tests. |
+| ST-GAP-003 | Settings | Fixed: Delete-all now confirms, clears mixtapes, playback state, draft state, and stale default save location. | `src/App.tsx:81-86`, `src/state/store.ts:652-673` | Keep destructive-action storage cleanup tests. |
+| ST-GAP-004 | Settings | Fixed: Default save location is a native Settings select that writes `defaultMixtapeId`. | `src/screens/Settings.tsx:145-200`, `src/state/store.ts:599-605` | Keep Settings select wiring and state persistence tests. |
+| ST-GAP-005 | Settings | Fixed: Shortcut rows now explain that shortcuts are managed in Chrome extension shortcuts. | `src/screens/Settings.tsx:517-518`, `src/i18n.ts` | Keep Settings copy tests for shortcut help text. |
+| ST-GAP-006 | Settings | Fixed: `autoTitleFromCaptions=false` now disables automatic video-title inference during capture. | `src/state/store.ts:819-826`, `tests/storeCapture.test.mjs` | Add richer caption/chapter extraction later if needed. |
+| ST-GAP-007 | Settings | Fixed: background playback sends `fadeOut` to content playback, and the content script fades video volume near the segment end. | `src/background/background.ts:253-260`, `src/content/contentScript.ts:199-252` | Keep background fade-message coverage and add browser playback QA later. |
+| ST-GAP-008 | Settings | Fixed: background playback respects `autoNext=false` by stopping after the current segment ends. | `src/background/background.ts:282-286`, `tests/backgroundPlaybackMode.test.mjs` | Keep auto-next disabled coverage. |
+| ST-GAP-009 | Settings | Fixed: background playback reads `shuffleByDefault` when a start request does not provide an explicit mode. | `src/background/background.ts:71-74`, `tests/backgroundPlaybackMode.test.mjs` | Keep side-panel and background default-mode coverage. |
+| ST-GAP-010 | Data | Fixed: JSON and CSV export/import are now available from the current side panel instead of only the legacy editor. | `src/screens/Settings.tsx:528-540`, `src/state/store.ts:607-649`, `src/shared/dataTransfer.ts` | Keep data transfer tests and side-panel action wiring covered. |
+| ST-GAP-011 | Legacy source | Fixed: removed the unused `src/editor/*` source and stale README/test references; the MV3 app is side-panel only. | `README.md:19`, `manifest.json:12-18`, `tests/manifest.test.mjs:40-44` | Keep the legacy-source absence test. |
 | ST-GAP-012 | Queue editing | Queue edit UI exists only for an internal `queueEdit` state and lacks an exposed path from the current Playback screen. | `src/state/store.ts:411-499`, `src/screens/Playback.tsx:429-550`, `src/App.tsx:50-55` | Decide whether Playback "Edit" means queue edit or mixtape edit, then wire both flows clearly. |
 | ST-GAP-013 | Queue editing | Queue edit supports reorder/remove but not direct segment time edits inside the Playback queue. | `src/screens/Playback.tsx:462-550`, `src/screens/Capture.tsx:172-243` | Keep time editing in Edit tab or add an inline range editor in queue edit. |
 | ST-GAP-014 | Segment editing | Segment range editing is nudge-only; there is no direct time input. | `src/screens/Capture.tsx:172-243` | Add exact start/end text fields with validation and keyboard commit. |
@@ -137,5 +137,5 @@ Fix first:
 1. Stabilize rendering and interaction persistence: `ST-BUG-001`, `ST-BUG-002`, `ST-BUG-006`, `ST-BUG-038`, `ST-BUG-045`.
 2. Make queue editing explicit: `ST-BUG-004`, `ST-BUG-007`, `ST-GAP-012`, `ST-GAP-036`.
 3. Make runtime failures visible and correct: `ST-BUG-021` through `ST-BUG-033`, `ST-GAP-023`, `ST-GAP-034`, `ST-GAP-037`.
-4. Close visible Settings rows: `ST-GAP-001` through `ST-GAP-009`.
+4. Close visible non-Settings rows: `ST-GAP-012` through `ST-GAP-015`.
 5. Add real browser and extension smoke coverage: `ST-GAP-046` through `ST-GAP-049`.

@@ -8,6 +8,19 @@ import { Playback } from './screens/Playback.js';
 import { Settings } from './screens/Settings.js';
 import type { AppState, SnackTapeAppStore } from './state/store.js';
 
+function requestImportFile(onFile: (file: File) => void): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (file) {
+      onFile(file);
+    }
+  });
+  input.click();
+}
+
 function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLElement {
   if (state.loading) {
     return el('div', { className: 'screen', dataset: { scrollKey: 'loading-screen' } }, el('p', { className: 'soft-empty', text: i18n.app.loading }));
@@ -62,6 +75,15 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       i18n,
       onAccent: (key) => void store.setAccentKey(key),
       onSettingChange: (patch) => void store.updateSettings(patch),
+      onDefaultSaveTarget: (sequenceId) => void store.setDefaultMixtape(sequenceId),
+      onExport: (format) => void store.exportData(format),
+      onImport: () => requestImportFile((file) => void store.importDataFile(file)),
+      onDeleteAll: () => {
+        const clipCount = state.store?.sequences.reduce((total, sequence) => total + sequence.segments.length, 0) ?? 0;
+        if (window.confirm(i18n.settings.deleteAllClipsConfirm(clipCount))) {
+          void store.deleteAllData();
+        }
+      },
     });
   }
 

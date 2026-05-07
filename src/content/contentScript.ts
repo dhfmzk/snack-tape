@@ -196,7 +196,7 @@ async function tryPlay(video: HTMLVideoElement): Promise<void> {
   }
 }
 
-async function playSegment(segment: Segment, playbackToken: string): Promise<void> {
+async function playSegment(segment: Segment, playbackToken: string, fadeOut = false, fadeOutSeconds = 0.3): Promise<void> {
   clearPlayback();
   activeToken = playbackToken;
   activeSegmentVideoId = segment.videoId;
@@ -207,6 +207,7 @@ async function playSegment(segment: Segment, playbackToken: string): Promise<voi
   video.currentTime = targetStart;
 
   let finished = false;
+  const originalVolume = video.volume;
   const finish = () => {
     if (finished || activeToken !== playbackToken) {
       return;
@@ -229,6 +230,16 @@ async function playSegment(segment: Segment, playbackToken: string): Promise<voi
       return;
     }
 
+    if (fadeOut && segment.endSeconds && segment.endSeconds > 0 && fadeOutSeconds > 0) {
+      const remainingSeconds = segment.endSeconds - video.currentTime;
+      if (remainingSeconds <= fadeOutSeconds) {
+        const ratio = Math.max(0, remainingSeconds / fadeOutSeconds);
+        video.volume = Math.min(originalVolume, Math.max(0, originalVolume * ratio));
+      } else if (video.volume !== originalVolume) {
+        video.volume = originalVolume;
+      }
+    }
+
     if (segment.endSeconds && segment.endSeconds > 0 && video.currentTime >= segment.endSeconds - 0.15) {
       finish();
     }
@@ -238,6 +249,7 @@ async function playSegment(segment: Segment, playbackToken: string): Promise<voi
   cleanupPlayback = () => {
     window.clearInterval(interval);
     video.removeEventListener('ended', endedHandler);
+    video.volume = originalVolume;
   };
 
   await tryPlay(video);
@@ -281,7 +293,7 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
   }
 
   if (message.type === 'PLAY_SEGMENT') {
-    await playSegment(message.segment, message.playbackToken);
+    await playSegment(message.segment, message.playbackToken, message.fadeOut, message.fadeOutSeconds);
     return { ok: true };
   }
 

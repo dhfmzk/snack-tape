@@ -62,6 +62,8 @@ type PlaybackRequest = {
   orderPosition: number;
 };
 
+const FADE_OUT_SECONDS = 0.3;
+
 function normalizePlaybackMode(mode: PlaybackMode | undefined): PlaybackMode {
   return mode === 'shuffle' ? 'shuffle' : 'sequence';
 }
@@ -249,10 +251,13 @@ export async function playSegment(
   }
 
   try {
+    const settings = await loadSettings();
     await sendMessageWithRetries(tabId, {
       type: 'PLAY_SEGMENT',
       segment,
-      playbackToken
+      playbackToken,
+      fadeOut: settings.fadeOut,
+      fadeOutSeconds: FADE_OUT_SECONDS
     });
     await savePlaybackState({ ...playbackState, startedAt: Date.now() });
   } catch (error) {
@@ -276,6 +281,12 @@ export async function nextSegment(playbackToken?: string): Promise<void> {
 
   const store = await loadStore();
   const sequence = getSequence(store.sequences, state.sequenceId);
+  const settings = await loadSettings();
+  if (!settings.autoNext) {
+    await stopPlayback(playbackToken);
+    return;
+  }
+
   const nextStep = getNextPlaybackStep(sequence, state);
 
   if (!nextStep) {

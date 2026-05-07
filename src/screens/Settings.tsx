@@ -3,6 +3,7 @@ import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n, type Language } from '../i18n.js';
 import type { AppState } from '../state/store.js';
 import type { Settings as SnackTapeSettings } from '../state/storage.js';
+import type { ExportFormat } from '../shared/dataTransfer.js';
 import type { ThemeKey } from '../theme/tokens.js';
 import { SNACKTAPE_PALETTE } from '../theme/tokens.js';
 
@@ -11,6 +12,10 @@ type Props = {
   i18n?: I18n;
   onAccent: (key: ThemeKey) => void;
   onSettingChange?: (patch: Partial<SnackTapeSettings>) => void;
+  onDefaultSaveTarget?: (sequenceId: string) => void;
+  onExport?: (format: ExportFormat) => void;
+  onImport?: () => void;
+  onDeleteAll?: () => void;
 };
 
 type RowProps = {
@@ -23,6 +28,8 @@ type RowProps = {
   on?: boolean;
   danger?: boolean;
   onToggle?: () => void;
+  onClick?: () => void;
+  rightNode?: HTMLElement;
 };
 
 function selectedMixtapeName(state: AppState, i18n: I18n): string {
@@ -37,16 +44,27 @@ function selectedMixtapeName(state: AppState, i18n: I18n): string {
   return settingsDefault?.name ?? selected?.name ?? sequences[0]?.name ?? i18n.common.noMixtape;
 }
 
-function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, danger, onToggle }: RowProps): HTMLElement {
+function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, danger, onToggle, onClick, rightNode }: RowProps): HTMLElement {
+  const interactive = Boolean(onClick) && !toggle;
   return el(
-    'div',
+    interactive ? 'button' : 'div',
     {
+      type: interactive ? 'button' : undefined,
+      onClick: interactive ? onClick : undefined,
       style: {
+        width: '100%',
         display: 'flex',
         alignItems: 'center',
         padding: '11px 0',
         borderBottom: '1px solid var(--hairline)',
+        borderTop: '0',
+        borderLeft: '0',
+        borderRight: '0',
+        background: 'transparent',
+        fontFamily: 'inherit',
+        textAlign: 'left',
         gap: '10px',
+        cursor: interactive ? 'pointer' : 'default',
       },
     },
     el(
@@ -85,6 +103,7 @@ function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, da
           },
         })
       : null,
+    rightNode && !toggle ? rightNode : null,
     toggle
       ? el(
           'button',
@@ -123,6 +142,102 @@ function SettingsRow(i18n: I18n, { label, sub, right, mono, chev, toggle, on, da
   );
 }
 
+function PillButton(label: string, onClick?: () => void): HTMLElement {
+  return el('button', {
+    type: 'button',
+    text: label,
+    onClick: (event) => {
+      event.stopPropagation?.();
+      onClick?.();
+    },
+    style: {
+      minWidth: '44px',
+      height: '24px',
+      padding: '0 9px',
+      border: '1px solid var(--hairline2)',
+      background: 'var(--surface3)',
+      color: 'var(--text2)',
+      borderRadius: '6px',
+      fontSize: '10px',
+      fontWeight: '700',
+      cursor: onClick ? 'pointer' : 'default',
+      fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    },
+  });
+}
+
+function DefaultSaveLocationRow(
+  state: AppState,
+  i18n: I18n,
+  onDefaultSaveTarget?: (sequenceId: string) => void
+): HTMLElement {
+  const sequences = state.store?.sequences ?? [];
+  const selectedId = state.settings.defaultMixtapeId && sequences.some((sequence) => sequence.id === state.settings.defaultMixtapeId)
+    ? state.settings.defaultMixtapeId
+    : state.store?.selectedSequenceId ?? sequences[0]?.id ?? '';
+
+  return SettingsRow(i18n, {
+    label: i18n.settings.defaultSaveLocation,
+    rightNode: el(
+      'select',
+      {
+        ariaLabel: i18n.settings.defaultSaveLocationSelect,
+        value: selectedId,
+        disabled: sequences.length === 0,
+        onChange: (event) => {
+          const value = (event.target as HTMLSelectElement).value;
+          if (value) {
+            onDefaultSaveTarget?.(value);
+          }
+        },
+        style: {
+          maxWidth: '160px',
+          minWidth: '0',
+          height: '28px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface2)',
+          color: 'var(--text)',
+          borderRadius: '6px',
+          padding: '0 8px',
+          fontSize: '11px',
+          cursor: sequences.length > 0 ? 'pointer' : 'not-allowed',
+        },
+      },
+      sequences.length === 0
+        ? el('option', { value: '', text: i18n.common.noMixtape })
+        : null,
+      ...sequences.map((sequence) =>
+        el('option', {
+          value: sequence.id,
+          selected: sequence.id === selectedId,
+          text: sequence.name,
+        })
+      )
+    ),
+  });
+}
+
+function SettingsNotice(state: AppState): HTMLElement | null {
+  if (!state.settingsNotice) {
+    return null;
+  }
+
+  return el('div', {
+    text: state.settingsNotice.message,
+    style: {
+      margin: '0 0 14px',
+      padding: '9px 10px',
+      border: `1px solid ${state.settingsNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent)'}`,
+      background: 'var(--surface)',
+      color: state.settingsNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent2)',
+      borderRadius: '8px',
+      fontSize: '11px',
+      fontWeight: '600',
+      lineHeight: '1.35',
+    },
+  });
+}
+
 function Section(title: string, ...children: HTMLElement[]): HTMLElement {
   return el(
     'div',
@@ -148,88 +263,89 @@ function LanguageSection(state: AppState, i18n: I18n, onSettingChange?: (patch: 
 
   return el(
     'div',
-    { style: { marginBottom: '22px' } },
+    { style: { marginBottom: '22px', minHeight: '58px' } },
     el(
       'div',
       {
         style: {
           display: 'flex',
-          alignItems: 'baseline',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '4px',
+          gap: '12px',
         },
       },
-      el('span', {
-        text: i18n.settings.language,
-        style: {
-          fontSize: '13px',
-          fontWeight: '600',
-          color: 'var(--text)',
-        },
-      }),
-      el('span', {
-        text: i18n.settings.languageCode,
-        style: {
-          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-          fontSize: '9.5px',
-          color: 'var(--mute)',
-          letterSpacing: '0.4px',
-        },
-      })
-    ),
-    el('div', {
-      text: i18n.settings.languageHelp,
-      style: {
-        fontSize: '11px',
-        color: 'var(--mute)',
-        marginBottom: '12px',
-        lineHeight: '1.5',
-      },
-    }),
-    el(
-      'div',
-      {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          gap: '8px',
-        },
-      },
-      ...choices.map((choice) => {
-        const selected = state.settings.language === choice.key;
-        return el(
-          'button',
-          {
-            type: 'button',
-            ariaLabel: choice.label,
-            onClick: () => onSettingChange?.({ language: choice.key }),
-            style: {
-              height: '42px',
-              border: `1.5px solid ${selected ? 'var(--accent)' : 'var(--hairline)'}`,
-              background: selected ? 'var(--accent-soft)' : 'var(--surface)',
-              color: selected ? 'var(--text)' : 'var(--text2)',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: selected ? '700' : '600',
-              boxShadow: selected ? '0 0 14px var(--accent-glow)' : 'none',
-              position: 'relative',
-            },
+      el(
+        'div',
+        { style: { flex: '1', minWidth: '0' } },
+        el('div', {
+          text: i18n.settings.language,
+          style: {
+            fontSize: '13px',
+            fontWeight: '600',
+            color: 'var(--text)',
+            lineHeight: '18px',
           },
-          choice.label,
-          selected
-            ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent)' } }, Glyph('check', 11))
-            : null
-        );
-      })
+        }),
+        el('div', {
+          text: i18n.settings.languageHelp,
+          style: {
+            fontSize: '11px',
+            color: 'var(--mute)',
+            marginTop: '3px',
+            lineHeight: '16px',
+          },
+        })
+      ),
+      el(
+        'select',
+        {
+          ariaLabel: i18n.settings.language,
+          value: state.settings.language,
+          onChange: (event) => {
+            const value = (event.target as HTMLSelectElement).value;
+            if (value === 'ko' || value === 'en') {
+              onSettingChange?.({ language: value });
+            }
+          },
+          style: {
+            width: '132px',
+            height: '34px',
+            flexShrink: '0',
+            boxSizing: 'border-box',
+            border: '1px solid var(--hairline2)',
+            background: 'var(--surface2)',
+            color: 'var(--text)',
+            borderRadius: '7px',
+            padding: '0 10px',
+            fontSize: '12px',
+            fontWeight: '600',
+            lineHeight: '34px',
+            cursor: 'pointer',
+          },
+        },
+        ...choices.map((choice) =>
+          el('option',
+          {
+            value: choice.key,
+            selected: state.settings.language === choice.key,
+            text: choice.label,
+          })
+        )
+      )
     )
   );
 }
 
-export function Settings({ state, i18n = createI18n(state.settings.language), onAccent, onSettingChange }: Props): HTMLElement {
+export function Settings({
+  state,
+  i18n = createI18n(state.settings.language),
+  onAccent,
+  onSettingChange,
+  onDefaultSaveTarget,
+  onExport,
+  onImport,
+  onDeleteAll,
+}: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
 
   return el(
@@ -254,6 +370,7 @@ export function Settings({ state, i18n = createI18n(state.settings.language), on
         marginBottom: '14px',
       },
     }),
+    SettingsNotice(state),
     LanguageSection(state, i18n, onSettingChange),
     el(
       'div',
@@ -389,9 +506,9 @@ export function Settings({ state, i18n = createI18n(state.settings.language), on
     ),
     Section(
       i18n.settings.capture,
-      SettingsRow(i18n, { label: i18n.settings.shortcutIn, right: state.settings.shortcutIn, mono: true }),
-      SettingsRow(i18n, { label: i18n.settings.shortcutOut, right: state.settings.shortcutOut, mono: true }),
-      SettingsRow(i18n, { label: i18n.settings.defaultSaveLocation, right: selectedMixtapeName(state, i18n) }),
+      SettingsRow(i18n, { label: i18n.settings.shortcutIn, sub: i18n.settings.shortcutHelp, right: state.settings.shortcutIn, mono: true }),
+      SettingsRow(i18n, { label: i18n.settings.shortcutOut, sub: i18n.settings.shortcutHelp, right: state.settings.shortcutOut, mono: true }),
+      DefaultSaveLocationRow(state, i18n, onDefaultSaveTarget),
       SettingsRow(i18n, {
         label: i18n.settings.autoTitle,
         sub: i18n.settings.autoTitleHelp,
@@ -402,9 +519,17 @@ export function Settings({ state, i18n = createI18n(state.settings.language), on
     ),
     Section(
       i18n.settings.data,
-      SettingsRow(i18n, { label: i18n.settings.export, right: 'JSON · CSV', chev: true }),
-      SettingsRow(i18n, { label: i18n.settings.import, chev: true }),
-      SettingsRow(i18n, { label: i18n.settings.deleteAllClips, danger: true })
+      SettingsRow(i18n, {
+        label: i18n.settings.export,
+        rightNode: el(
+          'div',
+          { style: { display: 'flex', gap: '6px', flexShrink: '0' } },
+          PillButton(i18n.settings.exportJson, () => onExport?.('json')),
+          PillButton(i18n.settings.exportCsv, () => onExport?.('csv'))
+        ),
+      }),
+      SettingsRow(i18n, { label: i18n.settings.import, sub: i18n.settings.importHelp, chev: true, onClick: onImport }),
+      SettingsRow(i18n, { label: i18n.settings.deleteAllClips, sub: i18n.settings.deleteAllClipsHelp, danger: true, onClick: onDeleteAll })
     ),
     el(
       'div',

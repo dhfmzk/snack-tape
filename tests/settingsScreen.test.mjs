@@ -22,6 +22,8 @@ class FakeElement extends FakeNode {
     this.innerHTML = '';
     this.listeners = {};
     this.style = {};
+    this.value = '';
+    this.disabled = false;
   }
 
   setAttribute(name, value) {
@@ -35,6 +37,12 @@ class FakeElement extends FakeNode {
 
   click() {
     for (const listener of this.listeners.click ?? []) {
+      listener({ currentTarget: this, target: this, stopPropagation() {} });
+    }
+  }
+
+  change() {
+    for (const listener of this.listeners.change ?? []) {
       listener({ currentTarget: this, target: this });
     }
   }
@@ -94,15 +102,16 @@ test('Settings renders the full handoff settings template in palette order', asy
   const page = Settings({ state, onAccent: () => {}, onSettingChange: () => {} });
   const text = textOf(page);
   const languageSection = page.children[1];
-  const languageChoices = languageSection.children[2];
+  const languageSelect = languageSection.children[0].children[1];
   const colorSection = page.children[2];
   const swatchGrid = colorSection.children[2];
 
   assert.equal(page.dataset.scrollKey, 'settings-screen');
+  assert.equal(languageSelect.tagName, 'SELECT');
   assert.match(text, /설정/);
   assert.match(text, /언어/);
   assert.match(text, /앱 표시 언어입니다\./);
-  assert.deepEqual(languageChoices.children.map((choice) => choice.children[0].textContent), ['한국어', 'English']);
+  assert.deepEqual(languageSelect.children.map((choice) => choice.textContent), ['한국어', 'English']);
   assert.match(text, /포인트 컬러/);
   assert.match(text, /현재 재생 \/ 저장 \/ 활성 상태에 사용되는 색입니다\./);
   assert.match(text, /CORAL/);
@@ -115,15 +124,19 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /캡처/);
   assert.match(text, /단축키 — IN/);
   assert.match(text, /단축키 — OUT \+ 저장/);
+  assert.match(text, /Chrome 확장 프로그램 단축키에서 변경할 수 있습니다\./);
   assert.match(text, /기본 저장 위치/);
   assert.match(text, /잠 안 올 때 라이브/);
   assert.match(text, /OUT 시 자동 제목 추론/);
   assert.match(text, /자막·챕터에서 추출/);
   assert.match(text, /데이터/);
   assert.match(text, /내보내기/);
-  assert.match(text, /JSON · CSV/);
+  assert.match(text, /JSON/);
+  assert.match(text, /CSV/);
   assert.match(text, /가져오기/);
+  assert.match(text, /JSON 백업 파일로 교체/);
   assert.match(text, /모든 클립 삭제/);
+  assert.match(text, /믹스테이프와 저장된 구간을 비웁니다\./);
   assert.match(text, /SNACKTAPE v0\.1\.0 · MV3 SIDE PANEL/);
   assert.match(text, /BY YOU · 2026/);
   assert.deepEqual(swatchGrid.children.map((swatch) => swatch.children[1].textContent), ['peach', 'coral', 'butter', 'seafoam', 'sky']);
@@ -156,7 +169,62 @@ test('Settings wires handoff toggles to persisted setting patches', async () => 
   ]);
 });
 
-test('Settings wires language choices to persisted setting patches', async () => {
+test('Settings wires default save target selection to persisted setting patches', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const selected = [];
+  const state = baseState();
+  state.store = {
+    selectedSequenceId: 'sequence-1',
+    sequences: [
+      { id: 'sequence-1', name: '첫 테이프', segments: [] },
+      { id: 'sequence-2', name: '둘째 테이프', segments: [] }
+    ]
+  };
+
+  const page = Settings({
+    state,
+    onAccent: () => {},
+    onDefaultSaveTarget: (sequenceId) => selected.push(sequenceId)
+  });
+
+  const captureSection = page.children[4];
+  const select = captureSection.children[3].children[1];
+  select.value = 'sequence-2';
+  select.change();
+
+  assert.deepEqual(selected, ['sequence-2']);
+});
+
+test('Settings wires data actions to export, import, and delete callbacks', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const calls = [];
+
+  const page = Settings({
+    state: baseState(),
+    onAccent: () => {},
+    onExport: (format) => calls.push(['export', format]),
+    onImport: () => calls.push(['import']),
+    onDeleteAll: () => calls.push(['delete'])
+  });
+  const dataSection = page.children[5];
+  const exportButtons = dataSection.children[1].children[1].children;
+
+  exportButtons[0].click();
+  exportButtons[1].click();
+  dataSection.children[2].click();
+  dataSection.children[3].click();
+
+  assert.deepEqual(calls, [
+    ['export', 'json'],
+    ['export', 'csv'],
+    ['import'],
+    ['delete']
+  ]);
+});
+
+test('Settings wires language dropdown to persisted setting patches', async () => {
   installDomShim();
   const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
   const patches = [];
@@ -167,10 +235,32 @@ test('Settings wires language choices to persisted setting patches', async () =>
     onSettingChange: (patch) => patches.push(patch)
   });
 
-  const languageChoices = page.children[1].children[2];
-  languageChoices.children[1].click();
+  const languageSelect = page.children[1].children[0].children[1];
+  languageSelect.value = 'en';
+  languageSelect.change();
 
   assert.deepEqual(patches, [{ language: 'en' }]);
+});
+
+test('Settings language dropdown keeps stable dimensions across locales', async () => {
+  installDomShim();
+  const [{ Settings }, { createI18n }] = await Promise.all([
+    import('../.tmp-tests/src/screens/Settings.js'),
+    import('../.tmp-tests/src/i18n.js')
+  ]);
+  const koState = baseState();
+  const enState = baseState();
+  enState.settings.language = 'en';
+
+  const koPage = Settings({ state: koState, i18n: createI18n('ko'), onAccent: () => {}, onSettingChange: () => {} });
+  const enPage = Settings({ state: enState, i18n: createI18n('en'), onAccent: () => {}, onSettingChange: () => {} });
+  const koSelect = koPage.children[1].children[0].children[1];
+  const enSelect = enPage.children[1].children[0].children[1];
+
+  assert.equal(koSelect.style.width, enSelect.style.width);
+  assert.equal(koSelect.style.height, enSelect.style.height);
+  assert.equal(koSelect.style.flexShrink, '0');
+  assert.equal(enSelect.style.flexShrink, '0');
 });
 
 test('Settings renders English app copy when language is English', async () => {
