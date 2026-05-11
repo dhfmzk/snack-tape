@@ -912,7 +912,7 @@ export function Capture(props: Props): HTMLElement {
         {
           disabled: !canCaptureOut,
           onClick: () => (onPreviewOut ?? onOut)(),
-          ariaLabel: i18n.capture.captureOutAria,
+          ariaLabel: onPreviewOut ? i18n.capture.captureOutPreviewAria : i18n.capture.captureOutAria,
           style: {
             height: '76px',
             border: canCaptureOut ? '1.5px solid var(--accent)' : '1.5px solid var(--hairline2)',

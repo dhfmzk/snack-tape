@@ -393,6 +393,42 @@ test('captureOutAndSave uses a previewed OUT marker without refreshing active vi
   assert.equal(store.getState().draftOut, null);
 });
 
+test('captureOutAndSave saves a previewed OUT marker when refreshed metadata has no current time', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '미리보기 메타데이터',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: null,
+      duration: 300
+    },
+    draftIn: 42,
+    draftOut: 45
+  };
+
+  await store.captureOutAndSave();
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.title, '미리보기 메타데이터');
+  assert.equal(savedSegment.startSeconds, 42);
+  assert.equal(savedSegment.endSeconds, 45);
+  assert.equal(store.getState().captureNotice, null);
+});
+
 test('captureOutAndSave still saves when OUT is captured at the same timestamp as IN', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -615,7 +651,7 @@ test('Capture OUT preview and save buttons use the App wiring path', async () =>
   };
 
   const page = App(store.getState(), store);
-  const outButton = findByAriaLabel(page, 'OUT 마커 찍고 추가');
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
   assert.equal(outButton.disabled, false);
 
   outButton.click();

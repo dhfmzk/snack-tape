@@ -646,7 +646,7 @@ test('Capture OUT button previews OUT and save button commits the draft', async 
     onPreviewOut: () => calls.push('preview'),
     onClearDraft: () => calls.push('clear')
   });
-  const outButton = findByAriaLabel(page, 'OUT 마커 찍고 추가');
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
   const saveButton = findByAriaLabel(page, '현재 구간 저장');
   const clearButton = findByAriaLabel(page, '캡처 드래프트 취소');
 
@@ -658,6 +658,30 @@ test('Capture OUT button previews OUT and save button commits the draft', async 
   clearButton.click();
 
   assert.deepEqual(calls, ['preview', 'save', 'clear']);
+});
+
+test('Capture OUT button uses preview-only aria label when preview handler is wired', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState(),
+    onIn: () => {},
+    onOut: () => {},
+    onPreviewOut: () => {}
+  });
+
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
+  assert.ok(outButton);
+  assert.equal(findByAriaLabel(page, 'OUT 마커 찍고 추가'), null);
+});
+
+test('Capture OUT preview aria label has localized copy', async () => {
+  const { createI18n } = await import('../.tmp-tests/src/i18n.js');
+
+  assert.equal(createI18n('ko').capture.captureOutPreviewAria, 'OUT 마커 미리보기');
+  assert.equal(createI18n('ja').capture.captureOutPreviewAria, 'OUTマーカーをプレビュー');
+  assert.equal(createI18n('en').capture.captureOutPreviewAria, 'Preview OUT marker');
 });
 
 test('Capture nudge buttons target OUT after an OUT marker exists', async () => {

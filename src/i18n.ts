@@ -78,6 +78,7 @@ export type I18n = {
     end: string;
     captureInAria: string;
     captureOutAria: string;
+    captureOutPreviewAria: string;
     inButton: string;
     outButton: string;
     mark: string;
@@ -289,6 +290,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '끝',
       captureInAria: 'IN 마커 찍기',
       captureOutAria: 'OUT 마커 찍고 추가',
+      captureOutPreviewAria: 'OUT 마커 미리보기',
       inButton: 'IN · I',
       outButton: 'OUT + 추가 · O',
       mark: '찍기',
@@ -498,6 +500,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '終了',
       captureInAria: 'INマーカーを設定',
       captureOutAria: 'OUTマーカーを設定して追加',
+      captureOutPreviewAria: 'OUTマーカーをプレビュー',
       inButton: 'IN · I',
       outButton: 'OUT + 追加 · O',
       mark: 'マーク',
@@ -707,6 +710,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: 'End',
       captureInAria: 'Mark IN',
       captureOutAria: 'Mark OUT and add',
+      captureOutPreviewAria: 'Preview OUT marker',
       inButton: 'IN · I',
       outButton: 'OUT + Add · O',
       mark: 'Mark',
