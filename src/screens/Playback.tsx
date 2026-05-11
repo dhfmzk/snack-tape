@@ -4,7 +4,7 @@ import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
 import type { PlaybackMode, Segment, Sequence } from '../shared/types.js';
-import type { AppState } from '../state/store.js';
+import type { AppState, PlaybackRecoveryAction } from '../state/store.js';
 
 type Props = {
   state: AppState;
@@ -184,6 +184,58 @@ function playbackConnectionText(state: AppState, segment: Segment, i18n: I18n): 
   return `${i18n.playback.targetTab(state.playbackState.tabId)} · ${isConnected ? i18n.playback.connected : i18n.playback.disconnected}`;
 }
 
+function recoveryModeLabel(mode: PlaybackMode | undefined, i18n: I18n): string {
+  if (mode === 'shuffle') {
+    return i18n.playback.shuffle;
+  }
+
+  if (mode === 'repeat') {
+    return i18n.playback.repeatMode;
+  }
+
+  return i18n.playback.sequenceMode;
+}
+
+function recoveryQueueLabel(recovery: PlaybackRecoveryAction, sequence: Sequence | null, i18n: I18n): string {
+  if (recovery.type !== 'start') {
+    return '';
+  }
+
+  const orderedCount = recovery.orderSegmentIds?.length ?? 0;
+  if (recovery.queueEdited) {
+    return i18n.playback.recoveryEditedQueue(orderedCount || sequence?.segments.length || 0);
+  }
+
+  if (orderedCount > 0) {
+    return i18n.playback.recoverySessionQueue(orderedCount);
+  }
+
+  return i18n.playback.recoverySavedQueue;
+}
+
+function recoverySummary(state: AppState, i18n: I18n): string | null {
+  const recovery = state.playbackNotice?.recovery;
+  if (!recovery) {
+    return null;
+  }
+
+  if (recovery.type === 'next') {
+    return i18n.playback.recoveryNextSummary;
+  }
+
+  if (recovery.type === 'stop') {
+    return i18n.playback.recoveryStopSummary;
+  }
+
+  const sequence = state.store?.sequences.find((item) => item.id === recovery.sequenceId) ?? null;
+  const tapeName = sequence?.name?.trim() || i18n.common.unnamedMixtape;
+  return i18n.playback.recoveryStartSummary(
+    tapeName,
+    recoveryModeLabel(recovery.mode, i18n),
+    recoveryQueueLabel(recovery, sequence, i18n)
+  );
+}
+
 function seekTimeFromPointer(event: MouseEvent, segment: Segment, duration: number): number {
   const target = event.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
@@ -347,6 +399,7 @@ export function Playback(props: Props): HTMLElement {
   const isPaused = playbackStatus === 'paused';
   const hasPlaybackSession = state.playbackDisplay?.canStop === true || playbackStatus === 'pending' || playbackStatus === 'waiting' || playbackStatus === 'playing' || playbackStatus === 'paused';
   const progressState = progress(state, segment);
+  const recoveryText = recoverySummary(state, i18n);
 
   if (!sequence || sequence.segments.length === 0 || !segment) {
     return el(
@@ -488,6 +541,17 @@ export function Playback(props: Props): HTMLElement {
               },
             },
             el('div', { text: state.playbackNotice.message }),
+            recoveryText
+              ? el('div', {
+                  text: recoveryText,
+                  style: {
+                    color: 'var(--text2)',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    lineHeight: '1.35',
+                  },
+                })
+              : null,
             el(
               'div',
               { style: { display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' } },

@@ -1742,7 +1742,9 @@ test('Playback renders runtime playback errors in the Now Playing header', async
         type: 'start',
         sequenceId: sequence.id,
         startIndex: 0,
-        mode: 'sequence'
+        mode: 'shuffle',
+        orderSegmentIds: ['clip-runtime-error'],
+        queueEdited: true
       }
     },
     draftIn: null,
@@ -1768,6 +1770,7 @@ test('Playback renders runtime playback errors in the Now Playing header', async
   });
 
   assert.match(textOf(page), /재생을 시작할 수 없습니다\. runtime failed/);
+  assert.match(textOf(page), /오류 믹스테이프 · 셔플 재생 · 편집된 큐 1개 유지/);
   findByAriaLabel(page, '재생 다시 연결').click();
   findByAriaLabel(page, '재생 정지').click();
 
