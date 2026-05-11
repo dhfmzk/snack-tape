@@ -12,6 +12,7 @@ type Props = {
   onIn: () => void;
   onOut: () => void;
   onNudgeDraft?: (deltaSeconds: number) => void;
+  onClearDraft?: () => void;
   onTargetSequence?: (sequenceId: string) => void;
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
@@ -70,6 +71,10 @@ function btnIconStyle(): Style {
     justifyContent: 'center',
     borderRadius: '6px',
   };
+}
+
+function shortcutLabel(label: string, shortcut: string): string {
+  return shortcut ? `${label} · ${shortcut}` : label;
 }
 
 type CaptureVideoStatus = {
@@ -673,6 +678,7 @@ export function Capture(props: Props): HTMLElement {
     onIn,
     onOut,
     onNudgeDraft,
+    onClearDraft,
     onTargetSequence,
     onBeginSegmentEdit,
     onCancelSegmentEdit,
@@ -864,7 +870,7 @@ export function Capture(props: Props): HTMLElement {
           { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
           Glyph('inMark', 14),
           el('span', {
-            text: i18n.capture.inButton,
+            text: shortcutLabel(i18n.capture.inButton, state.settings.shortcutIn),
             style: {
               fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: '11px',
@@ -913,7 +919,7 @@ export function Capture(props: Props): HTMLElement {
           { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
           Glyph('outMark', 14),
           el('span', {
-            text: i18n.capture.outButton,
+            text: shortcutLabel(i18n.capture.outButton, state.settings.shortcutOut),
             style: {
               fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: '11px',
@@ -934,7 +940,16 @@ export function Capture(props: Props): HTMLElement {
     ),
     el(
       'div',
-      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px' } },
+      {
+        style: {
+          padding: '0 14px 14px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '6px',
+          flexWrap: 'wrap',
+        },
+      },
       ...nudgeButtons.map(({ label, delta }) =>
         el('button', {
           text: label,
@@ -955,7 +970,37 @@ export function Capture(props: Props): HTMLElement {
             fontSize: '10.5px',
           },
         })
-      )
+      ),
+      el('button', {
+        text: i18n.capture.clearDraft,
+        disabled: !canNudgeDraft,
+        onClick: () => onClearDraft?.(),
+        ariaLabel: i18n.capture.clearDraftAria,
+        style: {
+          minWidth: '74px',
+          height: '26px',
+          padding: '0 10px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface2)',
+          color: canNudgeDraft ? 'var(--text2)' : 'var(--mute2)',
+          borderRadius: '6px',
+          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontSize: '10px',
+          cursor: canNudgeDraft ? 'pointer' : 'not-allowed',
+          opacity: canNudgeDraft ? '1' : '0.5',
+        },
+      }),
+      el('span', {
+        text: i18n.capture.shortcutHint(state.settings.shortcutIn, state.settings.shortcutOut),
+        style: {
+          flexBasis: '100%',
+          textAlign: 'center',
+          color: 'var(--mute)',
+          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontSize: '9.5px',
+          lineHeight: '1.4',
+        },
+      })
     ),
     el(
       'div',

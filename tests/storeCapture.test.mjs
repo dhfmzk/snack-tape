@@ -629,6 +629,33 @@ test('nudgeDraft adjusts the current IN marker and persists the draft', async ()
   assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10 + 1 / 30);
 });
 
+test('clearDraft clears the visible IN marker and stored draft immediately', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [SEGMENT_DRAFT_KEY]: {
+        videoId: 'video_12345',
+        startSeconds: 10,
+        endSeconds: null,
+        updatedAt: 1700000000000
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    draftIn: 10
+  };
+
+  await store.clearDraft();
+
+  assert.equal(store.getState().draftIn, null);
+  assert.equal(store.getState().captureNotice, null);
+  assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
+});
+
 test('nudgeSegmentTime adjusts a saved segment range in the selected mixtape', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

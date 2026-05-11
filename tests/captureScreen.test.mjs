@@ -612,6 +612,28 @@ test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-
   assert.equal(outButton.style.color, 'var(--accent-ink)');
 });
 
+test('Capture controls show the effective shortcut settings near IN and OUT', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({
+      settings: {
+        ...usableState().settings,
+        shortcutIn: 'Alt+I',
+        shortcutOut: 'Alt+O'
+      }
+    }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const text = textOf(page);
+
+  assert.match(text, /IN · Alt\+I/);
+  assert.match(text, /OUT \+ 추가 · Alt\+O/);
+  assert.match(text, /단축키 · Alt\+I \/ Alt\+O/);
+});
+
 test('Capture OUT button is not primary until an IN marker exists', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
@@ -631,6 +653,40 @@ test('Capture OUT button is not primary until an IN marker exists', async () => 
   assert.equal(outButton.style.color, 'var(--mute)');
   assert.doesNotMatch(outButton.style.boxShadow, /var\(--accent-glow\)/);
   assert.match(textOf(outButton), /IN 먼저/);
+});
+
+test('Capture edit tab exposes an explicit clear current IN action', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ draftIn: 42 }),
+    onIn: () => {},
+    onOut: () => {},
+    onClearDraft: () => calls.push('clear')
+  });
+  const clearButton = findByAriaLabel(page, '현재 IN 초기화');
+
+  clearButton.click();
+
+  assert.equal(clearButton.disabled, false);
+  assert.match(textOf(page), /IN 초기화/);
+  assert.deepEqual(calls, ['clear']);
+});
+
+test('Capture clear current IN action is disabled until an IN marker exists', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({ draftIn: null }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const clearButton = findByAriaLabel(page, '현재 IN 초기화');
+
+  assert.equal(clearButton.disabled, true);
 });
 
 test('Capture edit tab renders inline capture notices from store state', async () => {

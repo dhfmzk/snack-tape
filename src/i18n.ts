@@ -80,6 +80,9 @@ export type I18n = {
     captureOutAria: string;
     inButton: string;
     outButton: string;
+    shortcutHint: (shortcutIn: string, shortcutOut: string) => string;
+    clearDraft: string;
+    clearDraftAria: string;
     mark: string;
     now: string;
     inFirst: string;
@@ -283,8 +286,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '끝',
       captureInAria: 'IN 마커 찍기',
       captureOutAria: 'OUT 마커 찍고 추가',
-      inButton: 'IN · I',
-      outButton: 'OUT + 추가 · O',
+      inButton: 'IN',
+      outButton: 'OUT + 추가',
+      shortcutHint: (shortcutIn, shortcutOut) => `단축키 · ${shortcutIn} / ${shortcutOut}`,
+      clearDraft: 'IN 초기화',
+      clearDraftAria: '현재 IN 초기화',
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
@@ -486,8 +492,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '終了',
       captureInAria: 'INマーカーを設定',
       captureOutAria: 'OUTマーカーを設定して追加',
-      inButton: 'IN · I',
-      outButton: 'OUT + 追加 · O',
+      inButton: 'IN',
+      outButton: 'OUT + 追加',
+      shortcutHint: (shortcutIn, shortcutOut) => `ショートカット · ${shortcutIn} / ${shortcutOut}`,
+      clearDraft: 'INをクリア',
+      clearDraftAria: '現在のINをクリア',
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
@@ -689,8 +698,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: 'End',
       captureInAria: 'Mark IN',
       captureOutAria: 'Mark OUT and add',
-      inButton: 'IN · I',
-      outButton: 'OUT + Add · O',
+      inButton: 'IN',
+      outButton: 'OUT + Add',
+      shortcutHint: (shortcutIn, shortcutOut) => `Shortcuts · ${shortcutIn} / ${shortcutOut}`,
+      clearDraft: 'Clear IN',
+      clearDraftAria: 'Clear current IN',
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',

@@ -1455,6 +1455,16 @@ export class SnackTapeAppStore {
     }));
   }
 
+  async clearDraft(): Promise<void> {
+    if (this.state.draftIn === null) {
+      return;
+    }
+
+    const previousState = this.state;
+    this.setState({ draftIn: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft());
+  }
+
   async captureOutAndSave(): Promise<void> {
     const sequence = this.selectedSequence();
     const inSec = this.state.draftIn;
