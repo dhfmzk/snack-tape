@@ -98,6 +98,37 @@ function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
   return store.sequences.find((sequence) => sequence.id === store.selectedSequenceId) ?? store.sequences[0] ?? null;
 }
 
+function twoDigit(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function localDateStamp(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    twoDigit(date.getMonth() + 1),
+    twoDigit(date.getDate()),
+  ].join('') + '-' + [
+    twoDigit(date.getHours()),
+    twoDigit(date.getMinutes()),
+    twoDigit(date.getSeconds()),
+  ].join('');
+}
+
+function filenameSlug(value: string): string {
+  const slug = value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'all-mixtapes';
+}
+
+function exportFilename(format: ExportFormat, store: SnackTapeStore): string {
+  const selected = selectedSequenceFrom(store);
+  const slug = filenameSlug(selected?.name ?? 'all-mixtapes');
+  return `snacktape-${format}-${localDateStamp()}-${slug}.${format}`;
+}
+
 function sequenceSegmentIds(sequence: Sequence): string[] {
   return sequence.segments.map((segment) => segment.id);
 }
@@ -1311,10 +1342,9 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const extension = format === 'json' ? 'json' : 'csv';
     const mimeType = format === 'json' ? 'application/json' : 'text/csv';
     const text = format === 'json' ? serializeStoreJson(this.state.store) : serializeStoreCsv(this.state.store);
-    this.downloadTextFile(`snacktape-export-${Date.now()}.${extension}`, mimeType, text);
+    this.downloadTextFile(exportFilename(format, this.state.store), mimeType, text);
     this.setSettingsInfo(createI18n(this.state.settings.language).settings.exportReady(format));
   }
 
