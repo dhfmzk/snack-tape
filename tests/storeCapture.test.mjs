@@ -160,6 +160,7 @@ function baseState(sequence) {
     playbackState: null,
     playbackDisplay: null,
     draftIn: null,
+    draftOut: null,
     capturePulseId: null,
     queueEdit: null,
     loading: false
@@ -246,6 +247,77 @@ test('captureIn uses cached page info immediately when active video refresh cann
   assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 12.345);
 });
 
+test('captureOutPreview stores the OUT marker without appending a clip', async () => {
+  const { SEGMENT_DRAFT_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    },
+    videoState: {
+      videoId: 'video_12345',
+      title: '저장할 영상',
+      channel: '채널',
+      currentTime: 45.9,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    draftIn: 42
+  };
+
+  await store.captureOutPreview();
+
+  assert.equal(store.getState().draftOut, 45.9);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 42);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].endSeconds, 45.9);
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 0);
+});
+
+test('clearDraft clears visible markers and persisted draft state', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [SEGMENT_DRAFT_KEY]: {
+        videoId: 'video_12345',
+        startSeconds: 42,
+        endSeconds: 45,
+        updatedAt: 1700000000000
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '테스트 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 45,
+      duration: 300
+    },
+    draftIn: 42,
+    draftOut: 45
+  };
+
+  await store.clearDraft();
+
+  assert.equal(store.getState().draftIn, null);
+  assert.equal(store.getState().draftOut, null);
+  assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
+});
+
 test('captureOutAndSave appends a clip to the selected mixtape', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -281,6 +353,80 @@ test('captureOutAndSave appends a clip to the selected mixtape', async () => {
   assert.equal(savedSequence.segments[0].startSeconds, 42);
   assert.equal(savedSequence.segments[0].endSeconds, 45.9);
   assert.equal(store.getState().draftIn, null);
+});
+
+test('captureOutAndSave uses a previewed OUT marker without refreshing active video', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    videoError: 'Cannot connect to YouTube',
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '미리 찍은 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 99,
+      duration: 300
+    },
+    draftIn: 42,
+    draftOut: 45
+  };
+
+  await store.captureOutAndSave();
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.title, '미리 찍은 영상');
+  assert.equal(savedSegment.startSeconds, 42);
+  assert.equal(savedSegment.endSeconds, 45);
+  assert.equal(store.getState().draftIn, null);
+  assert.equal(store.getState().draftOut, null);
+});
+
+test('captureOutAndSave saves a previewed OUT marker when refreshed metadata has no current time', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '미리보기 메타데이터',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: null,
+      duration: 300
+    },
+    draftIn: 42,
+    draftOut: 45
+  };
+
+  await store.captureOutAndSave();
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.title, '미리보기 메타데이터');
+  assert.equal(savedSegment.startSeconds, 42);
+  assert.equal(savedSegment.endSeconds, 45);
+  assert.equal(store.getState().captureNotice, null);
 });
 
 test('captureOutAndSave still saves when OUT is captured at the same timestamp as IN', async () => {
@@ -468,9 +614,9 @@ test('captureOutAndSave respects disabled automatic title inference', async () =
   assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].title, 'YouTube video_12345');
 });
 
-test('Capture OUT button saves through the App wiring path', async () => {
+test('Capture OUT preview and save buttons use the App wiring path', async () => {
   installDomShim();
-  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SEGMENT_DRAFT_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { App } = await import('../.tmp-tests/src/App.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-1', name: '저장 대상', segments: [] });
@@ -505,10 +651,20 @@ test('Capture OUT button saves through the App wiring path', async () => {
   };
 
   const page = App(store.getState(), store);
-  const outButton = findByAriaLabel(page, 'OUT 마커 찍고 추가');
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
   assert.equal(outButton.disabled, false);
 
   outButton.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(storage[SEGMENT_DRAFT_KEY].endSeconds, 42 + 1 / 30);
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 0);
+
+  const pageAfterPreview = App(store.getState(), store);
+  const saveButton = findByAriaLabel(pageAfterPreview, '현재 구간 저장');
+  assert.equal(saveButton.disabled, false);
+
+  saveButton.click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 1);
@@ -627,6 +783,34 @@ test('nudgeDraft adjusts the current IN marker and persists the draft', async ()
   assert.equal(store.getState().draftIn, 10 + 1 / 30);
   assert.equal(storage[SEGMENT_DRAFT_KEY].videoId, 'video_12345');
   assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10 + 1 / 30);
+});
+
+test('nudgeDraft adjusts the preview OUT marker when requested', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-1', segments: [] });
+  const storage = installChromeForCapture({});
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '테스트 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 42,
+      duration: 300
+    },
+    draftIn: 10,
+    draftOut: 12
+  };
+
+  await store.nudgeDraft(1, 'end');
+
+  assert.equal(store.getState().draftIn, 10);
+  assert.equal(store.getState().draftOut, 13);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10);
+  assert.equal(storage[SEGMENT_DRAFT_KEY].endSeconds, 13);
 });
 
 test('nudgeSegmentTime adjusts a saved segment range in the selected mixtape', async () => {
