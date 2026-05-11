@@ -713,6 +713,116 @@ test('nudgeSegmentTime keeps frame nudges at higher precision instead of accumul
   assert.ok(Math.abs(savedSegment.startSeconds - 11) < 1e-9);
 });
 
+test('setSegmentTimecode persists exact typed segment ranges', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-exact-range',
+    segments: [{
+      id: 'clip-exact-range',
+      videoId: 'video_12345',
+      originalUrl: 'https://www.youtube.com/watch?v=video_12345',
+      title: '정확 입력 구간',
+      startSeconds: 10,
+      endSeconds: 20,
+      createdAt: 1700000000000,
+      updatedAt: 1700000000000
+    }]
+  });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence);
+
+  store.beginSegmentEdit('clip-exact-range');
+  await store.setSegmentTimecode('clip-exact-range', 'start', '00:12.50');
+  await store.setSegmentTimecode('clip-exact-range', 'end', '00:18.25');
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.startSeconds, 12.5);
+  assert.equal(savedSegment.endSeconds, 18.25);
+  assert.equal(store.getState().segmentEdit.segmentId, 'clip-exact-range');
+});
+
+test('setSegmentTimecode rejects invalid exact ranges without changing storage', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-invalid-range',
+    segments: [{
+      id: 'clip-invalid-range',
+      videoId: 'video_12345',
+      originalUrl: 'https://www.youtube.com/watch?v=video_12345',
+      title: '잘못된 입력 구간',
+      startSeconds: 10,
+      endSeconds: 20,
+      createdAt: 1700000000000,
+      updatedAt: 1700000000000
+    }]
+  });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence);
+
+  await store.setSegmentTimecode('clip-invalid-range', 'start', '00:21.00');
+  await store.setSegmentTimecode('clip-invalid-range', 'end', 'bad');
+
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(savedSegment.startSeconds, 10);
+  assert.equal(savedSegment.endSeconds, 20);
+  assert.match(store.getState().captureNotice.message, /시간|구간/);
+});
+
+test('setSegmentTimecode rolls back the visible range when persistence fails', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-range-rollback',
+    segments: [{
+      id: 'clip-range-rollback',
+      videoId: 'video_12345',
+      originalUrl: 'https://www.youtube.com/watch?v=video_12345',
+      title: '롤백 구간',
+      startSeconds: 10,
+      endSeconds: 20,
+      createdAt: 1700000000000,
+      updatedAt: 1700000000000
+    }]
+  });
+  const storage = installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      }
+    },
+    failSetKeys: [STORAGE_KEY]
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence);
+
+  await store.setSegmentTimecode('clip-range-rollback', 'start', '00:12.00');
+
+  const visibleSegment = store.getState().store.sequences[0].segments[0];
+  const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
+  assert.equal(visibleSegment.startSeconds, 10);
+  assert.equal(savedSegment.startSeconds, 10);
+  assert.match(store.getState().captureNotice.message, /저장하지 못했습니다/);
+});
+
 test('syncActiveVideoForCapture detects the active YouTube video for the edit tab', async () => {
   const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

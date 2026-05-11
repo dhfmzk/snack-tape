@@ -14,6 +14,7 @@ import {
 } from '../shared/storage.js';
 import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
+import { parseTimecodeToSeconds } from '../shared/time.js';
 import { createI18n } from '../i18n.js';
 import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings, type Settings } from './storage.js';
 import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
@@ -791,6 +792,77 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
     this.setState({ store });
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
+  async setSegmentTimecode(segmentId: string, edge: SegmentEditEdge, timecode: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = this.selectedSequence();
+    if (!currentStore || !sequence) {
+      return;
+    }
+
+    const i18n = createI18n(this.state.settings.language).capture;
+    const seconds = parseTimecodeToSeconds(timecode);
+    if (seconds === null || !Number.isFinite(seconds)) {
+      this.setCaptureError(i18n.noticeInvalidTimecode);
+      return;
+    }
+
+    const previousState = this.state;
+    const timestamp = Date.now();
+    let changed = false;
+    let invalidRange = false;
+    const segments = sequence.segments.map((segment) => {
+      if (segment.id !== segmentId) {
+        return segment;
+      }
+
+      if (edge === 'start') {
+        if (segment.endSeconds !== null && seconds > segment.endSeconds - MIN_CAPTURE_DURATION_SECONDS) {
+          invalidRange = true;
+          return segment;
+        }
+        changed = seconds !== segment.startSeconds;
+        return { ...segment, startSeconds: seconds, updatedAt: timestamp };
+      }
+
+      if (seconds < segment.startSeconds + MIN_CAPTURE_DURATION_SECONDS) {
+        invalidRange = true;
+        return segment;
+      }
+      changed = seconds !== segment.endSeconds;
+      return { ...segment, endSeconds: seconds, updatedAt: timestamp };
+    });
+
+    if (invalidRange) {
+      this.setCaptureError(i18n.noticeInvalidRange);
+      return;
+    }
+    if (!changed) {
+      return;
+    }
+
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments,
+      updatedAt: timestamp,
+    };
+    const editedSegment = updatedSequence.segments.find((segment) => segment.id === segmentId);
+    if (!editedSegment || validateSegment(editedSegment).length > 0) {
+      this.setCaptureError(i18n.noticeInvalidSegment);
+      return;
+    }
+
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+    this.setState({ store, captureNotice: null });
     const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
     if (!persisted) {
       return;

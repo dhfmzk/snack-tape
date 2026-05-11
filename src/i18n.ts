@@ -71,6 +71,7 @@ export type I18n = {
     moveSegment: string;
     moveSegmentAria: (title: string) => string;
     segmentEditDone: (title: string) => string;
+    segmentTimeInput: (title: string, label: string) => string;
     segmentEdit: string;
     done: string;
     start: string;
@@ -91,6 +92,8 @@ export type I18n = {
     noticeTimeUnavailable: string;
     noticeVideoRefreshFailed: (message: string) => string;
     noticeInvalidSegment: string;
+    noticeInvalidTimecode: string;
+    noticeInvalidRange: string;
     createSaveTarget: string;
     refreshVideoTime: string;
     videoStatusReady: string;
@@ -258,6 +261,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegment: '이동',
       moveSegmentAria: (title) => `${title} 이동`,
       segmentEditDone: (title) => `${title} 편집 완료`,
+      segmentTimeInput: (title, label) => `${title} ${label} 시간`,
       segmentEdit: '구간 편집',
       done: '완료',
       start: '시작',
@@ -278,6 +282,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeTimeUnavailable: '영상 시간을 읽을 수 없습니다. 새로고침 후 다시 시도해주세요.',
       noticeVideoRefreshFailed: (message) => `영상 정보를 갱신할 수 없습니다. ${message}`,
       noticeInvalidSegment: '구간을 저장할 수 없습니다.',
+      noticeInvalidTimecode: '시간은 00:00 또는 00:00.00 형식으로 입력해주세요.',
+      noticeInvalidRange: '끝 시간은 시작 시간보다 뒤여야 합니다.',
       createSaveTarget: '새 테이프 만들기',
       refreshVideoTime: '영상 시간 새로고침',
       videoStatusReady: '캡처 준비됨',
@@ -443,6 +449,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegment: '移動',
       moveSegmentAria: (title) => `${title}を移動`,
       segmentEditDone: (title) => `${title}の編集を完了`,
+      segmentTimeInput: (title, label) => `${title}の${label}時間`,
       segmentEdit: '範囲を編集',
       done: '完了',
       start: '開始',
@@ -463,6 +470,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeTimeUnavailable: '動画の時間を読み取れません。YouTubeを更新して再試行してください。',
       noticeVideoRefreshFailed: (message) => `動画情報を更新できません。 ${message}`,
       noticeInvalidSegment: 'この範囲は保存できません。',
+      noticeInvalidTimecode: '時間は00:00または00:00.00形式で入力してください。',
+      noticeInvalidRange: '終了時間は開始時間より後にしてください。',
       createSaveTarget: '新規テープを作成',
       refreshVideoTime: '動画時間を更新',
       videoStatusReady: 'キャプチャ準備完了',
@@ -628,6 +637,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegment: 'Move',
       moveSegmentAria: (title) => `Move ${title}`,
       segmentEditDone: (title) => `Finish editing ${title}`,
+      segmentTimeInput: (title, label) => `${title} ${label} time`,
       segmentEdit: 'Edit range',
       done: 'Done',
       start: 'Start',
@@ -648,6 +658,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeTimeUnavailable: 'Cannot read the video time. Refresh YouTube and try again.',
       noticeVideoRefreshFailed: (message) => `Cannot refresh video info. ${message}`,
       noticeInvalidSegment: 'Cannot save this range.',
+      noticeInvalidTimecode: 'Enter time as 00:00 or 00:00.00.',
+      noticeInvalidRange: 'End time must be after start time.',
       createSaveTarget: 'Create new tape',
       refreshVideoTime: 'Refresh video time',
       videoStatusReady: 'Ready to capture',
