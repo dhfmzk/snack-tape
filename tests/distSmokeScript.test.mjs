@@ -15,7 +15,7 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   assert.match(smokeScript, /dist\/content\.js/);
 });
 
-test('manual QA script stays outside README and covers current product flows', async () => {
+test('manual QA script covers current product flows', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
   const script = await readFile('scripts/manual-qa.mjs', 'utf8');
 
@@ -24,5 +24,6 @@ test('manual QA script stays outside README and covers current product flows', a
   assert.match(script, /Edit capture flow/);
   assert.match(script, /Mixtape management/);
   assert.match(script, /Playback/);
+  assert.match(script, /connection-lost notice appears with Reconnect and Stop actions/);
   assert.match(script, /Settings and data/);
 });

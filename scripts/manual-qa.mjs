@@ -31,7 +31,7 @@ const sections = [
       'Seek with the progress bar and keyboard arrows, then pause/resume and stop.',
       'Use previous/next, play-from-row, repeat-row, row edit, and row remove actions.',
       'Edit queue order, save it, and confirm playback continues from the displayed queue order.',
-      'Refresh or navigate the YouTube tab during playback and confirm reconnect copy explains the target tape, mode, and queue.',
+      'Refresh or navigate the YouTube tab during playback and confirm the connection-lost notice appears with Reconnect and Stop actions.',
     ],
   },
   {
