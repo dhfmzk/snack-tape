@@ -32,6 +32,7 @@ class FakeElement extends FakeNode {
       }
     };
     this.value = '';
+    this.src = '';
     this.disabled = false;
     this.open = false;
   }
@@ -337,6 +338,31 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   assert.match(text, /편집 클립 8/);
   assert.equal(actionMenus.length, 8);
   assert.equal(segmentLists.length, 1);
+});
+
+test('Capture edit tab gives saved clip rows thumbnail continuity', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const first = makeSegment({ id: 'thumb-a', title: '썸네일 클립 A', videoId: 'video-a' });
+  const second = makeSegment({ id: 'thumb-b', title: '썸네일 클립 B', videoId: 'video-b' });
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [makeSequence({ id: 'thumb-sequence', name: '썸네일 테이프', segments: [first, second] })],
+        selectedSequenceId: 'thumb-sequence'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const segmentList = findAll(page, (node) => node.dataset?.scrollKey === 'capture-segments:thumb-sequence')[0];
+  const thumbs = findAll(segmentList, (node) => String(node.className).split(/\s+/).includes('thumb'));
+
+  assert.equal(thumbs.length, 2);
+  assert.match(thumbs[0].children[0].src, /video-b/);
+  assert.match(thumbs[1].children[0].src, /video-a/);
 });
 
 test('Capture edit tab opens a segment action menu instead of deleting from the more button', async () => {

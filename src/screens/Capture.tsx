@@ -1003,7 +1003,7 @@ export function Capture(props: Props): HTMLElement {
           minHeight: '0',
         },
       },
-      ...segments.map((segment) =>
+      ...segments.map((segment, index) =>
         {
           const isEditingSegment = state.segmentEdit?.segmentId === segment.id;
           return (
@@ -1019,58 +1019,67 @@ export function Capture(props: Props): HTMLElement {
           },
           el(
             'div',
-            { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' } },
-            el('span', {
-              text: segment.title,
-              style: {
-                flex: '1',
-                minWidth: '0',
-                color: 'var(--text)',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-            }),
-            SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
-          ),
-          el(
-            'div',
-            { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-            el('span', {
-              text: formatTimecode(segment.startSeconds),
-              style: {
-                padding: '2px 6px',
-                background: 'var(--surface3)',
-                color: 'var(--text2)',
-                borderRadius: '3px',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '10px',
-              },
-            }),
-            el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
-            el('span', {
-              text: segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
-              style: {
-                padding: '2px 6px',
-                background: 'var(--surface3)',
-                color: 'var(--text2)',
-                borderRadius: '3px',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '10px',
-              },
-            }),
-            el('span', {
-              text: `+${clipDuration(segment)}`,
-              style: {
-                marginLeft: 'auto',
-                color: 'var(--accent)',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '9.5px',
-                fontWeight: '600',
-              },
-            })
+            { style: { display: 'flex', alignItems: 'flex-start', gap: '10px' } },
+            thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: segment.videoId, variant: index + 1 }), 44, 44),
+            el(
+              'div',
+              { style: { flex: '1', minWidth: '0' } },
+              el(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' } },
+                el('span', {
+                  text: segment.title,
+                  style: {
+                    flex: '1',
+                    minWidth: '0',
+                    color: 'var(--text)',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  },
+                }),
+                SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
+              ),
+              el(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                el('span', {
+                  text: formatTimecode(segment.startSeconds),
+                  style: {
+                    padding: '2px 6px',
+                    background: 'var(--surface3)',
+                    color: 'var(--text2)',
+                    borderRadius: '3px',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '10px',
+                  },
+                }),
+                el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
+                el('span', {
+                  text: segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
+                  style: {
+                    padding: '2px 6px',
+                    background: 'var(--surface3)',
+                    color: 'var(--text2)',
+                    borderRadius: '3px',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '10px',
+                  },
+                }),
+                el('span', {
+                  text: `+${clipDuration(segment)}`,
+                  style: {
+                    marginLeft: 'auto',
+                    color: 'var(--accent)',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '9.5px',
+                    fontWeight: '600',
+                  },
+                })
+              )
+            )
           ),
           isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onCancelSegmentEdit) : null
         )
