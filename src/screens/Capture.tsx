@@ -302,6 +302,29 @@ function segmentEditButtonStyle(): Style {
   };
 }
 
+function ShortcutHint(shortcut: string): HTMLElement | null {
+  const text = shortcut.trim();
+  if (!text) {
+    return null;
+  }
+
+  return el('span', {
+    text,
+    style: {
+      minHeight: '18px',
+      padding: '2px 6px',
+      border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
+      borderRadius: '999px',
+      fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      fontSize: '9px',
+      fontWeight: '700',
+      lineHeight: '1.1',
+      letterSpacing: '0',
+      opacity: '0.82',
+    },
+  });
+}
+
 function SegmentEditControls(
   i18n: I18n,
   segment: Segment,
@@ -897,7 +920,8 @@ export function Capture(props: Props): HTMLElement {
               fontWeight: '600',
               letterSpacing: '1px',
             },
-          })
+          }),
+          ShortcutHint(state.settings.shortcutIn)
         ),
         el('span', {
           text: draftIn === null ? i18n.capture.mark : formatTimecode(draftIn),
@@ -958,7 +982,8 @@ export function Capture(props: Props): HTMLElement {
               fontWeight: '700',
               letterSpacing: '1px',
             },
-          })
+          }),
+          ShortcutHint(state.settings.shortcutOut)
         ),
         el('span', {
           text: usable ? (hasDraftOut && draftOut !== null ? formatTimecode(draftOut) : hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),

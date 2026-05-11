@@ -616,6 +616,26 @@ test('Capture edit tab can clear the current IN marker', async () => {
   assert.match(textOf(page), /취소/);
 });
 
+test('Capture buttons render the effective shortcut labels from settings', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({
+      settings: {
+        ...usableState().settings,
+        shortcutIn: 'Alt+Shift+I',
+        shortcutOut: 'Alt+Shift+O'
+      }
+    }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.match(textOf(findByAriaLabel(page, 'IN 마커 찍기')), /Alt\+Shift\+I/);
+  assert.match(textOf(findByAriaLabel(page, 'OUT 마커 찍고 추가')), /Alt\+Shift\+O/);
+});
+
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
