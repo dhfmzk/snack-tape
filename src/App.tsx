@@ -115,6 +115,11 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onDefaultSaveTarget: (sequenceId) => void store.setDefaultMixtape(sequenceId),
       onExport: (format) => void store.exportData(format),
       onImport: () => requestImportFile((file) => void store.importDataFile(file)),
+      onResetSettings: () => {
+        if (window.confirm(i18n.settings.resetSettingsConfirm)) {
+          void store.resetSettings();
+        }
+      },
       onDeleteAll: () => {
         const clipCount = state.store?.sequences.reduce((total, sequence) => total + sequence.segments.length, 0) ?? 0;
         offerJsonBackupBeforeDelete(store, i18n, clipCount, { library: true });
