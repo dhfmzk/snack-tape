@@ -975,6 +975,54 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async duplicateSegmentInSelected(segmentId: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = this.selectedSequence();
+    const segmentIndex = sequence?.segments.findIndex((segment) => segment.id === segmentId) ?? -1;
+    const segment = segmentIndex >= 0 ? sequence?.segments[segmentIndex] : null;
+    if (!currentStore || !sequence || !segment) {
+      return;
+    }
+    const previousState = this.state;
+    const timestamp = Date.now();
+    const duplicate = cloneSegment(segment, timestamp);
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments: [
+        ...sequence.segments.slice(0, segmentIndex + 1),
+        duplicate,
+        ...sequence.segments.slice(segmentIndex + 1),
+      ],
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+    const playbackState = this.state.playbackState;
+    const nextPlaybackState = playbackState?.sequenceId === updatedSequence.id
+      ? playbackStateAfterSequenceEdit(playbackState, updatedSequence)
+      : playbackState ?? null;
+
+    this.setState({
+      store,
+      playbackState: nextPlaybackState,
+      playbackDisplay: describePlaybackState(store, nextPlaybackState),
+      segmentEdit: null,
+    });
+
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(store);
+      if (playbackState?.sequenceId === updatedSequence.id && nextPlaybackState) {
+        await savePlaybackState(nextPlaybackState);
+      }
+    });
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async copySegmentToMixtape(segmentId: string, targetSequenceId: string): Promise<void> {
     await this.transferSegmentToMixtape(segmentId, targetSequenceId, 'copy');
   }

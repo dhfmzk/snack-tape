@@ -1716,6 +1716,64 @@ test('mergeMixtapeInto appends copied clips to the target and removes the source
   assert.equal(store.getState().store.selectedSequenceId, target.id);
 });
 
+test('duplicateSegmentInSelected inserts a copied clip with a fresh id', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSegment({
+    id: 'clip-a',
+    title: 'Useful clip',
+    videoId: 'video-a',
+    startSeconds: 12.34,
+    endSeconds: 45.67,
+    note: 'keep this range'
+  });
+  const second = makeSegment({ id: 'clip-b', title: 'Next clip' });
+  const source = makeSequence({
+    id: 'source-sequence',
+    name: 'Source',
+    segments: [first, second]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [source],
+      selectedSequenceId: source.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [source],
+      selectedSequenceId: source.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: { segmentId: first.id },
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.duplicateSegmentInSelected(first.id);
+
+  const [updated] = storage[STORAGE_KEY].sequences;
+  assert.deepEqual(updated.segments.map((segment) => segment.title), ['Useful clip', 'Useful clip', 'Next clip']);
+  assert.notEqual(updated.segments[1].id, first.id);
+  assert.equal(updated.segments[1].videoId, first.videoId);
+  assert.equal(updated.segments[1].startSeconds, first.startSeconds);
+  assert.equal(updated.segments[1].endSeconds, first.endSeconds);
+  assert.equal(updated.segments[1].note, first.note);
+  assert.equal(store.getState().segmentEdit, null);
+});
+
 test('copySegmentToMixtape and moveSegmentToMixtape transfer clips between mixtapes', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
