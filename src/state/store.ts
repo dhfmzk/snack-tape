@@ -76,6 +76,7 @@ export type AppState = {
   playbackDisplay: PlaybackDisplayState | null;
   playbackNotice: PlaybackNotice | null;
   draftIn: number | null;
+  draftOut: number | null;
   capturePulseId: string | null;
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
@@ -165,6 +166,10 @@ function playbackStateAfterQueueEdit(state: PlaybackState, sequence: Sequence, s
 
 function preciseTime(value: number): number {
   return value;
+}
+
+function draftEndAfterIn(startSeconds: number, endSeconds: number): number {
+  return preciseTime(endSeconds <= startSeconds ? startSeconds + MIN_CAPTURE_DURATION_SECONDS : endSeconds);
 }
 
 function nextNumberedName(baseName: string, sequences: Sequence[]): string {
@@ -262,6 +267,7 @@ export class SnackTapeAppStore {
       playbackDisplay: null,
       playbackNotice: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1279,12 +1285,12 @@ export class SnackTapeAppStore {
   async restoreDraft(): Promise<void> {
     const videoId = this.state.pageInfo?.videoId;
     if (!videoId) {
-      this.setState({ draftIn: null });
+      this.setState({ draftIn: null, draftOut: null });
       return;
     }
 
     const draft = await loadSegmentDraft(videoId);
-    this.setState({ draftIn: draft?.startSeconds ?? null });
+    this.setState({ draftIn: draft?.startSeconds ?? null, draftOut: draft?.endSeconds ?? null });
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
@@ -1338,6 +1344,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1367,6 +1374,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1420,7 +1428,7 @@ export class SnackTapeAppStore {
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
     const previousState = this.state;
     const inSec = preciseTime(pageInfo.currentTime);
-    this.setState({ draftIn: inSec, captureNotice: null });
+    this.setState({ draftIn: inSec, draftOut: null, captureNotice: null });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId: pageInfo.videoId,
       startSeconds: inSec,
@@ -1446,13 +1454,76 @@ export class SnackTapeAppStore {
 
     const previousState = this.state;
     const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
-    this.setState({ draftIn: nextIn });
+    const nextOut = this.state.draftOut !== null ? draftEndAfterIn(nextIn, this.state.draftOut) : null;
+    this.setState({ draftIn: nextIn, draftOut: nextOut });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId,
       startSeconds: nextIn,
-      endSeconds: null,
+      endSeconds: nextOut,
       updatedAt: Date.now(),
     }));
+  }
+
+  async previewCaptureOut(): Promise<void> {
+    const inSec = this.state.draftIn;
+    const i18n = createI18n(this.state.settings.language).capture;
+
+    if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
+      return;
+    }
+
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return;
+    }
+
+    const outSec = draftEndAfterIn(inSec, pageInfo.currentTime);
+    const previousState = this.state;
+    this.setState({ draftOut: outSec, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
+      videoId: pageInfo.videoId,
+      startSeconds: inSec,
+      endSeconds: outSec,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  async nudgeDraftOut(deltaSeconds: number): Promise<void> {
+    const draftIn = this.state.draftIn;
+    const draftOut = this.state.draftOut;
+    if (draftIn === null || draftOut === null || !Number.isFinite(deltaSeconds)) {
+      return;
+    }
+
+    if (!this.state.pageInfo?.videoId) {
+      await this.refreshVideo();
+    }
+
+    const videoId = this.state.pageInfo?.videoId;
+    if (!videoId) {
+      return;
+    }
+
+    const previousState = this.state;
+    const nextOut = draftEndAfterIn(draftIn, draftOut + deltaSeconds);
+    this.setState({ draftOut: nextOut });
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
+      videoId,
+      startSeconds: draftIn,
+      endSeconds: nextOut,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  async clearCurrentDraft(): Promise<void> {
+    const previousState = this.state;
+    const videoId = this.state.pageInfo?.videoId;
+    this.setState({ draftIn: null, draftOut: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft(videoId ?? undefined));
   }
 
   async captureOutAndSave(): Promise<void> {
@@ -1478,8 +1549,8 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const outSec = preciseTime(pageInfo.currentTime);
-    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const outSec = this.state.draftOut ?? pageInfo.currentTime;
+    const endSec = draftEndAfterIn(inSec, outSec);
 
     const timestamp = Date.now();
     const segment: Segment = {
@@ -1516,7 +1587,7 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
 
-    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
+    this.setState({ store: nextStore, draftIn: null, draftOut: null, capturePulseId: segment.id, captureNotice: null });
     const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
       await saveStore(nextStore);
       await clearSegmentDraft(pageInfo.videoId);

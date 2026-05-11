@@ -357,7 +357,7 @@ test('Capture edit tab opens a segment action menu instead of deleting from the 
   findByAriaLabel(page, '선택된 클립 구간 편집').click();
   findByAriaLabel(page, '선택된 클립 삭제').click();
 
-  assert.match(textOf(page), /OUT \+ 추가/);
+  assert.match(textOf(page), /OUT 미리보기/);
   assert.match(textOf(page), /구간 편집/);
   assert.match(textOf(page), /삭제/);
   assert.deepEqual(calls, [
@@ -589,6 +589,56 @@ test('Capture edit tab wires draft nudge controls to frame and second deltas', a
   }
 
   assert.deepEqual(calls, [-1, -1 / 30, 1 / 30, 1]);
+});
+
+test('Capture previews OUT before saving and then saves the previewed range', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const previewPage = Capture({
+    state: usableState({ draftIn: 40, draftOut: null }),
+    onIn: () => {},
+    onOut: () => calls.push('save'),
+    onPreviewOut: () => calls.push('preview')
+  });
+  const previewOut = findByAriaLabel(previewPage, 'OUT 마커 찍고 추가');
+  previewOut.click();
+
+  const savePage = Capture({
+    state: usableState({ draftIn: 40, draftOut: 43 }),
+    onIn: () => {},
+    onOut: () => calls.push('save'),
+    onPreviewOut: () => calls.push('preview')
+  });
+  const saveOut = findByAriaLabel(savePage, 'OUT 마커 찍고 추가');
+  saveOut.click();
+
+  assert.match(textOf(previewPage), /OUT 미리보기/);
+  assert.match(textOf(savePage), /00:43.00/);
+  assert.deepEqual(calls, ['preview', 'save']);
+});
+
+test('Capture exposes clear and OUT nudge controls for an active draft range', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ draftIn: 40, draftOut: 43 }),
+    onIn: () => {},
+    onOut: () => {},
+    onClearDraft: () => calls.push(['clear']),
+    onNudgeDraftOut: (deltaSeconds) => calls.push(['out', deltaSeconds])
+  });
+
+  findByAriaLabel(page, '현재 IN 지우기').click();
+  findByAriaLabel(page, 'OUT +1s 조정').click();
+
+  assert.deepEqual(calls, [
+    ['clear'],
+    ['out', 1]
+  ]);
 });
 
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {

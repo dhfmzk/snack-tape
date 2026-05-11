@@ -80,10 +80,15 @@ export type I18n = {
     captureOutAria: string;
     inButton: string;
     outButton: string;
+    outPreviewButton: string;
+    savePreviewButton: string;
     mark: string;
     now: string;
     inFirst: string;
+    clearDraft: string;
+    clearDraftAria: string;
     adjust: (label: string) => string;
+    adjustOut: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
@@ -285,10 +290,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       captureOutAria: 'OUT 마커 찍고 추가',
       inButton: 'IN · I',
       outButton: 'OUT + 추가 · O',
+      outPreviewButton: 'OUT 미리보기 · O',
+      savePreviewButton: '추가',
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      clearDraft: '지우기',
+      clearDraftAria: '현재 IN 지우기',
       adjust: (label) => `${label} 조정`,
+      adjustOut: (label) => `OUT ${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
@@ -488,10 +498,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       captureOutAria: 'OUTマーカーを設定して追加',
       inButton: 'IN · I',
       outButton: 'OUT + 追加 · O',
+      outPreviewButton: 'OUTプレビュー · O',
+      savePreviewButton: '追加',
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      clearDraft: 'クリア',
+      clearDraftAria: '現在のINをクリア',
       adjust: (label) => `${label}を調整`,
+      adjustOut: (label) => `OUT ${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
@@ -691,10 +706,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       captureOutAria: 'Mark OUT and add',
       inButton: 'IN · I',
       outButton: 'OUT + Add · O',
+      outPreviewButton: 'Preview OUT · O',
+      savePreviewButton: 'Add',
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      clearDraft: 'Clear',
+      clearDraftAria: 'Clear current IN',
       adjust: (label) => `Adjust ${label}`,
+      adjustOut: (label) => `Adjust OUT ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',

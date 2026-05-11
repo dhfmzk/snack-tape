@@ -7,13 +7,13 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 52 items.
+- Severity split: P1 High 8, P2 Medium 27, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
 
-1. Stabilize capture usability: `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-062`.
+1. Stabilize capture usability: `ST-GAP-062`.
 2. Harden user-visible failures: `ST-GAP-044`, `ST-GAP-054`, `ST-GAP-056`.
 3. Add data-safety guardrails: `ST-GAP-052`, `ST-GAP-055`, `ST-GAP-059`.
 4. Add real extension/browser confidence: `ST-GAP-046`, `ST-GAP-045`, `ST-GAP-079`.
@@ -24,8 +24,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 
 | ID | Area | Remaining work | Evidence | Next step |
 | --- | --- | --- | --- | --- |
-| ST-GAP-026 | Capture precision | Draft capture only previews and nudges the IN point. OUT is still captured as "now" without a pre-save preview or adjustment path. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add optional draft OUT preview once IN exists, with frame/second nudges before save. |
-| ST-GAP-027 | Capture recovery | There is no explicit "clear current IN" action. Users can only overwrite the draft or finish it with OUT. | `src/screens/Capture.tsx`, `src/state/store.ts`, `src/shared/draft.ts` | Add a clear-draft action and test that storage/session state clears immediately. |
 | ST-GAP-044 | Localization | Several background/content/validation/storage errors are still hard-coded Korean or technical English instead of routed through i18n. | `src/background/background.ts`, `src/content/contentScript.ts`, `src/shared/validation.ts`, `src/shared/storage.ts` | Centralize user-visible error keys and keep internal-only errors out of UI. |
 | ST-GAP-046 | Browser QA | Tests still use lightweight DOM shims, not a real browser or loaded Chrome extension environment. | `tests/*Screen.test.mjs`, `scripts/check-dist.mjs` | Add Playwright or Chrome load-unpacked smoke coverage for the side panel. |
 | ST-GAP-051 | Extension icon | The icon draft was intentionally stashed and the manifest still has no finalized extension icons. | `manifest.json`, `public/icons` | Create a simpler approved icon set and wire `icons` plus action icons into the manifest. |
