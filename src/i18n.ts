@@ -86,6 +86,9 @@ export type I18n = {
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
+    segmentSearch: string;
+    segmentSearchPlaceholder: string;
+    segmentSearchEmpty: string;
     noticeOpenYoutubeVideo: string;
     noticeNoSaveTarget: string;
     noticeInFirst: string;
@@ -291,6 +294,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
+      segmentSearch: '클립 검색',
+      segmentSearchPlaceholder: '제목, 메모, 소스, 시간',
+      segmentSearchEmpty: '검색 결과가 없습니다.',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
       noticeInFirst: 'IN 먼저 찍어주세요.',
@@ -494,6 +500,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
+      segmentSearch: 'クリップを検索',
+      segmentSearchPlaceholder: 'タイトル、メモ、ソース、時間',
+      segmentSearchEmpty: '検索結果がありません。',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
       noticeNoSaveTarget: '保存先のミックステープを選択してください。',
       noticeInFirst: '先にINを設定してください。',
@@ -697,6 +706,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
+      segmentSearch: 'Search clips',
+      segmentSearchPlaceholder: 'Title, note, source, time',
+      segmentSearchEmpty: 'No matching clips.',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
       noticeNoSaveTarget: 'Choose a save mixtape.',
       noticeInFirst: 'Mark IN first.',

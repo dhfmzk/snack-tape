@@ -59,6 +59,12 @@ class FakeElement extends FakeNode {
       listener({ currentTarget: this, target: this });
     }
   }
+
+  input() {
+    for (const listener of this.listeners.input ?? []) {
+      listener({ currentTarget: this, target: this });
+    }
+  }
 }
 
 function installDomShim() {
@@ -399,4 +405,28 @@ test('App asks before deleting a single saved segment', async () => {
 
   assert.match(confirmMessages[0], /Clip To Keep/);
   assert.equal(store.getState().store.sequences[0].segments.length, 1);
+});
+
+test('App wires edit clip search through the capture route', async () => {
+  installDomShim();
+  installChrome();
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-search',
+    name: 'Search Tape',
+    segments: [makeSegment({ id: 'clip-search', title: 'Clip To Search' })]
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([sequence]),
+    route: 'capture',
+    editSearch: ''
+  };
+
+  const search = findByAriaLabel(App(store.getState(), store), '클립 검색');
+  search.value = 'clip';
+  search.input();
+
+  assert.equal(store.getState().editSearch, 'clip');
 });

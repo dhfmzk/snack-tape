@@ -70,6 +70,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onDeleteSegment: (segmentId) => confirmDeleteSegment(state, store, i18n, segmentId),
       onCopySegmentToMixtape: (segmentId, targetSequenceId) => void store.copySegmentToMixtape(segmentId, targetSequenceId),
       onMoveSegmentToMixtape: (segmentId, targetSequenceId) => void store.moveSegmentToMixtape(segmentId, targetSequenceId),
+      onEditSearch: (query) => store.setEditSearch(query),
       onBeginRenameMixtape: (sequenceId) => void store.beginRenameMixtape(sequenceId),
       onCancelRenameMixtape: () => store.cancelRenameMixtape(),
       onRenameMixtape: (sequenceId, name) => void store.renameMixtape(sequenceId, name),

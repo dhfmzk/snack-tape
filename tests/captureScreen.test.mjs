@@ -339,6 +339,67 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   assert.equal(segmentLists.length, 1);
 });
 
+test('Capture edit tab filters clips by title, note, source, and time range', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+  const searchable = makeSequence({
+    id: 'search-sequence',
+    name: '검색 테이프',
+    segments: [
+      makeSegment({
+        id: 'clip-title',
+        title: 'Rain ambience',
+        videoId: 'video-rain',
+        originalUrl: 'https://youtube.com/watch?v=video-rain',
+        startSeconds: 15,
+        endSeconds: 30
+      }),
+      makeSegment({
+        id: 'clip-note',
+        title: 'Whisper intro',
+        videoId: 'video-note',
+        originalUrl: 'https://youtube.com/watch?v=video-note',
+        startSeconds: 120,
+        endSeconds: 132,
+        note: 'favorite soft trigger'
+      }),
+      makeSegment({
+        id: 'clip-source',
+        title: 'Keyboard taps',
+        videoId: 'special-source',
+        originalUrl: 'https://youtube.com/watch?v=special-source',
+        startSeconds: 300,
+        endSeconds: 315
+      })
+    ]
+  });
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [searchable],
+        selectedSequenceId: searchable.id
+      },
+      editSearch: '02:00'
+    },
+    onIn: () => {},
+    onOut: () => {},
+    onEditSearch: (query) => calls.push(query)
+  });
+
+  assert.match(textOf(page), /Whisper intro/);
+  assert.doesNotMatch(textOf(page), /Rain ambience/);
+  assert.doesNotMatch(textOf(page), /Keyboard taps/);
+
+  const search = findByAriaLabel(page, '클립 검색');
+  assert.equal(search.value, '02:00');
+  search.value = 'special-source';
+  search.input();
+
+  assert.deepEqual(calls, ['special-source']);
+});
+
 test('Capture edit tab opens a segment action menu instead of deleting from the more button', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

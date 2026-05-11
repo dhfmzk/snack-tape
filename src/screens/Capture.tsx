@@ -20,6 +20,7 @@ type Props = {
   onDeleteSegment?: (segmentId: string) => void;
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
+  onEditSearch?: (query: string) => void;
   onBeginRenameMixtape?: (sequenceId: string) => void;
   onCancelRenameMixtape?: () => void;
   onRenameMixtape?: (sequenceId: string, name: string) => void;
@@ -45,6 +46,28 @@ function clipDuration(segment: Segment): string {
   }
 
   return formatTimecode(segment.endSeconds - segment.startSeconds);
+}
+
+function segmentSearchText(segment: Segment, i18n: I18n): string {
+  return [
+    segment.title,
+    segment.note ?? '',
+    segment.videoId,
+    segment.originalUrl,
+    formatTimecode(segment.startSeconds),
+    segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
+    formatEditableTimecode(segment.startSeconds),
+    segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : i18n.common.end,
+  ].join(' ').toLocaleLowerCase();
+}
+
+function filterSegments(segments: Segment[], query: string, i18n: I18n): Segment[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return segments;
+  }
+
+  return segments.filter((segment) => segmentSearchText(segment, i18n).includes(normalizedQuery));
 }
 
 function thumbStyle(thumb: HTMLElement, width: number, height: number): HTMLElement {
@@ -681,6 +704,7 @@ export function Capture(props: Props): HTMLElement {
     onDeleteSegment,
     onCopySegmentToMixtape,
     onMoveSegmentToMixtape,
+    onEditSearch,
     onBeginRenameMixtape,
     onCancelRenameMixtape,
     onRenameMixtape,
@@ -695,6 +719,8 @@ export function Capture(props: Props): HTMLElement {
   const currentTime = pageInfo?.currentTime ?? 0;
   const sequence = selectedSequence(state);
   const segments = editableSegments(sequence);
+  const editSearch = state.editSearch ?? '';
+  const filteredSegments = filterSegments(segments, editSearch, i18n);
   const segmentCount = sequence?.segments.length ?? 0;
   const sequences = state.store?.sequences ?? [];
   const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
@@ -959,7 +985,7 @@ export function Capture(props: Props): HTMLElement {
     ),
     el(
       'div',
-      { style: { padding: '4px 14px 8px' } },
+      { style: { padding: '4px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } },
       el('span', {
         text: i18n.capture.sessionSaved(segmentCount),
         style: {
@@ -968,8 +994,44 @@ export function Capture(props: Props): HTMLElement {
           fontSize: '10px',
           letterSpacing: '0.6px',
         },
-      })
+      }),
+      editSearch.trim()
+        ? el('span', {
+            text: `${filteredSegments.length} / ${segmentCount}`,
+            style: {
+              color: 'var(--text2)',
+              fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              fontSize: '10px',
+              letterSpacing: '0.6px',
+            },
+          })
+        : null
     ),
+    segmentCount > 0
+      ? el(
+          'div',
+          { style: { padding: '0 14px 10px' } },
+          el('input', {
+            ariaLabel: i18n.capture.segmentSearch,
+            placeholder: i18n.capture.segmentSearchPlaceholder,
+            value: editSearch,
+            dataset: { persistKey: `capture-segment-search:${sequence?.id ?? 'none'}` },
+            onInput: (event) => onEditSearch?.((event.target as HTMLInputElement).value),
+            style: {
+              width: '100%',
+              height: '34px',
+              boxSizing: 'border-box',
+              border: '1px solid var(--hairline2)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              borderRadius: '8px',
+              padding: '0 11px',
+              fontSize: '11.5px',
+              outline: 'none',
+            },
+          })
+        )
+      : null,
     state.captureNotice
       ? el(
           'div',
@@ -1003,7 +1065,7 @@ export function Capture(props: Props): HTMLElement {
           minHeight: '0',
         },
       },
-      ...segments.map((segment) =>
+      ...filteredSegments.map((segment) =>
         {
           const isEditingSegment = state.segmentEdit?.segmentId === segment.id;
           return (
@@ -1077,6 +1139,18 @@ export function Capture(props: Props): HTMLElement {
           );
         }
       ),
+      editSearch.trim() && filteredSegments.length === 0
+        ? el('p', {
+            className: 'soft-empty',
+            text: i18n.capture.segmentSearchEmpty,
+            style: {
+              margin: '14px 0',
+              color: 'var(--text2)',
+              fontSize: '12px',
+              textAlign: 'center',
+            },
+          })
+        : null,
       state.draftIn !== null
         ? el(
             'div',
