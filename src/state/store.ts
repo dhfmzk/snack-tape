@@ -360,6 +360,21 @@ export class SnackTapeAppStore {
     return i18n.playback.nextFailed(this.playbackRuntimeErrorMessage(error));
   }
 
+  private playbackSeekFailedMessage(error: unknown): string {
+    const i18n = createI18n(this.state.settings.language);
+    return i18n.playback.seekFailed(this.playbackRuntimeErrorMessage(error));
+  }
+
+  private playbackPauseFailedMessage(error: unknown): string {
+    const i18n = createI18n(this.state.settings.language);
+    return i18n.playback.pauseFailed(this.playbackRuntimeErrorMessage(error));
+  }
+
+  private playbackResumeFailedMessage(error: unknown): string {
+    const i18n = createI18n(this.state.settings.language);
+    return i18n.playback.resumeFailed(this.playbackRuntimeErrorMessage(error));
+  }
+
   private playbackStopFailedMessage(error: unknown): string {
     const i18n = createI18n(this.state.settings.language);
     return i18n.playback.stopFailed(this.playbackRuntimeErrorMessage(error));
@@ -527,6 +542,32 @@ export class SnackTapeAppStore {
       store,
       queueEdit: null,
       segmentEdit: null,
+      renameEdit: null,
+    });
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
+  async editPlaybackSegment(sequenceId: string, segmentId: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = currentStore?.sequences.find((item) => item.id === sequenceId);
+    if (!currentStore || !sequence?.segments.some((segment) => segment.id === segmentId)) {
+      return;
+    }
+    const previousState = this.state;
+
+    const store: SnackTapeStore = {
+      ...currentStore,
+      selectedSequenceId: sequenceId,
+    };
+    this.setState({
+      route: 'capture',
+      store,
+      queueEdit: null,
+      segmentEdit: { segmentId },
       renameEdit: null,
     });
     const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
@@ -1061,6 +1102,39 @@ export class SnackTapeAppStore {
     });
   }
 
+  async removePlaybackQueueSegment(segmentId: string): Promise<void> {
+    const currentStore = this.state.store;
+    const playbackState = this.state.playbackState;
+    if (!currentStore || !playbackState || playbackState.currentSegmentId === segmentId) {
+      return;
+    }
+
+    const sequence = currentStore.sequences.find((item) => item.id === playbackState.sequenceId);
+    if (!sequence || !sequence.segments.some((segment) => segment.id === segmentId)) {
+      return;
+    }
+
+    const nextSegmentIds = playbackQueueIds(sequence, playbackState).filter((item) => item !== segmentId);
+    const nextPlaybackState = playbackStateAfterQueueEdit(playbackState, sequence, nextSegmentIds);
+    if (!nextPlaybackState) {
+      return;
+    }
+    const previousState = this.state;
+
+    this.setState({
+      playbackState: nextPlaybackState,
+      playbackDisplay: describePlaybackState(currentStore, nextPlaybackState),
+    });
+
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), async () => {
+      await savePlaybackState(nextPlaybackState);
+    });
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async saveQueueEdit(): Promise<void> {
     const queueEdit = this.state.queueEdit;
     const currentStore = this.state.store;
@@ -1141,7 +1215,7 @@ export class SnackTapeAppStore {
     if (
       this.state.route !== 'playback'
       || !playbackState?.tabId
-      || (playbackState.status !== 'playing' && playbackState.status !== 'waiting' && playbackState.status !== 'pending')
+      || (playbackState.status !== 'playing' && playbackState.status !== 'waiting' && playbackState.status !== 'pending' && playbackState.status !== 'paused')
     ) {
       return;
     }
@@ -1563,6 +1637,39 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async seekPlayback(seconds: number): Promise<void> {
+    const response = await sendRuntimeMessage({ type: 'SEEK_PLAYBACK', sec: seconds });
+    if (!response.ok) {
+      this.setPlaybackError(this.playbackSeekFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      return;
+    }
+
+    this.setState({ playbackNotice: null });
+    await this.refreshPlayback();
+  }
+
+  async pausePlayback(): Promise<void> {
+    const response = await sendRuntimeMessage({ type: 'PAUSE_PLAYBACK' });
+    if (!response.ok) {
+      this.setPlaybackError(this.playbackPauseFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      return;
+    }
+
+    this.setState({ playbackNotice: null });
+    await this.refreshPlayback();
+  }
+
+  async resumePlayback(): Promise<void> {
+    const response = await sendRuntimeMessage({ type: 'RESUME_PLAYBACK' });
+    if (!response.ok) {
+      this.setPlaybackError(this.playbackResumeFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      return;
+    }
+
+    this.setState({ playbackNotice: null });
+    await this.refreshPlayback();
+  }
+
   async retryPlaybackRecovery(): Promise<void> {
     const recovery = this.state.playbackNotice?.recovery;
     if (!recovery) {
@@ -1590,8 +1697,10 @@ export class SnackTapeAppStore {
     } else if (name === 'next-clip') {
       await this.nextClip();
     } else if (name === 'play-pause') {
-      if (this.state.playbackDisplay?.canStop) {
-        await this.stopPlayback();
+      if (this.state.playbackState?.status === 'paused') {
+        await this.resumePlayback();
+      } else if (this.state.playbackDisplay?.canStop) {
+        await this.pausePlayback();
       } else {
         await this.startSequence(0);
       }

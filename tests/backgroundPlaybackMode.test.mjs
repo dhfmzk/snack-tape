@@ -368,6 +368,129 @@ test('background promotes waiting playback when content reports user-started pla
   assert.ok(data[PLAYBACK_STATE_KEY].startedAt <= Date.now());
 });
 
+test('background seekPlayback clamps to the active segment and forwards seek to YouTube', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-seek-command',
+    segments: [makeSegment({ id: 'clip-seek-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [PLAYBACK_STATE_KEY]: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-seek-command',
+      tabId: 9,
+      status: 'playing',
+      startedAt: 1,
+      playbackToken: 'token-seek-command',
+      mode: 'sequence',
+      order: [0],
+      orderSegmentIds: ['clip-seek-command'],
+      orderPosition: 0
+    }
+  });
+  const { seekPlayback } = await import('../.tmp-tests/src/background/background.js?seek-playback');
+
+  await seekPlayback(25);
+
+  assert.deepEqual(data.messages.at(-1), { type: 'seek', sec: 20 });
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'playing');
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
+test('background pausePlayback pauses YouTube and stores the paused segment position', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-pause-command',
+    segments: [makeSegment({ id: 'clip-pause-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-pause-command',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-pause-command',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-pause-command'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_CURRENT_TIME') {
+          return { ok: true, data: 14 };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { pausePlayback } = await import('../.tmp-tests/src/background/background.js?pause-playback');
+
+  await pausePlayback();
+
+  assert.deepEqual(data.messages.map((message) => message.type), ['GET_CURRENT_TIME', 'pause']);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'paused');
+  assert.ok(data[PLAYBACK_STATE_KEY].startedAt <= Date.now());
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
+test('background resumePlayback resumes YouTube from the stored paused position', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-resume-command',
+    segments: [makeSegment({ id: 'clip-resume-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-resume-command',
+        tabId: 9,
+        status: 'paused',
+        startedAt: Date.now() - 4000,
+        playbackToken: 'token-resume-command',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-resume-command'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_CURRENT_TIME') {
+          return { ok: true, data: 14 };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { resumePlayback } = await import('../.tmp-tests/src/background/background.js?resume-playback');
+
+  await resumePlayback();
+
+  assert.deepEqual(data.messages.map((message) => message.type), ['GET_CURRENT_TIME', 'play']);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'playing');
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
 test('background stops after the current segment when autoNext is disabled', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
@@ -588,7 +711,7 @@ test('background play-pause command starts the selected mixtape when the side pa
   assert.equal(data.messages.some((message) => message.type === 'PLAY_SEGMENT'), true);
 });
 
-test('background play-pause command stops playback when the side panel is closed', async () => {
+test('background play-pause command pauses playback when the side panel is closed', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const sequence = makeSequence({
     id: 'sequence-command-stop',
@@ -623,8 +746,9 @@ test('background play-pause command stops playback when the side panel is closed
   data.commandListeners[0]('play-pause');
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(data[PLAYBACK_STATE_KEY], undefined);
-  assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), true);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'paused');
+  assert.equal(data.messages.some((message) => message.type === 'pause'), true);
+  assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), false);
 });
 
 test('background next-clip command advances playback when the side panel is closed', async () => {

@@ -264,7 +264,7 @@ test('describePlaybackState returns null for null state', () => {
 test('describePlaybackState returns null for stopped or idle status', () => {
   const sequence = makeSequence();
   const store = { sequences: [sequence], selectedSequenceId: sequence.id };
-  for (const status of ['stopped', 'idle', 'paused']) {
+  for (const status of ['stopped', 'idle']) {
     const state = {
       sequenceId: sequence.id,
       segmentIndex: 0,
@@ -275,10 +275,10 @@ test('describePlaybackState returns null for stopped or idle status', () => {
   }
 });
 
-test('describePlaybackState returns display data for waiting and pending status', () => {
+test('describePlaybackState returns display data for waiting, pending, and paused status', () => {
   const sequence = makeSequence();
   const store = { sequences: [sequence], selectedSequenceId: sequence.id };
-  for (const status of ['waiting', 'pending']) {
+  for (const status of ['waiting', 'pending', 'paused']) {
     const state = {
       sequenceId: sequence.id,
       segmentIndex: 0,

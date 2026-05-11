@@ -30,6 +30,7 @@ export type PlaybackState = {
   tabId?: number;
   status: 'idle' | 'pending' | 'waiting' | 'playing' | 'paused' | 'stopped';
   startedAt: number;
+  currentTime?: number;
   playbackToken?: string;
   mode?: PlaybackMode;
   order?: number[];
@@ -83,6 +84,9 @@ export type SnackTapeMessage =
   | { type: 'PLAYBACK_STATE_CHANGED' }
   | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number }
   | { type: 'PLAY_NEXT'; playbackToken?: string }
+  | { type: 'SEEK_PLAYBACK'; sec: number }
+  | { type: 'PAUSE_PLAYBACK' }
+  | { type: 'RESUME_PLAYBACK' }
   | { type: 'STOP_SEQUENCE' }
   | { type: 'getVideoState' }
   | { type: 'seek'; sec: number }

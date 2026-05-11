@@ -54,7 +54,27 @@ class FakeElement extends FakeNode {
     }
 
     for (const listener of this.listeners.click ?? []) {
-      listener({ stopPropagation() {} });
+      listener({ currentTarget: this, target: this, stopPropagation() {} });
+    }
+  }
+
+  clickAt(clientX) {
+    if (this.disabled) {
+      return;
+    }
+
+    for (const listener of this.listeners.click ?? []) {
+      listener({ clientX, currentTarget: this, target: this, stopPropagation() {} });
+    }
+  }
+
+  getBoundingClientRect() {
+    return { left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10 };
+  }
+
+  keyDown(key) {
+    for (const listener of this.listeners.keydown ?? []) {
+      listener({ key, preventDefault() {}, currentTarget: this, target: this });
     }
   }
 
@@ -348,6 +368,173 @@ test('Playback progress follows live YouTube time without CSS animation while pl
   }
 });
 
+test('Playback progress seeks within the saved segment range', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-seek',
+    name: '탐색 믹스테이프',
+    segments: [makeSegment({ id: 'clip-seek', title: '탐색 클립', videoId: 'video-seek', startSeconds: 10, endSeconds: 30 })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video-seek',
+      title: '탐색 클립',
+      url: 'https://www.youtube.com/watch?v=video-seek',
+      currentTime: 14,
+      duration: 100
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-seek',
+      status: 'playing',
+      startedAt: 1700000000000
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '탐색 클립',
+      positionText: '1 / 1',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    loading: false
+  };
+  const calls = [];
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onPause: () => {},
+    onResume: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onSeek: (seconds) => calls.push(seconds),
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const progressBar = findByAriaLabel(page, '재생 진행률');
+
+  progressBar.clickAt(50);
+  progressBar.keyDown('ArrowRight');
+  progressBar.keyDown('Home');
+  progressBar.keyDown('End');
+
+  assert.deepEqual(calls, [20, 15, 10, 30]);
+  assert.equal(progressBar.attributes.role, 'slider');
+  assert.equal(progressBar.attributes.tabindex, '0');
+});
+
+test('Playback center control pauses and resumes instead of stopping', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-pause-resume',
+    name: '일시정지 믹스테이프',
+    segments: [makeSegment({ id: 'clip-pause-resume', title: '일시정지 클립', videoId: 'video1' })]
+  });
+  const baseState = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-pause-resume',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '일시정지 클립',
+      positionText: '1 / 1',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+
+  const playingPage = Playback({
+    state: baseState,
+    onBack: () => {},
+    onPlay: () => {},
+    onPause: () => calls.push('pause'),
+    onResume: () => calls.push('resume'),
+    onStop: () => calls.push('stop'),
+    onNext: () => {},
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  findByAriaLabel(playingPage, '일시정지').click();
+
+  const pausedPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        ...baseState.playbackState,
+        status: 'paused'
+      }
+    },
+    onBack: () => {},
+    onPlay: () => {},
+    onPause: () => calls.push('pause'),
+    onResume: () => calls.push('resume'),
+    onStop: () => calls.push('stop'),
+    onNext: () => {},
+    onEditSequence: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  findByAriaLabel(pausedPage, '재개').click();
+
+  assert.deepEqual(calls, ['pause', 'resume']);
+});
+
 test('Playback renders zero-second OUT values as saved times, not END', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
@@ -594,6 +781,8 @@ test('Playback template controls are wired to playback callbacks', async () => {
     state,
     onBack: () => calls.push(['back']),
     onPlay: (index, sequenceId, mode) => calls.push(['play', index, sequenceId, mode]),
+    onPause: () => calls.push(['pause']),
+    onResume: () => calls.push(['resume']),
     onStop: () => calls.push(['stop']),
     onNext: () => calls.push(['next'])
   });
@@ -601,20 +790,247 @@ test('Playback template controls are wired to playback callbacks', async () => {
   findByAriaLabel(page, '믹스테이프로 돌아가기').click();
   findByAriaLabel(page, '셔플 재생').click();
   findByAriaLabel(page, '이전 클립').click();
-  findByAriaLabel(page, '정지').click();
+  findByAriaLabel(page, '일시정지').click();
   findByAriaLabel(page, '다음 클립').click();
   findByAriaLabel(page, '현재 클립 다시 재생').click();
-  findByAriaLabel(page, '다음 클립 재생').click();
+  findByAriaLabel(page, '다음 클립부터 순서대로 재생').click();
 
   assert.deepEqual(calls, [
     ['back'],
     ['play', 1, sequence.id, 'shuffle'],
     ['play', 0, sequence.id, 'sequence'],
-    ['stop'],
+    ['pause'],
     ['next'],
     ['play', 1, sequence.id, 'repeat'],
     ['play', 2, sequence.id, 'sequence']
   ]);
+});
+
+test('Playback queue rows separate play-from-here from repeat-this-clip', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-semantics',
+    name: '큐 동작 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '둘째 클립', videoId: 'video2' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-1',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'shuffle'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '첫 클립',
+      positionText: '1 / 2',
+      modeLabel: '셔플 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: (index, sequenceId, mode) => calls.push(['play', index, sequenceId, mode]),
+    onPause: () => {},
+    onResume: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+
+  findByAriaLabel(page, '둘째 클립부터 순서대로 재생').click();
+  findByAriaLabel(page, '둘째 클립만 반복 재생').click();
+
+  assert.deepEqual(calls, [
+    ['play', 1, sequence.id, 'sequence'],
+    ['play', 1, sequence.id, 'repeat']
+  ]);
+});
+
+test('Playback queue rows expose edit and remove actions without entering queue edit mode', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-row-actions',
+    name: '행 액션 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '현재 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '제거할 클립', videoId: 'video2' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-1',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence',
+      orderSegmentIds: ['clip-1', 'clip-2'],
+      orderPosition: 0
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '현재 클립',
+      positionText: '1 / 2',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onPause: () => {},
+    onResume: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onEditSegment: (sequenceId, segmentId) => calls.push(['edit-segment', sequenceId, segmentId]),
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {},
+    onRemovePlaybackQueueSegment: (segmentId) => calls.push(['remove-queue', segmentId])
+  });
+
+  findByAriaLabel(page, '제거할 클립 구간 편집').click();
+  findByAriaLabel(page, '제거할 클립 큐에서 제거').click();
+
+  assert.deepEqual(calls, [
+    ['edit-segment', sequence.id, 'clip-2'],
+    ['remove-queue', 'clip-2']
+  ]);
+});
+
+test('Playback displays target tab readiness for the active YouTube handoff', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-target-status',
+    name: '탭 상태 믹스테이프',
+    segments: [makeSegment({ id: 'clip-target-status', title: '탭 상태 클립', videoId: 'video-ready' })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video-ready',
+      title: '탭 상태 클립',
+      url: 'https://www.youtube.com/watch?v=video-ready',
+      currentTime: 10,
+      duration: 100
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-target-status',
+      tabId: 42,
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence'
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '탭 상태 클립',
+      positionText: '1 / 1',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onPause: () => {},
+    onResume: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+
+  assert.match(textOf(page), /TAB 42/);
+  assert.match(textOf(page), /CONNECTED/);
 });
 
 test('Playback edge mode buttons toggle shuffle and repeat modes', async () => {
@@ -965,8 +1381,8 @@ test('Playback list keeps mixtape order during shuffle without dimming earlier e
   });
   const queue = findAll(page, (node) => node.dataset?.scrollKey === `playback-queue:${sequence.id}`)[0];
   const queueText = textOf(queue);
-  const previousButton = findByAriaLabel(queue, '이미 재생된 랜덤 클립 재생');
-  const currentButton = findByAriaLabel(queue, '현재 랜덤 클립 재생');
+  const previousButton = findByAriaLabel(queue, '이미 재생된 랜덤 클립부터 순서대로 재생');
+  const currentButton = findByAriaLabel(queue, '현재 랜덤 클립부터 순서대로 재생');
 
   assert.ok(queue);
   assert.match(queueText, /이미 재생된 랜덤 클립/);

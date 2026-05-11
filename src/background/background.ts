@@ -114,6 +114,59 @@ function orderSegmentIds(sequence: Sequence, order: number[]): string[] {
   return order.map((index) => sequence.segments[index]?.id).filter((id): id is string => Boolean(id));
 }
 
+function currentPlaybackSegment(sequence: Sequence, state: PlaybackState): Segment | null {
+  return (state.currentSegmentId ? sequence.segments.find((item) => item.id === state.currentSegmentId) : null)
+    ?? sequence.segments[state.segmentIndex]
+    ?? null;
+}
+
+function clampToSegment(seconds: number, segment: Segment): number {
+  const lower = Math.max(0, segment.startSeconds);
+  const upper = segment.endSeconds !== null && segment.endSeconds >= lower ? segment.endSeconds : Number.POSITIVE_INFINITY;
+  const safeSeconds = Number.isFinite(seconds) ? seconds : lower;
+  return Math.max(lower, Math.min(upper, safeSeconds));
+}
+
+function startedAtForSegmentTime(segment: Segment, absoluteSeconds: number): number {
+  const elapsed = Math.max(0, absoluteSeconds - segment.startSeconds);
+  return Date.now() - Math.round(elapsed * 1000);
+}
+
+async function playbackContext(): Promise<{ state: PlaybackState; sequence: Sequence; segment: Segment }> {
+  const state = await loadPlaybackState();
+  if (!state?.tabId) {
+    throw new Error('재생 중인 YouTube 탭을 찾을 수 없습니다.');
+  }
+
+  const store = await loadStore();
+  const sequence = getSequence(store.sequences, state.sequenceId);
+  const segment = currentPlaybackSegment(sequence, state);
+  if (!segment) {
+    throw new Error('재생 중인 구간을 찾을 수 없습니다.');
+  }
+
+  return { state, sequence, segment };
+}
+
+async function readCurrentPlaybackTime(state: PlaybackState, segment: Segment): Promise<number> {
+  if (state.tabId) {
+    const response = await sendMessageWithRetries<number | null>(state.tabId, { type: 'GET_CURRENT_TIME' });
+    if (typeof response.data === 'number' && Number.isFinite(response.data)) {
+      return clampToSegment(response.data, segment);
+    }
+  }
+
+  if (typeof state.currentTime === 'number' && Number.isFinite(state.currentTime)) {
+    return clampToSegment(state.currentTime, segment);
+  }
+
+  if (Number.isFinite(state.startedAt)) {
+    return clampToSegment(segment.startSeconds + ((Date.now() - state.startedAt) / 1000), segment);
+  }
+
+  return clampToSegment(segment.startSeconds, segment);
+}
+
 function notifyPlaybackStateChanged(): Promise<void> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: 'PLAYBACK_STATE_CHANGED' }, () => {
@@ -414,6 +467,7 @@ export async function playSegment(
     await savePlaybackState({
       ...playbackState,
       status: response.data?.status === 'waiting' ? 'waiting' : 'playing',
+      currentTime: startedTime,
       startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
     });
   } catch (error) {
@@ -427,7 +481,7 @@ export async function playSegment(
 
 export async function nextSegment(playbackToken?: string): Promise<void> {
   const state = await loadPlaybackState();
-  if (!state || (state.status !== 'playing' && state.status !== 'waiting')) {
+  if (!state || (state.status !== 'playing' && state.status !== 'waiting' && state.status !== 'paused')) {
     return;
   }
 
@@ -487,7 +541,55 @@ export async function markPlaybackStarted(playbackToken: string, currentTime?: n
   await savePlaybackState({
     ...state,
     status: 'playing',
+    currentTime,
     startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
+  });
+  await notifyPlaybackStateChanged();
+}
+
+export async function seekPlayback(seconds: number): Promise<void> {
+  const { state, segment } = await playbackContext();
+  const targetSeconds = clampToSegment(seconds, segment);
+
+  await sendMessageWithRetries(state.tabId!, { type: 'seek', sec: targetSeconds });
+  await savePlaybackState({
+    ...state,
+    currentTime: targetSeconds,
+    startedAt: startedAtForSegmentTime(segment, targetSeconds)
+  });
+  await notifyPlaybackStateChanged();
+}
+
+export async function pausePlayback(): Promise<void> {
+  const { state, segment } = await playbackContext();
+  if (state.status === 'paused') {
+    return;
+  }
+
+  const currentTime = await readCurrentPlaybackTime(state, segment);
+  await sendMessageWithRetries(state.tabId!, { type: 'pause' });
+  await savePlaybackState({
+    ...state,
+    status: 'paused',
+    currentTime,
+    startedAt: startedAtForSegmentTime(segment, currentTime)
+  });
+  await notifyPlaybackStateChanged();
+}
+
+export async function resumePlayback(): Promise<void> {
+  const { state, segment } = await playbackContext();
+  if (state.status === 'playing') {
+    return;
+  }
+
+  const currentTime = await readCurrentPlaybackTime(state, segment);
+  await sendMessageWithRetries(state.tabId!, { type: 'play' });
+  await savePlaybackState({
+    ...state,
+    status: 'playing',
+    currentTime,
+    startedAt: startedAtForSegmentTime(segment, currentTime)
   });
   await notifyPlaybackStateChanged();
 }
@@ -526,6 +628,21 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
     return { ok: true };
   }
 
+  if (message.type === 'SEEK_PLAYBACK') {
+    await seekPlayback(message.sec);
+    return { ok: true };
+  }
+
+  if (message.type === 'PAUSE_PLAYBACK') {
+    await pausePlayback();
+    return { ok: true };
+  }
+
+  if (message.type === 'RESUME_PLAYBACK') {
+    await resumePlayback();
+    return { ok: true };
+  }
+
   if (message.type === 'PLAYBACK_STARTED') {
     await markPlaybackStarted(message.playbackToken, message.currentTime);
     return { ok: true };
@@ -557,7 +674,11 @@ export async function handleCommand(command: CommandName): Promise<void> {
 
   const playbackState = await loadPlaybackState();
   if (playbackState) {
-    await stopPlayback();
+    if (playbackState.status === 'paused') {
+      await resumePlayback();
+    } else {
+      await pausePlayback();
+    }
     return;
   }
 
