@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 const DOC_PATHS = [
   'README.md',
   'docs/chrome-web-store-screenshots.md',
+  'docs/release-notes-template.md',
   'docs/snacktape-goal.md',
   'docs/permissions-audit.md',
   'docs/privacy.md'
