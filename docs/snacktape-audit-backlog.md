@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 53 items.
+- Severity split: P1 High 10, P2 Medium 27, P3 Low 16.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -73,7 +73,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ID | Area | Remaining work | Evidence | Next step |
 | --- | --- | --- | --- | --- |
 | ST-GAP-050 | Versioning | Version bump and changelog flow are still manual. | `package.json`, `manifest.json`, `README.md` | Add a lightweight release note template after package script exists. |
-| ST-GAP-080 | Store screenshots | There is no tracked plan for the required Chrome Web Store screenshots. | `docs/`, `dist/` | Define the 3-5 screenshots to capture after UI stabilizes. |
 | ST-GAP-081 | First-run onboarding | First launch depends on empty states only. There is no guided path from "open YouTube" to "first saved tape." | `src/screens/Home.tsx`, `src/screens/Capture.tsx` | Add a minimal first-run checklist only if empty-state copy is not enough. |
 | ST-GAP-082 | Privacy copy | The extension stores local clip metadata, but there is no standalone privacy statement draft. | `README.md`, `manifest.json` | Draft a local-only privacy statement for store listing use. |
 | ST-GAP-083 | Permission audit | Manifest permissions have not been reviewed against current feature usage after popup removal and playback changes. | `manifest.json`, `src/background/background.ts` | Re-check permissions and remove anything no longer required. |
