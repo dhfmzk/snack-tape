@@ -1777,6 +1777,71 @@ test('Playback renders runtime playback errors in the Now Playing header', async
   assert.deepEqual(calls, ['retry', 'stop']);
 });
 
+test('Playback labels shuffle recovery without an explicit queue as a fresh shuffle order', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-shuffle-recovery',
+    name: '셔플 복구 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '첫 셔플 클립' }),
+      makeSegment({ id: 'clip-b', title: '두 번째 셔플 클립' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    playbackNotice: {
+      kind: 'error',
+      message: '재생을 시작할 수 없습니다. runtime failed',
+      recovery: {
+        type: 'start',
+        sequenceId: sequence.id,
+        startIndex: 0,
+        mode: 'shuffle'
+      }
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onRetryPlayback: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+
+  assert.match(textOf(page), /셔플 복구 믹스테이프 · 셔플 재생 · 새 셔플 순서/);
+  assert.doesNotMatch(textOf(page), /저장된 목록 순서/);
+});
+
 test('Playback title rename button opens the current mixtape rename flow', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');

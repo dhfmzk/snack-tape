@@ -210,6 +210,10 @@ function recoveryQueueLabel(recovery: PlaybackRecoveryAction, sequence: Sequence
     return i18n.playback.recoverySessionQueue(orderedCount);
   }
 
+  if (recovery.mode === 'shuffle') {
+    return i18n.playback.recoveryShuffleQueue;
+  }
+
   return i18n.playback.recoverySavedQueue;
 }
 

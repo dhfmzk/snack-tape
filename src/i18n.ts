@@ -147,6 +147,7 @@ export type I18n = {
     recoveryStartSummary: (tapeName: string, mode: string, queue: string) => string;
     recoveryEditedQueue: (count: number) => string;
     recoverySessionQueue: (count: number) => string;
+    recoveryShuffleQueue: string;
     recoverySavedQueue: string;
     recoveryNextSummary: string;
     recoveryStopSummary: string;
@@ -360,6 +361,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
       recoveryEditedQueue: (count) => `편집된 큐 ${count}개 유지`,
       recoverySessionQueue: (count) => `세션 순서 ${count}개 유지`,
+      recoveryShuffleQueue: '새 셔플 순서',
       recoverySavedQueue: '저장된 목록 순서',
       recoveryNextSummary: '현재 재생 세션에서 다음 클립으로 다시 시도합니다.',
       recoveryStopSummary: '현재 재생 세션을 정지 상태로 정리합니다.',
@@ -571,6 +573,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
       recoveryEditedQueue: (count) => `編集済みキュー${count}件を保持`,
       recoverySessionQueue: (count) => `セッション順${count}件を保持`,
+      recoveryShuffleQueue: '新しいシャッフル順',
       recoverySavedQueue: '保存済みリスト順',
       recoveryNextSummary: '現在の再生セッションで次のクリップを再試行します。',
       recoveryStopSummary: '現在の再生セッションを停止状態に戻します。',
@@ -782,6 +785,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
       recoveryEditedQueue: (count) => `keep edited queue of ${count}`,
       recoverySessionQueue: (count) => `keep session order of ${count}`,
+      recoveryShuffleQueue: 'new shuffle order',
       recoverySavedQueue: 'saved list order',
       recoveryNextSummary: 'Retry the next clip in the current playback session.',
       recoveryStopSummary: 'Stop and clear the current playback session.',
