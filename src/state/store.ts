@@ -209,6 +209,10 @@ function cloneSegments(segments: Segment[], timestamp: number): Segment[] {
   return segments.map((segment) => cloneSegment(segment, timestamp));
 }
 
+function sourceUrlForSegment(segment: Segment): string {
+  return segment.originalUrl || `https://www.youtube.com/watch?v=${encodeURIComponent(segment.videoId)}`;
+}
+
 type CaptureReadyPageInfo = PageInfo & {
   videoId: string;
   currentTime: number;
@@ -983,6 +987,39 @@ export class SnackTapeAppStore {
     await this.transferSegmentToMixtape(segmentId, targetSequenceId, 'move');
   }
 
+  async copySegmentSourceUrl(segmentId: string): Promise<void> {
+    const segment = this.segmentFromSelected(segmentId);
+    const writeText = globalThis.navigator?.clipboard?.writeText;
+    const i18n = createI18n(this.state.settings.language).capture;
+    if (!segment || !writeText) {
+      this.setCaptureError(i18n.sourceUrlUnavailable);
+      return;
+    }
+
+    try {
+      await writeText.call(globalThis.navigator.clipboard, sourceUrlForSegment(segment));
+      this.setCaptureInfo(i18n.sourceUrlCopied);
+    } catch {
+      this.setCaptureError(i18n.sourceUrlUnavailable);
+    }
+  }
+
+  async openSegmentSource(segmentId: string): Promise<void> {
+    const segment = this.segmentFromSelected(segmentId);
+    const i18n = createI18n(this.state.settings.language).capture;
+    if (!segment) {
+      this.setCaptureError(i18n.sourceUrlUnavailable);
+      return;
+    }
+
+    try {
+      await chrome.tabs.create({ url: sourceUrlForSegment(segment) });
+      this.setCaptureInfo(i18n.sourceUrlOpened);
+    } catch {
+      this.setCaptureError(i18n.sourceUrlUnavailable);
+    }
+  }
+
   private async transferSegmentToMixtape(segmentId: string, targetSequenceId: string, mode: 'copy' | 'move'): Promise<void> {
     const currentStore = this.state.store;
     const source = this.selectedSequence();
@@ -1543,6 +1580,14 @@ export class SnackTapeAppStore {
 
   private setCaptureError(message: string): void {
     this.setState({ captureNotice: { kind: 'error', message } });
+  }
+
+  private setCaptureInfo(message: string): void {
+    this.setState({ captureNotice: { kind: 'info', message } });
+  }
+
+  private segmentFromSelected(segmentId: string): Segment | null {
+    return this.selectedSequence()?.segments.find((segment) => segment.id === segmentId) ?? null;
   }
 
   async startSequence(startIndex = 0, sequenceId?: string, mode?: PlaybackMode, orderSegmentIds?: string[], queueEdited?: boolean): Promise<void> {

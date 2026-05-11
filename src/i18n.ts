@@ -63,8 +63,15 @@ export type I18n = {
     segmentMenu: (title: string) => string;
     editSegment: string;
     editSegmentAria: (title: string) => string;
+    openSource: string;
+    openSourceAria: (title: string) => string;
+    copySourceUrl: string;
+    copySourceUrlAria: (title: string) => string;
     deleteSegment: string;
     deleteSegmentAria: (title: string) => string;
+    sourceUrlCopied: string;
+    sourceUrlOpened: string;
+    sourceUrlUnavailable: string;
     segmentTransferTarget: (title: string) => string;
     copySegment: string;
     copySegmentAria: (title: string) => string;
@@ -268,8 +275,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} 메뉴`,
       editSegment: '구간 편집',
       editSegmentAria: (title) => `${title} 구간 편집`,
+      openSource: '원본 열기',
+      openSourceAria: (title) => `${title} 원본 열기`,
+      copySourceUrl: 'URL 복사',
+      copySourceUrlAria: (title) => `${title} URL 복사`,
       deleteSegment: '삭제',
       deleteSegmentAria: (title) => `${title} 삭제`,
+      sourceUrlCopied: '원본 URL을 클립보드에 복사했습니다.',
+      sourceUrlOpened: '원본 영상을 새 탭으로 열었습니다.',
+      sourceUrlUnavailable: '원본 URL을 열거나 복사할 수 없습니다.',
       segmentTransferTarget: (title) => `${title} 이동/복사 대상`,
       copySegment: '복사',
       copySegmentAria: (title) => `${title} 복사`,
@@ -471,8 +485,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} メニュー`,
       editSegment: '範囲を編集',
       editSegmentAria: (title) => `${title}の範囲を編集`,
+      openSource: '元動画を開く',
+      openSourceAria: (title) => `${title}の元動画を開く`,
+      copySourceUrl: 'URLをコピー',
+      copySourceUrlAria: (title) => `${title}のURLをコピー`,
       deleteSegment: '削除',
       deleteSegmentAria: (title) => `${title}を削除`,
+      sourceUrlCopied: '元動画のURLをクリップボードにコピーしました。',
+      sourceUrlOpened: '元動画を新しいタブで開きました。',
+      sourceUrlUnavailable: '元動画のURLを開く、またはコピーできません。',
       segmentTransferTarget: (title) => `${title}の移動/コピー先`,
       copySegment: 'コピー',
       copySegmentAria: (title) => `${title}をコピー`,
@@ -674,8 +695,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} menu`,
       editSegment: 'Edit range',
       editSegmentAria: (title) => `Edit range for ${title}`,
+      openSource: 'Open source',
+      openSourceAria: (title) => `Open source for ${title}`,
+      copySourceUrl: 'Copy URL',
+      copySourceUrlAria: (title) => `Copy URL for ${title}`,
       deleteSegment: 'Delete',
       deleteSegmentAria: (title) => `Delete ${title}`,
+      sourceUrlCopied: 'Source URL copied to clipboard.',
+      sourceUrlOpened: 'Opened the source video in a new tab.',
+      sourceUrlUnavailable: 'Source URL cannot be opened or copied.',
       segmentTransferTarget: (title) => `Move/copy target for ${title}`,
       copySegment: 'Copy',
       copySegmentAria: (title) => `Copy ${title}`,
