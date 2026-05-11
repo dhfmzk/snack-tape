@@ -76,6 +76,7 @@ export type AppState = {
   playbackDisplay: PlaybackDisplayState | null;
   playbackNotice: PlaybackNotice | null;
   draftIn: number | null;
+  draftOut: number | null;
   capturePulseId: string | null;
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
@@ -214,6 +215,10 @@ type CaptureReadyPageInfo = PageInfo & {
   currentTime: number;
 };
 
+type CaptureSaveMetadataPageInfo = PageInfo & {
+  videoId: string;
+};
+
 function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureReadyPageInfo | null {
   if (
     pageInfo?.isYouTubeVideoPage
@@ -222,6 +227,19 @@ function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureRea
     && pageInfo.currentTime !== undefined
   ) {
     return pageInfo as CaptureReadyPageInfo;
+  }
+
+  return null;
+}
+
+function captureSaveMetadataPageInfo(pageInfo: PageInfo | null | undefined): CaptureSaveMetadataPageInfo | null {
+  if (
+    pageInfo?.isYouTubeVideoPage
+    && pageInfo.videoId
+    && pageInfo.url
+    && typeof pageInfo.title === 'string'
+  ) {
+    return pageInfo as CaptureSaveMetadataPageInfo;
   }
 
   return null;
@@ -262,6 +280,7 @@ export class SnackTapeAppStore {
       playbackDisplay: null,
       playbackNotice: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1277,14 +1296,14 @@ export class SnackTapeAppStore {
   }
 
   async restoreDraft(): Promise<void> {
-    const videoId = this.state.pageInfo?.videoId;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
     if (!videoId) {
-      this.setState({ draftIn: null });
+      this.setState({ draftIn: null, draftOut: null });
       return;
     }
 
     const draft = await loadSegmentDraft(videoId);
-    this.setState({ draftIn: draft?.startSeconds ?? null });
+    this.setState({ draftIn: draft?.startSeconds ?? null, draftOut: draft?.endSeconds ?? null });
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
@@ -1338,6 +1357,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1367,6 +1387,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1420,7 +1441,7 @@ export class SnackTapeAppStore {
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
     const previousState = this.state;
     const inSec = preciseTime(pageInfo.currentTime);
-    this.setState({ draftIn: inSec, captureNotice: null });
+    this.setState({ draftIn: inSec, draftOut: null, captureNotice: null });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId: pageInfo.videoId,
       startSeconds: inSec,
@@ -1429,7 +1450,42 @@ export class SnackTapeAppStore {
     }));
   }
 
-  async nudgeDraft(deltaSeconds: number): Promise<void> {
+  async captureOutPreview(): Promise<void> {
+    const inSec = this.state.draftIn;
+    const i18n = createI18n(this.state.settings.language).capture;
+    if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
+      return;
+    }
+
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return;
+    }
+
+    const outSec = preciseTime(pageInfo.currentTime);
+    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const previousState = this.state;
+    this.setState({ draftOut: endSec, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
+      videoId: pageInfo.videoId,
+      startSeconds: inSec,
+      endSeconds: endSec,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  async clearDraft(): Promise<void> {
+    const previousState = this.state;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
+    this.setState({ draftIn: null, draftOut: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft(videoId));
+  }
+
+  async nudgeDraft(deltaSeconds: number, edge: SegmentEditEdge = 'start'): Promise<void> {
     const draftIn = this.state.draftIn;
     if (draftIn === null || !Number.isFinite(deltaSeconds)) {
       return;
@@ -1445,12 +1501,20 @@ export class SnackTapeAppStore {
     }
 
     const previousState = this.state;
-    const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
-    this.setState({ draftIn: nextIn });
+    const currentOut = this.state.draftOut;
+    const isEnd = edge === 'end' && currentOut !== null;
+    const nextIn = isEnd
+      ? draftIn
+      : preciseTime(Math.max(0, Math.min(draftIn + deltaSeconds, (currentOut ?? Number.POSITIVE_INFINITY) - MIN_CAPTURE_DURATION_SECONDS)));
+    const nextOut = isEnd
+      ? preciseTime(Math.max(draftIn + MIN_CAPTURE_DURATION_SECONDS, currentOut + deltaSeconds))
+      : currentOut;
+
+    this.setState({ draftIn: nextIn, draftOut: nextOut });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId,
       startSeconds: nextIn,
-      endSeconds: null,
+      endSeconds: nextOut,
       updatedAt: Date.now(),
     }));
   }
@@ -1470,15 +1534,30 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
-    await this.refreshVideo();
-    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
-    if (!pageInfo) {
-      this.setCaptureError(i18n.noticeTimeUnavailable);
-      return;
+    const draftOut = this.state.draftOut;
+    let pageInfo: CaptureReadyPageInfo | CaptureSaveMetadataPageInfo | null;
+    let outSec: number;
+
+    if (draftOut === null) {
+      const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+      await this.refreshVideo();
+      const readyInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+      if (!readyInfo) {
+        this.setCaptureError(i18n.noticeTimeUnavailable);
+        return;
+      }
+      pageInfo = readyInfo;
+      outSec = preciseTime(readyInfo.currentTime);
+    } else {
+      const metadataInfo = captureSaveMetadataPageInfo(this.state.pageInfo);
+      if (!metadataInfo) {
+        this.setCaptureError(i18n.noticeTimeUnavailable);
+        return;
+      }
+      pageInfo = metadataInfo;
+      outSec = draftOut;
     }
 
-    const outSec = preciseTime(pageInfo.currentTime);
     const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
 
     const timestamp = Date.now();
@@ -1516,7 +1595,7 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
 
-    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
+    this.setState({ store: nextStore, draftIn: null, draftOut: null, capturePulseId: segment.id, captureNotice: null });
     const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
       await saveStore(nextStore);
       await clearSegmentDraft(pageInfo.videoId);
@@ -1532,7 +1611,7 @@ export class SnackTapeAppStore {
     }, 2000);
   }
 
-  private captureTitle(pageInfo: CaptureReadyPageInfo): string {
+  private captureTitle(pageInfo: { title: string; videoId: string }): string {
     if (!this.state.settings.autoTitleFromCaptions) {
       return `YouTube ${pageInfo.videoId}`;
     }
@@ -1756,7 +1835,11 @@ export class SnackTapeAppStore {
     if (name === 'capture-in') {
       await this.captureIn();
     } else if (name === 'capture-out') {
-      await this.captureOutAndSave();
+      if (this.state.draftOut === null) {
+        await this.captureOutPreview();
+      } else {
+        await this.captureOutAndSave();
+      }
     } else if (name === 'next-clip') {
       await this.nextClip();
     } else if (name === 'play-pause') {

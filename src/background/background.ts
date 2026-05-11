@@ -372,7 +372,7 @@ export async function captureOutFromCommand(): Promise<void> {
   }
 
   const timestamp = Date.now();
-  const outSeconds = videoState.currentTime;
+  const outSeconds = draft.endSeconds ?? videoState.currentTime;
   const endSeconds = outSeconds <= draft.startSeconds ? draft.startSeconds + MIN_CAPTURE_DURATION_SECONDS : outSeconds;
   const title = settings.autoTitleFromCaptions
     ? videoState.title.trim() || fallbackVideoTitle(tab, videoState.videoId!)
