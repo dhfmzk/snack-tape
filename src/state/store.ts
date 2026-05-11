@@ -1,6 +1,6 @@
 import { describePlaybackState, playbackStateAfterSequenceEdit, type PlaybackDisplayState } from '../shared/playback.js';
 import { moveItem, removeSegmentFromSequence } from '../shared/reorder.js';
-import { parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFormat } from '../shared/dataTransfer.js';
+import { createExportFilename, parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFilenameContext, type ExportFormat } from '../shared/dataTransfer.js';
 import {
   clearPlaybackState,
   clearSegmentDraft,
@@ -12,10 +12,10 @@ import {
   saveStore,
   saveSegmentDraft,
 } from '../shared/storage.js';
-import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeStore, VideoState } from '../shared/types.js';
+import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeErrorCode, SnackTapeMessage, SnackTapeResponse, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseTimecodeToSeconds } from '../shared/time.js';
-import { createI18n } from '../i18n.js';
+import { createI18n, type I18n } from '../i18n.js';
 import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings, type Settings } from './storage.js';
 import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type ActiveVideoResult } from './youtube.js';
 
@@ -76,6 +76,7 @@ export type AppState = {
   playbackDisplay: PlaybackDisplayState | null;
   playbackNotice: PlaybackNotice | null;
   draftIn: number | null;
+  draftOut: number | null;
   capturePulseId: string | null;
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
@@ -90,6 +91,7 @@ export type AppState = {
 
 export type AppListener = (state: AppState) => void;
 type PersistenceNoticeTarget = 'capture' | 'settings';
+export type ExportDataOptions = ExportFilenameContext;
 
 function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
   if (!store) {
@@ -215,6 +217,10 @@ type CaptureReadyPageInfo = PageInfo & {
   currentTime: number;
 };
 
+type CaptureSaveMetadataPageInfo = PageInfo & {
+  videoId: string;
+};
+
 function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureReadyPageInfo | null {
   if (
     pageInfo?.isYouTubeVideoPage
@@ -223,6 +229,19 @@ function captureReadyPageInfo(pageInfo: PageInfo | null | undefined): CaptureRea
     && pageInfo.currentTime !== undefined
   ) {
     return pageInfo as CaptureReadyPageInfo;
+  }
+
+  return null;
+}
+
+function captureSaveMetadataPageInfo(pageInfo: PageInfo | null | undefined): CaptureSaveMetadataPageInfo | null {
+  if (
+    pageInfo?.isYouTubeVideoPage
+    && pageInfo.videoId
+    && pageInfo.url
+    && typeof pageInfo.title === 'string'
+  ) {
+    return pageInfo as CaptureSaveMetadataPageInfo;
   }
 
   return null;
@@ -263,6 +282,7 @@ export class SnackTapeAppStore {
       playbackDisplay: null,
       playbackNotice: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -337,12 +357,35 @@ export class SnackTapeAppStore {
     }
   }
 
-  private playbackRuntimeErrorMessage(error: unknown): string {
-    return error instanceof Error
+  private playbackRuntimeErrorMessage(error: unknown, errorCode: SnackTapeErrorCode | undefined, i18n: I18n): string {
+    if (errorCode === 'content_request_failed') {
+      return i18n.playback.contentRequestFailed;
+    }
+    if (errorCode === 'runtime_unavailable') {
+      return i18n.playback.runtimeUnavailable;
+    }
+    if (errorCode === 'unsupported_request') {
+      return i18n.playback.unsupportedRequest;
+    }
+
+    const rawMessage = error instanceof Error
       ? error.message
       : typeof error === 'string'
         ? error
-        : 'Unknown playback error';
+        : '';
+    if (!rawMessage || (errorCode === 'unknown' && rawMessage === 'Unknown playback error')) {
+      return i18n.playback.unknownError;
+    }
+
+    return rawMessage;
+  }
+
+  private playbackFailedMessage(
+    response: Pick<SnackTapeResponse, 'error' | 'errorCode'>,
+    compose: (i18n: I18n, message: string) => string
+  ): string {
+    const i18n = createI18n(this.state.settings.language);
+    return compose(i18n, this.playbackRuntimeErrorMessage(response.error, response.errorCode, i18n));
   }
 
   private samePlaybackRecovery(left: PlaybackRecoveryAction | undefined, right: PlaybackRecoveryAction | undefined): boolean {
@@ -358,34 +401,28 @@ export class SnackTapeAppStore {
     this.setState({ playbackNotice: { kind: 'error', message, recovery } });
   }
 
-  private playbackStartFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.startFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackStartFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.startFailed(message));
   }
 
-  private playbackNextFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.nextFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackNextFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.nextFailed(message));
   }
 
-  private playbackSeekFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.seekFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackSeekFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.seekFailed(message));
   }
 
-  private playbackPauseFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.pauseFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackPauseFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.pauseFailed(message));
   }
 
-  private playbackResumeFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.resumeFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackResumeFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.resumeFailed(message));
   }
 
-  private playbackStopFailedMessage(error: unknown): string {
-    const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.stopFailed(this.playbackRuntimeErrorMessage(error));
+  private playbackStopFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
+    return this.playbackFailedMessage(response, (i18n, message) => i18n.playback.stopFailed(message));
   }
 
   private recoveryFromPlaybackState(playbackState: PlaybackState | null | undefined): PlaybackRecoveryAction | undefined {
@@ -1283,14 +1320,14 @@ export class SnackTapeAppStore {
   }
 
   async restoreDraft(): Promise<void> {
-    const videoId = this.state.pageInfo?.videoId;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
     if (!videoId) {
-      this.setState({ draftIn: null });
+      this.setState({ draftIn: null, draftOut: null });
       return;
     }
 
     const draft = await loadSegmentDraft(videoId);
-    this.setState({ draftIn: draft?.startSeconds ?? null });
+    this.setState({ draftIn: draft?.startSeconds ?? null, draftOut: draft?.endSeconds ?? null });
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
@@ -1312,7 +1349,7 @@ export class SnackTapeAppStore {
     await this.updateSettings({ defaultMixtapeId: sequenceId });
   }
 
-  async exportData(format: ExportFormat): Promise<void> {
+  async exportData(format: ExportFormat, options: ExportDataOptions = {}): Promise<void> {
     if (!this.state.store) {
       return;
     }
@@ -1320,7 +1357,7 @@ export class SnackTapeAppStore {
     const extension = format === 'json' ? 'json' : 'csv';
     const mimeType = format === 'json' ? 'application/json' : 'text/csv';
     const text = format === 'json' ? serializeStoreJson(this.state.store) : serializeStoreCsv(this.state.store);
-    this.downloadTextFile(`snacktape-export-${Date.now()}.${extension}`, mimeType, text);
+    this.downloadTextFile(createExportFilename(this.state.store, extension, new Date(), options), mimeType, text);
     this.setSettingsInfo(createI18n(this.state.settings.language).settings.exportReady(format));
   }
 
@@ -1344,6 +1381,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1373,6 +1411,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1426,7 +1465,7 @@ export class SnackTapeAppStore {
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
     const previousState = this.state;
     const inSec = preciseTime(pageInfo.currentTime);
-    this.setState({ draftIn: inSec, captureNotice: null });
+    this.setState({ draftIn: inSec, draftOut: null, captureNotice: null });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId: pageInfo.videoId,
       startSeconds: inSec,
@@ -1435,7 +1474,42 @@ export class SnackTapeAppStore {
     }));
   }
 
-  async nudgeDraft(deltaSeconds: number): Promise<void> {
+  async captureOutPreview(): Promise<void> {
+    const inSec = this.state.draftIn;
+    const i18n = createI18n(this.state.settings.language).capture;
+    if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
+      return;
+    }
+
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return;
+    }
+
+    const outSec = preciseTime(pageInfo.currentTime);
+    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const previousState = this.state;
+    this.setState({ draftOut: endSec, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
+      videoId: pageInfo.videoId,
+      startSeconds: inSec,
+      endSeconds: endSec,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  async clearDraft(): Promise<void> {
+    const previousState = this.state;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
+    this.setState({ draftIn: null, draftOut: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft(videoId));
+  }
+
+  async nudgeDraft(deltaSeconds: number, edge: SegmentEditEdge = 'start'): Promise<void> {
     const draftIn = this.state.draftIn;
     if (draftIn === null || !Number.isFinite(deltaSeconds)) {
       return;
@@ -1451,12 +1525,20 @@ export class SnackTapeAppStore {
     }
 
     const previousState = this.state;
-    const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
-    this.setState({ draftIn: nextIn });
+    const currentOut = this.state.draftOut;
+    const isEnd = edge === 'end' && currentOut !== null;
+    const nextIn = isEnd
+      ? draftIn
+      : preciseTime(Math.max(0, Math.min(draftIn + deltaSeconds, (currentOut ?? Number.POSITIVE_INFINITY) - MIN_CAPTURE_DURATION_SECONDS)));
+    const nextOut = isEnd
+      ? preciseTime(Math.max(draftIn + MIN_CAPTURE_DURATION_SECONDS, currentOut + deltaSeconds))
+      : currentOut;
+
+    this.setState({ draftIn: nextIn, draftOut: nextOut });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId,
       startSeconds: nextIn,
-      endSeconds: null,
+      endSeconds: nextOut,
       updatedAt: Date.now(),
     }));
   }
@@ -1476,15 +1558,30 @@ export class SnackTapeAppStore {
       return;
     }
 
-    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
-    await this.refreshVideo();
-    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
-    if (!pageInfo) {
-      this.setCaptureError(i18n.noticeTimeUnavailable);
-      return;
+    const draftOut = this.state.draftOut;
+    let pageInfo: CaptureReadyPageInfo | CaptureSaveMetadataPageInfo | null;
+    let outSec: number;
+
+    if (draftOut === null) {
+      const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+      await this.refreshVideo();
+      const readyInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+      if (!readyInfo) {
+        this.setCaptureError(i18n.noticeTimeUnavailable);
+        return;
+      }
+      pageInfo = readyInfo;
+      outSec = preciseTime(readyInfo.currentTime);
+    } else {
+      const metadataInfo = captureSaveMetadataPageInfo(this.state.pageInfo);
+      if (!metadataInfo) {
+        this.setCaptureError(i18n.noticeTimeUnavailable);
+        return;
+      }
+      pageInfo = metadataInfo;
+      outSec = draftOut;
     }
 
-    const outSec = preciseTime(pageInfo.currentTime);
     const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
 
     const timestamp = Date.now();
@@ -1522,7 +1619,7 @@ export class SnackTapeAppStore {
       sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
     };
 
-    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
+    this.setState({ store: nextStore, draftIn: null, draftOut: null, capturePulseId: segment.id, captureNotice: null });
     const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
       await saveStore(nextStore);
       await clearSegmentDraft(pageInfo.videoId);
@@ -1538,7 +1635,7 @@ export class SnackTapeAppStore {
     }, 2000);
   }
 
-  private captureTitle(pageInfo: CaptureReadyPageInfo): string {
+  private captureTitle(pageInfo: { title: string; videoId: string }): string {
     if (!this.state.settings.autoTitleFromCaptions) {
       return `YouTube ${pageInfo.videoId}`;
     }
@@ -1655,7 +1752,7 @@ export class SnackTapeAppStore {
         playbackDisplay: previousPlaybackDisplay,
         playbackNotice: {
           kind: 'error',
-          message: this.playbackStartFailedMessage(response.error),
+          message: this.playbackStartFailedMessage(response),
           recovery,
         },
       });
@@ -1689,7 +1786,7 @@ export class SnackTapeAppStore {
         playbackState: previousPlaybackState,
         playbackDisplay: previousPlaybackDisplay,
       });
-      this.setPlaybackError(this.playbackStopFailedMessage(response.error), { type: 'stop' });
+      this.setPlaybackError(this.playbackStopFailedMessage(response), { type: 'stop' });
       return;
     }
     this.setState({ playbackState: null, playbackDisplay: null, playbackNotice: null });
@@ -1699,7 +1796,7 @@ export class SnackTapeAppStore {
   async nextClip(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'PLAY_NEXT' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackNextFailedMessage(response.error), { type: 'next' });
+      this.setPlaybackError(this.playbackNextFailedMessage(response), { type: 'next' });
       return;
     }
     this.setState({ playbackNotice: null });
@@ -1709,7 +1806,7 @@ export class SnackTapeAppStore {
   async seekPlayback(seconds: number): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'SEEK_PLAYBACK', sec: seconds });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackSeekFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackSeekFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 
@@ -1720,7 +1817,7 @@ export class SnackTapeAppStore {
   async pausePlayback(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'PAUSE_PLAYBACK' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackPauseFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackPauseFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 
@@ -1731,7 +1828,7 @@ export class SnackTapeAppStore {
   async resumePlayback(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'RESUME_PLAYBACK' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackResumeFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackResumeFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 
@@ -1762,7 +1859,11 @@ export class SnackTapeAppStore {
     if (name === 'capture-in') {
       await this.captureIn();
     } else if (name === 'capture-out') {
-      await this.captureOutAndSave();
+      if (this.state.draftOut === null) {
+        await this.captureOutPreview();
+      } else {
+        await this.captureOutAndSave();
+      }
     } else if (name === 'next-clip') {
       await this.nextClip();
     } else if (name === 'play-pause') {

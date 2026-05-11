@@ -168,6 +168,7 @@ function baseState() {
     playbackState: null,
     playbackDisplay: null,
     draftIn: null,
+    draftOut: null,
     capturePulseId: null,
     queueEdit: null,
     loading: false
@@ -692,6 +693,75 @@ test('Capture OUT button is not primary until an IN marker exists', async () => 
   assert.equal(outButton.style.color, 'var(--mute)');
   assert.doesNotMatch(outButton.style.boxShadow, /var\(--accent-glow\)/);
   assert.match(textOf(outButton), /IN 먼저/);
+});
+
+test('Capture OUT button previews OUT and save button commits the draft', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ draftOut: 45 }),
+    onIn: () => calls.push('in'),
+    onOut: () => calls.push('save'),
+    onPreviewOut: () => calls.push('preview'),
+    onClearDraft: () => calls.push('clear')
+  });
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
+  const saveButton = findByAriaLabel(page, '현재 구간 저장');
+  const clearButton = findByAriaLabel(page, '캡처 드래프트 취소');
+
+  assert.match(textOf(outButton), /00:45.00/);
+  assert.equal(saveButton.disabled, false);
+
+  outButton.click();
+  saveButton.click();
+  clearButton.click();
+
+  assert.deepEqual(calls, ['preview', 'save', 'clear']);
+});
+
+test('Capture OUT button uses preview-only aria label when preview handler is wired', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState(),
+    onIn: () => {},
+    onOut: () => {},
+    onPreviewOut: () => {}
+  });
+
+  const outButton = findByAriaLabel(page, 'OUT 마커 미리보기');
+  assert.ok(outButton);
+  assert.equal(findByAriaLabel(page, 'OUT 마커 찍고 추가'), null);
+});
+
+test('Capture OUT preview aria label has localized copy', async () => {
+  const { createI18n } = await import('../.tmp-tests/src/i18n.js');
+
+  assert.equal(createI18n('ko').capture.captureOutPreviewAria, 'OUT 마커 미리보기');
+  assert.equal(createI18n('ja').capture.captureOutPreviewAria, 'OUTマーカーをプレビュー');
+  assert.equal(createI18n('en').capture.captureOutPreviewAria, 'Preview OUT marker');
+});
+
+test('Capture nudge buttons target OUT after an OUT marker exists', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ draftOut: 45 }),
+    onIn: () => {},
+    onOut: () => {},
+    onNudgeDraft: (deltaSeconds, edge) => calls.push([deltaSeconds, edge])
+  });
+  const minusSecond = findByAriaLabel(page, '-1s 조정');
+
+  minusSecond.click();
+
+  assert.deepEqual(calls, [[-1, 'end']]);
+  assert.match(textOf(page), /OUT 조정/);
 });
 
 test('Capture edit tab renders inline capture notices from store state', async () => {

@@ -78,12 +78,19 @@ export type I18n = {
     end: string;
     captureInAria: string;
     captureOutAria: string;
+    captureOutPreviewAria: string;
     inButton: string;
     outButton: string;
     mark: string;
     now: string;
     inFirst: string;
+    adjustInMarker: string;
+    adjustOutMarker: string;
     adjust: (label: string) => string;
+    clearDraft: string;
+    clearDraftAria: string;
+    saveDraftClip: string;
+    saveDraftClipAria: string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
     segmentSearch: string;
@@ -145,11 +152,23 @@ export type I18n = {
     done: string;
     reconnect: string;
     reconnectAria: string;
+    sequenceMode: string;
+    repeatMode: string;
+    recoveryStartSummary: (tapeName: string, mode: string, queue: string) => string;
+    recoveryEditedQueue: (count: number) => string;
+    recoverySessionQueue: (count: number) => string;
+    recoveryShuffleQueue: string;
+    recoverySavedQueue: string;
+    recoveryNextSummary: string;
+    recoveryStopSummary: string;
     stopRecoveryAria: string;
     connectionLost: string;
     noPlaybackTab: string;
     currentSegmentMissing: string;
     contentRequestFailed: string;
+    runtimeUnavailable: string;
+    unsupportedRequest: string;
+    unknownError: string;
     startFailed: (message: string) => string;
     nextFailed: (message: string) => string;
     seekFailed: (message: string) => string;
@@ -286,12 +305,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '끝',
       captureInAria: 'IN 마커 찍기',
       captureOutAria: 'OUT 마커 찍고 추가',
+      captureOutPreviewAria: 'OUT 마커 미리보기',
       inButton: 'IN · I',
       outButton: 'OUT + 추가 · O',
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      adjustInMarker: 'IN 조정',
+      adjustOutMarker: 'OUT 조정',
       adjust: (label) => `${label} 조정`,
+      clearDraft: '취소',
+      clearDraftAria: '캡처 드래프트 취소',
+      saveDraftClip: '저장',
+      saveDraftClipAria: '현재 구간 저장',
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
       segmentSearch: '클립 검색',
@@ -353,11 +379,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '완료',
       reconnect: '다시 연결',
       reconnectAria: '재생 다시 연결',
+      sequenceMode: '순서 재생',
+      repeatMode: '반복 재생',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `편집된 큐 ${count}개 유지`,
+      recoverySessionQueue: (count) => `세션 순서 ${count}개 유지`,
+      recoveryShuffleQueue: '새 셔플 순서',
+      recoverySavedQueue: '저장된 목록 순서',
+      recoveryNextSummary: '현재 재생 세션에서 다음 클립으로 다시 시도합니다.',
+      recoveryStopSummary: '현재 재생 세션을 정지 상태로 정리합니다.',
       stopRecoveryAria: '재생 정지',
       connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
       noPlaybackTab: '재생 중인 YouTube 탭을 찾을 수 없습니다.',
       currentSegmentMissing: '재생 중인 구간을 찾을 수 없습니다.',
       contentRequestFailed: 'YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.',
+      runtimeUnavailable: '확장 프로그램 백그라운드와 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+      unsupportedRequest: '지원하지 않는 재생 요청입니다.',
+      unknownError: '알 수 없는 재생 오류가 발생했습니다.',
       startFailed: (message) => `재생을 시작할 수 없습니다. ${message}`,
       nextFailed: (message) => `다음 클립으로 이동할 수 없습니다. ${message}`,
       seekFailed: (message) => `재생 위치를 이동할 수 없습니다. ${message}`,
@@ -492,12 +530,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '終了',
       captureInAria: 'INマーカーを設定',
       captureOutAria: 'OUTマーカーを設定して追加',
+      captureOutPreviewAria: 'OUTマーカーをプレビュー',
       inButton: 'IN · I',
       outButton: 'OUT + 追加 · O',
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      adjustInMarker: 'INを調整',
+      adjustOutMarker: 'OUTを調整',
       adjust: (label) => `${label}を調整`,
+      clearDraft: '取消',
+      clearDraftAria: 'キャプチャ下書きを取り消す',
+      saveDraftClip: '保存',
+      saveDraftClipAria: '現在の範囲を保存',
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
       segmentSearch: 'クリップを検索',
@@ -559,11 +604,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '完了',
       reconnect: '再接続',
       reconnectAria: '再生を再接続',
+      sequenceMode: '順番再生',
+      repeatMode: 'リピート再生',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `編集済みキュー${count}件を保持`,
+      recoverySessionQueue: (count) => `セッション順${count}件を保持`,
+      recoveryShuffleQueue: '新しいシャッフル順',
+      recoverySavedQueue: '保存済みリスト順',
+      recoveryNextSummary: '現在の再生セッションで次のクリップを再試行します。',
+      recoveryStopSummary: '現在の再生セッションを停止状態に戻します。',
       stopRecoveryAria: '再生を停止',
       connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
       noPlaybackTab: '再生中のYouTubeタブが見つかりません。',
       currentSegmentMissing: '再生中の範囲が見つかりません。',
       contentRequestFailed: 'YouTubeページに接続できません。再読み込みしてからもう一度お試しください。',
+      runtimeUnavailable: '拡張機能のバックグラウンドに接続できません。しばらくしてからもう一度お試しください。',
+      unsupportedRequest: '対応していない再生リクエストです。',
+      unknownError: '不明な再生エラーが発生しました。',
       startFailed: (message) => `再生を開始できません。 ${message}`,
       nextFailed: (message) => `次のクリップへ移動できません。 ${message}`,
       seekFailed: (message) => `再生位置を移動できません。 ${message}`,
@@ -698,12 +755,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: 'End',
       captureInAria: 'Mark IN',
       captureOutAria: 'Mark OUT and add',
+      captureOutPreviewAria: 'Preview OUT marker',
       inButton: 'IN · I',
       outButton: 'OUT + Add · O',
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      adjustInMarker: 'Adjust IN',
+      adjustOutMarker: 'Adjust OUT',
       adjust: (label) => `Adjust ${label}`,
+      clearDraft: 'Clear',
+      clearDraftAria: 'Clear capture draft',
+      saveDraftClip: 'Save',
+      saveDraftClipAria: 'Save current range',
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
       segmentSearch: 'Search clips',
@@ -765,11 +829,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: 'Done',
       reconnect: 'Reconnect',
       reconnectAria: 'Reconnect playback',
+      sequenceMode: 'Sequence play',
+      repeatMode: 'Repeat play',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `keep edited queue of ${count}`,
+      recoverySessionQueue: (count) => `keep session order of ${count}`,
+      recoveryShuffleQueue: 'new shuffle order',
+      recoverySavedQueue: 'saved list order',
+      recoveryNextSummary: 'Retry the next clip in the current playback session.',
+      recoveryStopSummary: 'Stop and clear the current playback session.',
       stopRecoveryAria: 'Stop playback',
       connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
       noPlaybackTab: 'Cannot find the active YouTube playback tab.',
       currentSegmentMissing: 'Cannot find the current playback range.',
       contentRequestFailed: 'Cannot connect to the YouTube page. Refresh it and try again.',
+      runtimeUnavailable: 'Cannot connect to the extension background. Try again in a moment.',
+      unsupportedRequest: 'Unsupported playback request.',
+      unknownError: 'An unknown playback error occurred.',
       startFailed: (message) => `Cannot start playback. ${message}`,
       nextFailed: (message) => `Cannot move to the next clip. ${message}`,
       seekFailed: (message) => `Cannot seek playback. ${message}`,

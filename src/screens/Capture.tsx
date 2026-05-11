@@ -11,7 +11,9 @@ type Props = {
   i18n?: I18n;
   onIn: () => void;
   onOut: () => void;
-  onNudgeDraft?: (deltaSeconds: number) => void;
+  onPreviewOut?: () => void;
+  onClearDraft?: () => void;
+  onNudgeDraft?: (deltaSeconds: number, edge?: SegmentEditEdge) => void;
   onTargetSequence?: (sequenceId: string) => void;
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
@@ -695,6 +697,8 @@ export function Capture(props: Props): HTMLElement {
     state,
     onIn,
     onOut,
+    onPreviewOut,
+    onClearDraft,
     onNudgeDraft,
     onTargetSequence,
     onBeginSegmentEdit,
@@ -724,10 +728,16 @@ export function Capture(props: Props): HTMLElement {
   const segmentCount = sequence?.segments.length ?? 0;
   const sequences = state.store?.sequences ?? [];
   const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
-  const draftText = state.draftIn === null ? '—:—' : formatTimecode(state.draftIn);
-  const canNudgeDraft = state.draftIn !== null;
-  const hasDraftIn = state.draftIn !== null;
+  const draftIn = state.draftIn ?? null;
+  const draftOut = state.draftOut ?? null;
+  const hasDraftIn = draftIn !== null;
+  const hasDraftOut = draftOut !== null;
+  const draftEdge: SegmentEditEdge = hasDraftOut ? 'end' : 'start';
+  const draftText = draftIn === null ? '—:—' : formatTimecode(draftIn);
+  const draftRangeText = draftOut === null ? draftText : `${draftText} → ${formatTimecode(draftOut)}`;
+  const canNudgeDraft = hasDraftIn;
   const canCaptureOut = usable && hasDraftIn;
+  const canSaveDraft = hasDraftIn && hasDraftOut;
   const nudgeButtons = [
     { label: '-1s', delta: -1 },
     { label: '-1f', delta: -1 / 30 },
@@ -900,7 +910,7 @@ export function Capture(props: Props): HTMLElement {
           })
         ),
         el('span', {
-          text: state.draftIn === null ? i18n.capture.mark : formatTimecode(state.draftIn),
+          text: draftIn === null ? i18n.capture.mark : formatTimecode(draftIn),
           style: {
             color: 'var(--text)',
             fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -908,7 +918,18 @@ export function Capture(props: Props): HTMLElement {
             fontWeight: '500',
           },
         }),
-        state.draftIn !== null
+        el('span', {
+          text: state.settings.shortcutIn,
+          style: {
+            position: 'absolute',
+            bottom: '7px',
+            left: '10px',
+            color: 'var(--mute)',
+            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: '9px',
+          },
+        }),
+        draftIn !== null
           ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent2)' } }, Glyph('check', 11))
           : null
       ),
@@ -916,8 +937,8 @@ export function Capture(props: Props): HTMLElement {
         'button',
         {
           disabled: !canCaptureOut,
-          onClick: onOut,
-          ariaLabel: i18n.capture.captureOutAria,
+          onClick: () => (onPreviewOut ?? onOut)(),
+          ariaLabel: onPreviewOut ? i18n.capture.captureOutPreviewAria : i18n.capture.captureOutAria,
           style: {
             height: '76px',
             border: canCaptureOut ? '1.5px solid var(--accent)' : '1.5px solid var(--hairline2)',
@@ -932,6 +953,7 @@ export function Capture(props: Props): HTMLElement {
             cursor: canCaptureOut ? 'pointer' : 'not-allowed',
             opacity: usable ? (canCaptureOut ? '1' : '0.7') : '0.45',
             boxShadow: canCaptureOut ? '0 0 28px var(--accent-glow)' : 'none',
+            position: 'relative',
           },
         },
         el(
@@ -949,40 +971,132 @@ export function Capture(props: Props): HTMLElement {
           })
         ),
         el('span', {
-          text: usable ? (hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
+          text: usable ? (hasDraftOut && draftOut !== null ? formatTimecode(draftOut) : hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
           style: {
             fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
             fontSize: '14px',
             fontWeight: '700',
           },
-        })
+        }),
+        el('span', {
+          text: state.settings.shortcutOut,
+          style: {
+            position: 'absolute',
+            bottom: '7px',
+            left: '10px',
+            color: canCaptureOut ? 'color-mix(in srgb, var(--accent-ink) 72%, transparent)' : 'var(--mute)',
+            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: '9px',
+          },
+        }),
+        hasDraftOut ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent-ink)' } }, Glyph('check', 11)) : null
       )
     ),
     el(
       'div',
-      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px' } },
-      ...nudgeButtons.map(({ label, delta }) =>
-        el('button', {
-          text: label,
-          disabled: !canNudgeDraft,
-          onClick: () => onNudgeDraft?.(delta),
-          ariaLabel: i18n.capture.adjust(label),
-          style: {
-            minWidth: '50px',
-            height: '26px',
-            padding: '0 10px',
-            border: '1px solid var(--hairline2)',
-            background: 'var(--surface2)',
-            color: 'var(--text2)',
-            borderRadius: '6px',
-            cursor: canNudgeDraft ? 'pointer' : 'not-allowed',
-            opacity: canNudgeDraft ? '1' : '0.45',
-            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-            fontSize: '10.5px',
-          },
-        })
+      { style: { padding: '0 14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } },
+      el('span', {
+        text: hasDraftOut ? i18n.capture.adjustOutMarker : i18n.capture.adjustInMarker,
+        style: {
+          color: canNudgeDraft ? 'var(--text2)' : 'var(--mute)',
+          fontSize: '9.5px',
+          fontWeight: '700',
+          letterSpacing: '0.8px',
+          textTransform: 'uppercase',
+        },
+      }),
+      el(
+        'div',
+        { style: { display: 'flex', justifyContent: 'center', gap: '6px' } },
+        ...nudgeButtons.map(({ label, delta }) =>
+          el('button', {
+            text: label,
+            disabled: !canNudgeDraft,
+            onClick: () => onNudgeDraft?.(delta, draftEdge),
+            ariaLabel: i18n.capture.adjust(label),
+            style: {
+              minWidth: '50px',
+              height: '26px',
+              padding: '0 10px',
+              border: '1px solid var(--hairline2)',
+              background: 'var(--surface2)',
+              color: 'var(--text2)',
+              borderRadius: '6px',
+              cursor: canNudgeDraft ? 'pointer' : 'not-allowed',
+              opacity: canNudgeDraft ? '1' : '0.45',
+              fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              fontSize: '10.5px',
+            },
+          })
+        )
       )
     ),
+    hasDraftIn
+      ? el(
+          'div',
+          {
+            style: {
+              margin: '0 14px 12px',
+              padding: '9px 10px',
+              border: '1px solid var(--hairline)',
+              background: 'var(--surface)',
+              borderRadius: '8px',
+              display: 'grid',
+              gridTemplateColumns: '1fr auto auto',
+              alignItems: 'center',
+              gap: '8px',
+            },
+          },
+          el('span', {
+            text: draftRangeText,
+            style: {
+              minWidth: '0',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'var(--text)',
+              fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              fontSize: '11px',
+              fontWeight: '700',
+            },
+          }),
+          el('button', {
+            text: i18n.capture.clearDraft,
+            type: 'button',
+            onClick: () => onClearDraft?.(),
+            ariaLabel: i18n.capture.clearDraftAria,
+            style: {
+              minWidth: '48px',
+              height: '28px',
+              border: '1px solid var(--hairline2)',
+              background: 'var(--surface2)',
+              color: 'var(--text2)',
+              borderRadius: '6px',
+              cursor: onClearDraft ? 'pointer' : 'default',
+              fontSize: '10px',
+              fontWeight: '700',
+            },
+          }),
+          el('button', {
+            text: i18n.capture.saveDraftClip,
+            type: 'button',
+            disabled: !canSaveDraft,
+            onClick: onOut,
+            ariaLabel: i18n.capture.saveDraftClipAria,
+            style: {
+              minWidth: '58px',
+              height: '28px',
+              border: canSaveDraft ? '1px solid var(--accent)' : '1px solid var(--hairline2)',
+              background: canSaveDraft ? 'var(--accent)' : 'var(--surface2)',
+              color: canSaveDraft ? 'var(--accent-ink)' : 'var(--mute)',
+              borderRadius: '6px',
+              cursor: canSaveDraft ? 'pointer' : 'not-allowed',
+              fontSize: '10px',
+              fontWeight: '800',
+            },
+          })
+        )
+      : null,
     el(
       'div',
       { style: { padding: '4px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } },
@@ -1151,7 +1265,7 @@ export function Capture(props: Props): HTMLElement {
             },
           })
         : null,
-      state.draftIn !== null
+      draftIn !== null
         ? el(
             'div',
             {
@@ -1190,9 +1304,9 @@ export function Capture(props: Props): HTMLElement {
                 }),
                 el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
                 el('span', {
-                  text: '—:—',
+                  text: draftOut === null ? '—:—' : formatTimecode(draftOut),
                   style: {
-                    color: 'var(--mute2)',
+                    color: draftOut === null ? 'var(--mute2)' : 'var(--accent)',
                     fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                     fontSize: '10px',
                   },
