@@ -7,7 +7,7 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
+- Open product and release work: 53 items.
 - Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
@@ -83,7 +83,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-087 | CSV import | CSV export exists, but CSV import is not supported. | `src/shared/dataTransfer.ts`, `src/state/store.ts` | Defer unless the user starts editing data outside the extension. |
 | ST-GAP-088 | Drag-and-drop import | Import requires file picker flow only. | `src/screens/Settings.tsx` | Add drag-and-drop import zone after import preview is safe. |
 | ST-GAP-089 | Large library performance | Lists render directly and may get heavy with many tapes/clips. | `src/screens/Home.tsx`, `src/screens/Capture.tsx`, `src/screens/Playback.tsx` | Add performance tests before considering virtualization. |
-| ST-GAP-090 | Thumbnail fallback polish | Thumbnail fallback is functional but not branded enough for missing/private/deleted videos. | `src/components/Thumb.tsx`, `src/theme/tokens.ts` | Add route-consistent placeholder states. |
 | ST-GAP-091 | Focus ring polish | Focus states exist through native behavior and inline styles, but there is no visual audit across themes. | `src/screens/*.tsx`, `src/sidepanel/styles.css` | Run focus-ring visual pass after keyboard QA tests. |
 | ST-GAP-092 | Narrow-width sweep | Side panel layouts are tested mostly by DOM expectations, not visual width sweeps. | `src/screens/*.tsx`, `tests/*Screen.test.mjs` | Add narrow-width screenshot checks when browser QA exists. |
 | ST-GAP-093 | Architecture notes | README is intentionally concise, but there is no short developer architecture note for future work. | `README.md`, `src/` | Add a separate `docs/architecture.md` if onboarding becomes slow. |
