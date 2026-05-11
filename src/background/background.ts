@@ -314,7 +314,13 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
     try {
       const response = await sendMessageToTab<T>(tabId, message);
       if (!response.ok) {
-        throw new ContentResponseError(response.errorCode ?? 'content_request_failed', response.error ?? '요청을 처리하지 못했습니다.');
+        const errorCode = response.errorCode ?? 'unknown';
+        let message = response.error;
+        if (message === undefined) {
+          const i18n = await playbackI18n();
+          message = errorCode === 'content_request_failed' ? i18n.playback.contentRequestFailed : i18n.playback.unknownError;
+        }
+        throw new ContentResponseError(errorCode, message);
       }
 
       return response;

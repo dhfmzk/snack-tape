@@ -428,10 +428,10 @@ function handleUrlChange(): void {
 if (!window.__snacktapeContentScriptLoaded) {
   window.__snacktapeContentScriptLoaded = true;
 
-    chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
-      handleMessage(message)
-        .then(sendResponse)
-        .catch((error: unknown) => sendResponse(failureResponse(error)));
+  chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
+    handleMessage(message)
+      .then(sendResponse)
+      .catch((error: unknown) => sendResponse(failureResponse(error)));
 
     return true;
   });

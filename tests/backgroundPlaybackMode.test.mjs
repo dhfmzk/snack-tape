@@ -328,6 +328,33 @@ test('background does not save playback state when content playback handoff fail
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
 });
 
+test('background preserves no-code content response failures as unknown raw failures', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-content-unknown',
+    segments: [makeSegment({ id: 'clip-unknown', videoId: 'video-1' })]
+  });
+  installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings()
+    },
+    {
+      sendMessageResponse: { ok: false, error: 'content failed without code' }
+    }
+  );
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js');
+
+  await assert.rejects(
+    () => startSequence(sequence.id, 0, 'sequence', 9),
+    (error) => error?.code === 'unknown' && error?.message === 'content failed without code'
+  );
+});
+
 test('background records waiting playback without promoting it to playing', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');

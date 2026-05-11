@@ -10,12 +10,12 @@ export class SnackTapeError extends Error {
   }
 }
 
-export function errorMessageFromUnknown(error: unknown): string {
+export function errorMessageFromUnknown(error: unknown): string | undefined {
   if (error instanceof Error) {
     return error.message;
   }
 
-  return typeof error === 'string' ? error : 'Unknown playback error';
+  return typeof error === 'string' ? error : undefined;
 }
 
 export function errorCodeFromUnknown(error: unknown): SnackTapeErrorCode {
@@ -23,9 +23,11 @@ export function errorCodeFromUnknown(error: unknown): SnackTapeErrorCode {
 }
 
 export function failureResponse(error: unknown): SnackTapeResponse {
+  const message = errorMessageFromUnknown(error);
+
   return {
     ok: false,
-    error: errorMessageFromUnknown(error),
+    ...(message === undefined ? {} : { error: message }),
     errorCode: errorCodeFromUnknown(error),
   };
 }
