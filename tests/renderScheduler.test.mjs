@@ -28,3 +28,41 @@ test('createFrameRenderScheduler coalesces repeated state updates into one frame
 
   assert.equal(callbacks.length, 1);
 });
+
+test('createFrameRenderScheduler renders each distinct burst independently', () => {
+  const callbacks = [];
+  const renders = [];
+  const schedule = createFrameRenderScheduler(
+    (value) => renders.push(value),
+    (callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    }
+  );
+
+  schedule('a');
+  callbacks.shift()(16);
+  assert.deepEqual(renders, ['a']);
+
+  schedule('b');
+  schedule('c');
+  callbacks.shift()(16);
+  assert.deepEqual(renders, ['a', 'c']);
+});
+
+test('createFrameRenderScheduler schedules exactly one frame per burst', () => {
+  const callbacks = [];
+  const schedule = createFrameRenderScheduler(
+    () => {},
+    (callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    }
+  );
+
+  schedule('x');
+  schedule('y');
+  schedule('z');
+  assert.equal(callbacks.length, 1);
+});
+

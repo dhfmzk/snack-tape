@@ -68,3 +68,42 @@ test('removeSegmentFromSequence deletes one segment without mutating the origina
   assert.deepEqual(sequence.segments.map((segment) => segment.id), ['a', 'b', 'c']);
   assert.equal(edited.updatedAt, 200);
 });
+
+test('removeSegmentFromSequence returns sequence unchanged when segment id does not exist', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = removeSegmentFromSequence(sequence, 'nonexistent', () => 200);
+
+  assert.deepEqual(edited.segments.map((segment) => segment.id), ['a', 'b', 'c']);
+  assert.equal(edited.updatedAt, 200);
+});
+
+test('moveItem returns a copy when from and to are the same index', () => {
+  const original = ['a', 'b', 'c'];
+  const result = moveItem(original, 1, 1);
+  assert.deepEqual(result, ['a', 'b', 'c']);
+  assert.notEqual(result, original);
+});
+
+test('applySegmentOrder drops unknown segment ids silently', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = applySegmentOrder(sequence, ['c', 'nonexistent', 'a'], () => 200);
+  assert.deepEqual(edited.segments.map((s) => s.id), ['c', 'a']);
+});
+
+test('applySegmentOrder deduplicates segment ids in the provided order', () => {
+  const sequence = makeSequence({ updatedAt: 100 });
+  const edited = applySegmentOrder(sequence, ['b', 'a', 'b', 'c'], () => 200);
+  assert.deepEqual(edited.segments.map((s) => s.id), ['b', 'a', 'c']);
+});
+
+test('moveSegmentUp at the first position keeps segment order unchanged', () => {
+  const sequence = makeSequence();
+  const moved = moveSegmentUp(sequence, 'a');
+  assert.deepEqual(moved.segments.map((s) => s.id), ['a', 'b', 'c']);
+});
+
+test('moveSegmentDown at the last position keeps segment order unchanged', () => {
+  const sequence = makeSequence();
+  const moved = moveSegmentDown(sequence, 'c');
+  assert.deepEqual(moved.segments.map((s) => s.id), ['a', 'b', 'c']);
+});

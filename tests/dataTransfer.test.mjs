@@ -39,6 +39,24 @@ test('serializeStoreCsv exports one row per saved segment', async () => {
   assert.match(csv, /"Quoted ""title"""/);
 });
 
+test('serializeStoreCsv includes the note column in the header', async () => {
+  const { serializeStoreCsv } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const csv = serializeStoreCsv({
+    sequences: [makeSequence({ id: 'seq-note', segments: [makeSegment({ id: 'clip-note', note: 'My note' })] })],
+    selectedSequenceId: 'seq-note'
+  });
+  assert.match(csv, /note/);
+  assert.match(csv, /My note/);
+});
+
+test('serializeStoreCsv exports an empty body for a store with no segments', async () => {
+  const { serializeStoreCsv } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const csv = serializeStoreCsv({ sequences: [], selectedSequenceId: null });
+  const lines = csv.trim().split('\n');
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^mixtape,title,videoId/);
+});
+
 test('parseImportedStoreJson drops normalized segments whose end is not after start', async () => {
   const { parseImportedStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
   const valid = makeSegment({ id: 'clip-valid', startSeconds: 20, endSeconds: 22 });
@@ -57,3 +75,39 @@ test('parseImportedStoreJson drops normalized segments whose end is not after st
   assert.equal(parsed.sequences[0].segments.length, 1);
   assert.equal(parsed.sequences[0].segments[0].id, 'clip-valid');
 });
+
+test('parseImportedStoreJson returns null for invalid JSON text', async () => {
+  const { parseImportedStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  assert.equal(parseImportedStoreJson('not valid json'), null);
+  assert.equal(parseImportedStoreJson(''), null);
+});
+
+test('parseImportedStoreJson returns null for a JSON value with no sequences or segments', async () => {
+  const { parseImportedStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  assert.equal(parseImportedStoreJson(JSON.stringify({ random: 'data' })), null);
+  assert.equal(parseImportedStoreJson(JSON.stringify(null)), null);
+  assert.equal(parseImportedStoreJson(JSON.stringify(42)), null);
+});
+
+test('parseImportedStoreJson parses a plain store object without an export wrapper', async () => {
+  const { parseImportedStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const sequence = makeSequence({ id: 'seq-plain' });
+  const parsed = parseImportedStoreJson(JSON.stringify({
+    sequences: [sequence],
+    selectedSequenceId: sequence.id
+  }));
+  assert.ok(parsed !== null);
+  assert.equal(parsed.sequences[0].id, 'seq-plain');
+});
+
+test('createExportPayload includes app name, version, exportedAt and store', async () => {
+  const { createExportPayload } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const store = { sequences: [], selectedSequenceId: null };
+  const payload = createExportPayload(store, '2024-01-01T00:00:00.000Z');
+
+  assert.equal(payload.app, 'SnackTape');
+  assert.equal(payload.version, 1);
+  assert.equal(payload.exportedAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(payload.store, store);
+});
+

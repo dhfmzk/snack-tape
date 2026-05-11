@@ -18,6 +18,14 @@ declare namespace chrome {
         ) => boolean | void
       ): void;
     };
+
+    const onInstalled: {
+      addListener(callback: () => void): void;
+    };
+
+    const onStartup: {
+      addListener(callback: () => void): void;
+    };
   }
 
   namespace storage {
@@ -36,10 +44,18 @@ declare namespace chrome {
       id?: number;
       url?: string;
       title?: string;
+      active?: boolean;
+    }
+
+    interface TabChangeInfo {
+      url?: string;
+      status?: string;
+      title?: string;
     }
 
     function query(queryInfo: Record<string, unknown>): Promise<Tab[]>;
     function get(tabId: number): Promise<Tab>;
+    function create(createProperties: { url?: string; active?: boolean }): Promise<Tab>;
     function update(tabId: number, updateProperties: { url?: string }): Promise<Tab | undefined>;
 
     function sendMessage<TResponse = unknown>(
@@ -47,6 +63,15 @@ declare namespace chrome {
       message: unknown,
       callback?: (response: TResponse) => void
     ): void;
+
+    const onActivated: {
+      addListener(callback: (activeInfo: { tabId: number }) => void): void;
+    };
+
+    const onUpdated: {
+      addListener(callback: (tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void): void;
+      removeListener(callback: (tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void): void;
+    };
   }
 
   namespace scripting {
@@ -54,5 +79,22 @@ declare namespace chrome {
       target: { tabId: number };
       files: string[];
     }): Promise<unknown[]>;
+  }
+
+  namespace sidePanel {
+    function setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
+  }
+
+  namespace commands {
+    const onCommand: {
+      addListener(callback: (command: string) => void): void;
+    };
+  }
+
+  namespace windows {
+    const WINDOW_ID_NONE: number;
+    const onFocusChanged: {
+      addListener(callback: (windowId: number) => void): void;
+    };
   }
 }
