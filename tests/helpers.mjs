@@ -24,3 +24,53 @@ export function makeSequence(overrides = {}) {
     ...overrides
   };
 }
+
+export function makeSettings(overrides = {}) {
+  return {
+    accentKey: 'peach',
+    language: 'ko',
+    autoNext: true,
+    fadeOut: true,
+    shuffleByDefault: false,
+    shortcutIn: 'Alt+I',
+    shortcutOut: 'Alt+O',
+    autoTitleFromCaptions: true,
+    ...overrides
+  };
+}
+
+export function makeAppState(overrides = {}) {
+  const {
+    sequences,
+    selectedSequenceId,
+    settings,
+    store,
+    ...stateOverrides
+  } = overrides;
+  const resolvedSequences = sequences ?? store?.sequences ?? [];
+  const resolvedStore = store ?? {
+    sequences: resolvedSequences,
+    selectedSequenceId: selectedSequenceId ?? resolvedSequences[0]?.id ?? null
+  };
+
+  return {
+    route: 'home',
+    store: resolvedStore,
+    settings: makeSettings(settings),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    homeSearch: '',
+    homeSort: 'manual',
+    loading: false,
+    ...stateOverrides
+  };
+}
