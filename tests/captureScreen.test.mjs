@@ -333,6 +333,7 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   const segmentLists = findAll(page, (node) => node.dataset?.scrollKey === 'capture-segments:selected');
 
   assert.match(text, /이번 세션 · 8개 저장됨/);
+  assert.match(text, /8개 구간 · 총 00:32\.00 · 평균 00:04\.00/);
   assert.match(text, /편집 클립 1/);
   assert.match(text, /편집 클립 8/);
   assert.equal(actionMenus.length, 8);

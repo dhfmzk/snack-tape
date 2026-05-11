@@ -85,6 +85,7 @@ export type I18n = {
     inFirst: string;
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
+    editTotals: (count: number, total: string, average: string) => string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
     noticeNoSaveTarget: string;
@@ -290,6 +291,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       inFirst: 'IN 먼저',
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
+      editTotals: (count, total, average) => `${count}개 구간 · 총 ${total} · 평균 ${average}`,
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
@@ -493,6 +495,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       inFirst: '先にIN',
       adjust: (label) => `${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
+      editTotals: (count, total, average) => `${count}件 · 合計 ${total} · 平均 ${average}`,
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
       noticeNoSaveTarget: '保存先のミックステープを選択してください。',
@@ -696,6 +699,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       inFirst: 'IN first',
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
+      editTotals: (count, total, average) => `${count} ${count === 1 ? 'range' : 'ranges'} · ${total} total · ${average} average`,
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
       noticeNoSaveTarget: 'Choose a save mixtape.',

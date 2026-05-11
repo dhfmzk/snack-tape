@@ -47,6 +47,21 @@ function clipDuration(segment: Segment): string {
   return formatTimecode(segment.endSeconds - segment.startSeconds);
 }
 
+function segmentDurationSeconds(segment: Segment): number {
+  if (segment.endSeconds === null || segment.endSeconds <= segment.startSeconds) {
+    return 0;
+  }
+
+  return segment.endSeconds - segment.startSeconds;
+}
+
+function editTotalsText(sequence: Sequence | null, i18n: I18n): string {
+  const segments = sequence?.segments ?? [];
+  const totalSeconds = segments.reduce((total, segment) => total + segmentDurationSeconds(segment), 0);
+  const averageSeconds = segments.length > 0 ? totalSeconds / segments.length : 0;
+  return i18n.capture.editTotals(segments.length, formatTimecode(totalSeconds), formatTimecode(averageSeconds));
+}
+
 function thumbStyle(thumb: HTMLElement, width: number, height: number): HTMLElement {
   Object.assign(thumb.style, {
     width: `${width}px`,
@@ -967,6 +982,17 @@ export function Capture(props: Props): HTMLElement {
           fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
           fontSize: '10px',
           letterSpacing: '0.6px',
+        },
+      }),
+      el('span', {
+        text: editTotalsText(sequence, i18n),
+        style: {
+          display: 'block',
+          marginTop: '5px',
+          color: 'var(--text2)',
+          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontSize: '10px',
+          letterSpacing: '0.2px',
         },
       })
     ),
