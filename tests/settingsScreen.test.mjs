@@ -135,6 +135,8 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /CSV/);
   assert.match(text, /가져오기/);
   assert.match(text, /JSON 백업 파일로 교체/);
+  assert.match(text, /설정 초기화/);
+  assert.match(text, /믹스테이프와 클립은 유지됩니다\./);
   assert.match(text, /모든 클립 삭제/);
   assert.match(text, /믹스테이프와 저장된 구간을 비웁니다\./);
   assert.match(text, /SNACKTAPE v0\.1\.0 · MV3 SIDE PANEL/);
@@ -196,7 +198,7 @@ test('Settings wires default save target selection to persisted setting patches'
   assert.deepEqual(selected, ['sequence-2']);
 });
 
-test('Settings wires data actions to export, import, and delete callbacks', async () => {
+test('Settings wires data actions to export, import, reset, and delete callbacks', async () => {
   installDomShim();
   const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
   const calls = [];
@@ -206,6 +208,7 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
     onAccent: () => {},
     onExport: (format) => calls.push(['export', format]),
     onImport: () => calls.push(['import']),
+    onResetSettings: () => calls.push(['reset']),
     onDeleteAll: () => calls.push(['delete'])
   });
   const dataSection = page.children[5];
@@ -215,11 +218,13 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
   exportButtons[1].click();
   dataSection.children[2].click();
   dataSection.children[3].click();
+  dataSection.children[4].click();
 
   assert.deepEqual(calls, [
     ['export', 'json'],
     ['export', 'csv'],
     ['import'],
+    ['reset'],
     ['delete']
   ]);
 });
@@ -289,6 +294,7 @@ test('Settings renders English app copy when language is English', async () => {
   assert.match(text, /Capture/);
   assert.match(text, /Default save location/);
   assert.match(text, /Data/);
+  assert.match(text, /Reset settings/);
 });
 
 test('Settings renders Japanese app copy when language is Japanese', async () => {
@@ -310,6 +316,7 @@ test('Settings renders Japanese app copy when language is Japanese', async () =>
   assert.match(text, /編集/);
   assert.match(text, /既定の保存先/);
   assert.match(text, /データ/);
+  assert.match(text, /設定をリセット/);
 });
 
 test('Settings renders inline settings notices above the controls', async () => {

@@ -150,6 +150,44 @@ test('updateSettings restores previous settings when persistence fails', async (
   assert.match(store.getState().settingsNotice.message, /quota exceeded/);
 });
 
+test('resetSettings restores defaults without clearing mixtapes or clips', async () => {
+  const { SETTINGS_KEY, DEFAULT_SETTINGS } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-reset-settings',
+    segments: [makeSegment({ id: 'clip-reset-settings' })]
+  });
+  const data = installChrome({
+    [SETTINGS_KEY]: baseSettings({
+      accentKey: 'sky',
+      language: 'en',
+      autoNext: false,
+      defaultMixtapeId: sequence.id
+    })
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence, baseSettings({
+    accentKey: 'sky',
+    language: 'en',
+    autoNext: false,
+    defaultMixtapeId: sequence.id
+  }));
+
+  await store.resetSettings();
+
+  assert.deepEqual(store.getState().store.sequences, [sequence]);
+  assert.equal(store.getState().settings.accentKey, DEFAULT_SETTINGS.accentKey);
+  assert.equal(store.getState().settings.language, DEFAULT_SETTINGS.language);
+  assert.equal(store.getState().settings.autoNext, DEFAULT_SETTINGS.autoNext);
+  assert.equal(store.getState().settings.defaultMixtapeId, undefined);
+  assert.equal(data[SETTINGS_KEY].accentKey, DEFAULT_SETTINGS.accentKey);
+  assert.equal(data[SETTINGS_KEY].language, DEFAULT_SETTINGS.language);
+  assert.equal(data[SETTINGS_KEY].autoNext, DEFAULT_SETTINGS.autoNext);
+  assert.equal(data[SETTINGS_KEY].defaultMixtapeId, undefined);
+  assert.equal(store.getState().settingsNotice.kind, 'info');
+  assert.match(store.getState().settingsNotice.message, /설정을 기본값/);
+});
+
 test('exportData downloads JSON and CSV backups from the current store', async () => {
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-export', name: 'Export Tape', segments: [makeSegment({ id: 'clip-export' })] });

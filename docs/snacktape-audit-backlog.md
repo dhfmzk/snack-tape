@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 53 items.
+- Severity split: P1 High 10, P2 Medium 26, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -47,7 +47,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-045 | Accessibility | There is no keyboard-only QA pass for Edit menus, native selects, Settings toggles, and queue editing. | `src/screens/Capture.tsx`, `src/screens/Settings.tsx`, `src/screens/Playback.tsx` | Add keyboard navigation tests and a short manual keyboard checklist. |
 | ST-GAP-053 | Store listing assets | Chrome Web Store listing copy, screenshots, and promotional assets are not tracked in the repo. | `README.md`, `manifest.json`, `public/icons` | Create listing copy, screenshot plan, and promotional image checklist after icon direction is approved. |
 | ST-GAP-059 | Import duplicates | Import does not explain how duplicate tape names, duplicate clips, or identical source ranges will be handled. | `src/shared/dataTransfer.ts`, `src/state/store.ts` | Add duplicate detection and present counts in import preview before merge/replace. |
-| ST-GAP-060 | Settings reset | Users cannot reset settings to defaults without clearing all data. | `src/screens/Settings.tsx`, `src/state/store.ts`, `src/state/storage.ts` | Add reset-settings action that preserves tapes and playback data. |
 | ST-GAP-061 | Export naming | Exported files do not encode enough context for repeated backups. | `src/state/store.ts`, `src/shared/dataTransfer.ts` | Include app name, format, local date, and selected language-safe slug in export filenames. |
 | ST-GAP-062 | Capture shortcut discoverability | The Edit tab shows capture buttons but does not make the effective keyboard shortcuts visible near the controls. | `src/screens/Capture.tsx`, `manifest.json`, `src/state/storage.ts` | Add subtle shortcut labels using the manifest-backed read-only shortcut settings. |
 | ST-GAP-063 | Edit search | The Edit tab can become long, but there is no search/filter field for clips inside one tape. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add per-tape clip search by title, source, note, and time range. |

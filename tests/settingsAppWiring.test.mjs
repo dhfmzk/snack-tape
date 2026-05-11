@@ -295,6 +295,18 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   assert.equal(storage[STORAGE_KEY].sequences[0].id, imported.id);
   assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
 
+  store.state = {
+    ...store.getState(),
+    settings: baseSettings({ accentKey: 'sky', language: 'en', defaultMixtapeId: imported.id })
+  };
+  findButtonByText(App(store.getState(), store), /Reset settings/).click();
+  await settle();
+
+  assert.equal(store.getState().store.sequences[0].id, imported.id);
+  assert.equal(store.getState().settings.accentKey, 'peach');
+  assert.equal(store.getState().settings.language, 'ko');
+  assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
+
   findButtonByText(App(store.getState(), store), /모든 클립 삭제/).click();
   await settle();
 

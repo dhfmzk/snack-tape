@@ -1298,6 +1298,16 @@ export class SnackTapeAppStore {
     await this.updateSettings({ accentKey });
   }
 
+  async resetSettings(): Promise<void> {
+    const previousState = this.state;
+    const settings = normalizeSettings(DEFAULT_SETTINGS);
+    this.setState({
+      settings,
+      settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.resetSettingsDone },
+    });
+    await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
+  }
+
   async setDefaultMixtape(sequenceId: string): Promise<void> {
     if (!this.state.store?.sequences.some((sequence) => sequence.id === sequenceId)) {
       return;
