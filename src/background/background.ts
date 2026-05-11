@@ -92,6 +92,18 @@ async function playbackModeFromSettings(): Promise<PlaybackMode> {
   return settings.shuffleByDefault ? 'shuffle' : 'sequence';
 }
 
+async function playbackModeForSequence(sequence: Sequence, requestedMode?: PlaybackMode): Promise<PlaybackMode> {
+  if (requestedMode) {
+    return normalizePlaybackMode(requestedMode);
+  }
+
+  if (sequence.playbackMode) {
+    return normalizePlaybackMode(sequence.playbackMode);
+  }
+
+  return playbackModeFromSettings();
+}
+
 function canonicalWatchUrl(segment: Segment): string {
   return `https://www.youtube.com/watch?v=${encodeURIComponent(segment.videoId)}&t=${Math.floor(segment.startSeconds)}s`;
 }
@@ -421,7 +433,7 @@ export async function startSequence(
     throw new Error(errors[0]);
   }
 
-  const playbackMode = mode ? normalizePlaybackMode(mode) : await playbackModeFromSettings();
+  const playbackMode = await playbackModeForSequence(sequence, mode);
   const explicitOrderSegmentIds = requestedOrderSegmentIds?.length
     ? existingUniqueSegmentIds(sequence, requestedOrderSegmentIds)
     : [];

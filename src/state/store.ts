@@ -163,6 +163,10 @@ function playbackStateAfterQueueEdit(state: PlaybackState, sequence: Sequence, s
   };
 }
 
+function playbackModeForSequence(sequence: Sequence, requestedMode: PlaybackMode | undefined, shuffleByDefault: boolean): PlaybackMode {
+  return requestedMode ?? sequence.playbackMode ?? (shuffleByDefault ? 'shuffle' : 'sequence');
+}
+
 function preciseTime(value: number): number {
   return value;
 }
@@ -644,6 +648,31 @@ export class SnackTapeAppStore {
       renameEdit: this.state.renameEdit?.sequenceId === sequenceId ? null : this.state.renameEdit,
     });
     const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
+  async setSequencePlaybackMode(sequenceId: string, mode?: PlaybackMode): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = currentStore?.sequences.find((item) => item.id === sequenceId);
+    if (!currentStore || !sequence) {
+      return;
+    }
+    const previousState = this.state;
+    const timestamp = Date.now();
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) =>
+        item.id === sequenceId
+          ? { ...item, playbackMode: mode, updatedAt: timestamp }
+          : item
+      ),
+    };
+
+    this.setState({ store });
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
     if (!persisted) {
       return;
     }
@@ -1559,11 +1588,12 @@ export class SnackTapeAppStore {
       return;
     }
 
+    const playbackMode = playbackModeForSequence(sequence, mode, this.state.settings.shuffleByDefault);
     const message: Extract<SnackTapeMessage, { type: 'START_SEQUENCE' }> = {
       type: 'START_SEQUENCE',
       sequenceId: sequence.id,
       startIndex,
-      mode: mode ?? (this.state.settings.shuffleByDefault ? 'shuffle' : 'sequence'),
+      mode: playbackMode,
     };
     const pendingOrderSegmentIds = orderSegmentIds?.length ? existingUniqueSegmentIds(sequence, orderSegmentIds) : undefined;
     if (pendingOrderSegmentIds?.length) {

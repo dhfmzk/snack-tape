@@ -112,6 +112,26 @@ test('normalizeSequence filters out invalid segments', async () => {
   assert.equal(sequence.segments[0].id, 'valid-seg');
 });
 
+test('normalizeSequence preserves valid per-mixtape playback modes and drops invalid values', async () => {
+  const { normalizeSequence } = await import('../.tmp-tests/src/shared/storage.js');
+
+  const repeatSequence = normalizeSequence({
+    id: 'seq-repeat',
+    name: 'Repeat Tape',
+    playbackMode: 'repeat',
+    segments: []
+  });
+  const invalidSequence = normalizeSequence({
+    id: 'seq-invalid',
+    name: 'Invalid Tape',
+    playbackMode: 'random',
+    segments: []
+  });
+
+  assert.equal(repeatSequence.playbackMode, 'repeat');
+  assert.equal(invalidSequence.playbackMode, undefined);
+});
+
 test('normalizeImportedStore returns null for non-object inputs', async () => {
   const { normalizeImportedStore } = await import('../.tmp-tests/src/shared/storage.js');
 

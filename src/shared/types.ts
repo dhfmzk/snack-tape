@@ -13,15 +13,16 @@ export type Segment = {
   updatedAt: number;
 };
 
+export type PlaybackMode = 'sequence' | 'shuffle' | 'repeat';
+
 export type Sequence = {
   id: string;
   name: string;
   segments: Segment[];
+  playbackMode?: PlaybackMode;
   createdAt: number;
   updatedAt: number;
 };
-
-export type PlaybackMode = 'sequence' | 'shuffle' | 'repeat';
 
 export type PlaybackState = {
   sequenceId: string;

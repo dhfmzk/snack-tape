@@ -1095,6 +1095,94 @@ test('startSequence uses shuffle mode when shuffleByDefault is enabled and no mo
   assert.equal(runtimeMessage.mode, 'shuffle');
 });
 
+test('startSequence prefers the mixtape playback mode over the global shuffle default', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-repeat-preference',
+    name: '반복 기본 믹스테이프',
+    playbackMode: 'repeat',
+    segments: [makeSegment({ id: 'clip-1' }), makeSegment({ id: 'clip-2' })]
+  });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  let runtimeMessage = null;
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessage = message;
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: { ...baseSettings(), shuffleByDefault: true },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(runtimeMessage.mode, 'repeat');
+});
+
+test('setSequencePlaybackMode persists a per-mixtape playback preference', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-mode-save',
+    name: '모드 저장 믹스테이프',
+    segments: [makeSegment({ id: 'clip-1' })]
+  });
+  const data = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.setSequencePlaybackMode(sequence.id, 'shuffle');
+
+  assert.equal(store.getState().store.sequences[0].playbackMode, 'shuffle');
+  assert.equal(data[STORAGE_KEY].sequences[0].playbackMode, 'shuffle');
+});
+
 test('saveQueueEdit preserves active shuffle playback mode', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

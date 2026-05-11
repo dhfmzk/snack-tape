@@ -3,7 +3,7 @@ import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
-import type { Sequence } from '../shared/types.js';
+import type { PlaybackMode, Sequence } from '../shared/types.js';
 import type { AppState, HomeSort } from '../state/store.js';
 
 type Props = {
@@ -17,6 +17,7 @@ type Props = {
   onDuplicateSequence?: (sequenceId: string) => void;
   onDeleteSequence?: (sequenceId: string) => void;
   onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void;
+  onPlaybackMode?: (sequenceId: string, mode?: PlaybackMode) => void;
   onHomeSearch?: (query: string) => void;
   onHomeSort?: (sort: HomeSort) => void;
 };
@@ -123,6 +124,28 @@ function actionButtonStyle(danger = false): Style {
   };
 }
 
+function playbackModeLabel(i18n: I18n, mode?: PlaybackMode): string {
+  if (mode === 'sequence') {
+    return i18n.home.playbackModeSequence;
+  }
+  if (mode === 'shuffle') {
+    return i18n.home.playbackModeShuffle;
+  }
+  if (mode === 'repeat') {
+    return i18n.home.playbackModeRepeat;
+  }
+  return i18n.home.playbackModeGlobal;
+}
+
+function playbackModeOptions(i18n: I18n): Array<{ value: '' | PlaybackMode; label: string }> {
+  return [
+    { value: '', label: i18n.home.playbackModeGlobal },
+    { value: 'sequence', label: i18n.home.playbackModeSequence },
+    { value: 'shuffle', label: i18n.home.playbackModeShuffle },
+    { value: 'repeat', label: i18n.home.playbackModeRepeat },
+  ];
+}
+
 function controlShellStyle(): Style {
   return {
     height: '38px',
@@ -197,10 +220,12 @@ function MixtapeActionMenu(
   onRenameSequence?: (sequenceId: string) => void,
   onDuplicateSequence?: (sequenceId: string) => void,
   onDeleteSequence?: (sequenceId: string) => void,
-  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void
+  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void,
+  onPlaybackMode?: (sequenceId: string, mode?: PlaybackMode) => void
 ): HTMLElement {
   const mergeTargets = sequences.filter((item) => item.id !== sequence.id);
   let mergeTargetId = mergeTargets[0]?.id ?? '';
+  const selectedPlaybackMode = sequence.playbackMode ?? '';
 
   return el(
     'details',
@@ -253,6 +278,28 @@ function MixtapeActionMenu(
       el('button', { role: 'menuitem', ariaLabel: i18n.home.edit(sequence.name), onClick: () => onEditSequence?.(sequence.id), style: actionButtonStyle() }, Glyph('edit', 12), i18n.home.editAction),
       el('button', { role: 'menuitem', ariaLabel: i18n.home.rename(sequence.name), onClick: () => onRenameSequence?.(sequence.id), style: actionButtonStyle() }, Glyph('note', 12), i18n.home.renameAction),
       el('button', { role: 'menuitem', ariaLabel: i18n.home.duplicate(sequence.name), onClick: () => onDuplicateSequence?.(sequence.id), style: actionButtonStyle() }, Glyph('plus', 12), i18n.home.duplicateAction),
+      el(
+        'select',
+        {
+          ariaLabel: i18n.home.playbackModeSelect(sequence.name),
+          value: selectedPlaybackMode,
+          onChange: (event) => {
+            const value = (event.target as HTMLSelectElement).value as '' | PlaybackMode;
+            onPlaybackMode?.(sequence.id, value || undefined);
+          },
+          style: {
+            width: '100%',
+            height: '28px',
+            margin: '5px 0',
+            border: '1px solid var(--hairline2)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            borderRadius: '6px',
+            fontSize: '10.5px',
+          },
+        },
+        ...playbackModeOptions(i18n).map((option) => el('option', { value: option.value, selected: option.value === selectedPlaybackMode, text: option.label }))
+      ),
       mergeTargets.length > 0
         ? el(
             'div',
@@ -297,7 +344,8 @@ function MixtapeCard(
   onRenameSequence?: (sequenceId: string) => void,
   onDuplicateSequence?: (sequenceId: string) => void,
   onDeleteSequence?: (sequenceId: string) => void,
-  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void
+  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void,
+  onPlaybackMode?: (sequenceId: string, mode?: PlaybackMode) => void
 ): HTMLElement {
   const clipCount = sequence.segments.length;
   const duration = totalDuration(sequence);
@@ -361,7 +409,7 @@ function MixtapeCard(
               color: 'var(--mute)',
             },
           }),
-          MixtapeActionMenu(i18n, sequence, sequences, onEditSequence, onRenameSequence, onDuplicateSequence, onDeleteSequence, onMergeSequence)
+          MixtapeActionMenu(i18n, sequence, sequences, onEditSequence, onRenameSequence, onDuplicateSequence, onDeleteSequence, onMergeSequence, onPlaybackMode)
         )
       ),
       el(
@@ -384,7 +432,8 @@ function MixtapeCard(
               flex: '1',
             },
           },
-          el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() })
+          el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() }),
+          sequence.playbackMode ? el('span', { text: playbackModeLabel(i18n, sequence.playbackMode), style: chipStyle() }) : null
         ),
         el(
           'button',
@@ -507,6 +556,7 @@ export function Home({
   onDuplicateSequence,
   onDeleteSequence,
   onMergeSequence,
+  onPlaybackMode,
   onHomeSearch,
   onHomeSort,
 }: Props): HTMLElement {
@@ -550,7 +600,8 @@ export function Home({
           onRenameSequence,
           onDuplicateSequence,
           onDeleteSequence,
-          onMergeSequence
+          onMergeSequence,
+          onPlaybackMode
         ))),
     newTapeButton(i18n, onCreate)
   );

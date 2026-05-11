@@ -344,3 +344,32 @@ test('Home merge control targets another mixtape', async () => {
 
   assert.deepEqual(calls, [['source', 'target']]);
 });
+
+test('Home exposes and updates each mixtape playback mode preference', async () => {
+  installDomShim();
+  const { Home } = await import('../.tmp-tests/src/screens/Home.js');
+  const calls = [];
+  const sequence = makeSequence({
+    id: 'sequence-playback-mode',
+    name: '모드 테이프',
+    playbackMode: 'shuffle',
+    segments: [makeSegment({ id: 'clip-1' })]
+  });
+
+  const page = Home({
+    state: homeState([sequence]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {},
+    onPlaybackMode: (sequenceId, mode) => calls.push([sequenceId, mode])
+  });
+
+  assert.match(textOf(page), /셔플 재생/);
+
+  const select = findAllByAriaLabel(page, '모드 테이프 재생 방식')[0];
+  assert.equal(select.value, 'shuffle');
+  select.value = 'repeat';
+  select.change();
+
+  assert.deepEqual(calls, [['sequence-playback-mode', 'repeat']]);
+});

@@ -156,6 +156,32 @@ test('background startSequence honors shuffleByDefault when no mode is supplied'
   assert.equal(new Set(data[PLAYBACK_STATE_KEY].order).size, 3);
 });
 
+test('background startSequence uses the mixtape playback mode before settings fallback', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-mode-preference',
+    playbackMode: 'repeat',
+    segments: [
+      makeSegment({ id: 'clip-1', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-2', videoId: 'video-1' })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: settings({ shuffleByDefault: true })
+  });
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js?sequence-mode-preference');
+
+  await startSequence(sequence.id, 1, undefined, 9);
+
+  assert.equal(data[PLAYBACK_STATE_KEY].mode, 'repeat');
+  assert.deepEqual(data[PLAYBACK_STATE_KEY].order, [1]);
+});
+
 test('background startSequence preserves repeat mode for the current clip', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');

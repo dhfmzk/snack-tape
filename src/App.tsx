@@ -137,6 +137,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
     onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
     onDuplicateSequence: (sequenceId) => void store.duplicateMixtape(sequenceId),
     onDeleteSequence: (sequenceId) => confirmDeleteMixtape(state, store, i18n, sequenceId),
+    onPlaybackMode: (sequenceId, mode) => void store.setSequencePlaybackMode(sequenceId, mode),
     onMergeSequence: (sourceSequenceId, targetSequenceId) => {
       const source = state.store?.sequences.find((item) => item.id === sourceSequenceId);
       const target = state.store?.sequences.find((item) => item.id === targetSequenceId);

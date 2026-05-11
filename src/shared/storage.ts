@@ -1,5 +1,5 @@
 import { normalizeSegmentDraft } from './draft.js';
-import type { PlaybackState, Segment, SegmentDraft, Sequence, SnackTapeStore } from './types.js';
+import type { PlaybackMode, PlaybackState, Segment, SegmentDraft, Sequence, SnackTapeStore } from './types.js';
 import { validateSegment } from './validation.js';
 
 export const STORAGE_KEY = 'snacktape.store.v1';
@@ -79,6 +79,10 @@ function endSeconds(value: unknown): number | null {
   return preciseSeconds(value);
 }
 
+function playbackMode(value: unknown): PlaybackMode | undefined {
+  return value === 'sequence' || value === 'shuffle' || value === 'repeat' ? value : undefined;
+}
+
 export function normalizeSegment(input: unknown, index = 0): Segment | null {
   if (!isRecord(input)) {
     return null;
@@ -121,6 +125,7 @@ export function normalizeSequence(input: unknown, index = 0): Sequence | null {
     id: text(input.id, createId('sequence')),
     name: text(input.name, index === 0 ? DEFAULT_SEQUENCE_NAME : generatedSequenceName(index)),
     segments,
+    playbackMode: playbackMode(input.playbackMode),
     createdAt: timestamp(input.createdAt, timestampValue + index),
     updatedAt: timestamp(input.updatedAt, timestampValue + index)
   };

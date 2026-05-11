@@ -51,6 +51,11 @@ export type I18n = {
     merge: (name: string) => string;
     playAria: (name: string) => string;
     clipCount: (count: number) => string;
+    playbackModeSelect: (name: string) => string;
+    playbackModeGlobal: string;
+    playbackModeSequence: string;
+    playbackModeShuffle: string;
+    playbackModeRepeat: string;
   };
   capture: {
     saveLocation: string;
@@ -256,6 +261,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       merge: (name) => `${name} 병합`,
       playAria: (name) => `${name} 재생`,
       clipCount: (count) => `${count} CLIPS`,
+      playbackModeSelect: (name) => `${name} 재생 방식`,
+      playbackModeGlobal: '전역 기본',
+      playbackModeSequence: '순서대로 재생',
+      playbackModeShuffle: '셔플 재생',
+      playbackModeRepeat: '반복 재생',
     },
     capture: {
       saveLocation: '저장 위치',
@@ -459,6 +469,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       merge: (name) => `${name}を結合`,
       playAria: (name) => `${name}を再生`,
       clipCount: (count) => `${count} CLIPS`,
+      playbackModeSelect: (name) => `${name}の再生モード`,
+      playbackModeGlobal: '全体設定',
+      playbackModeSequence: '順番に再生',
+      playbackModeShuffle: 'シャッフル再生',
+      playbackModeRepeat: 'リピート再生',
     },
     capture: {
       saveLocation: '保存先',
@@ -662,6 +677,11 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       merge: (name) => `Merge ${name}`,
       playAria: (name) => `Play ${name}`,
       clipCount: (count) => `${count} ${count === 1 ? 'CLIP' : 'CLIPS'}`,
+      playbackModeSelect: (name) => `${name} playback mode`,
+      playbackModeGlobal: 'Global default',
+      playbackModeSequence: 'Sequence play',
+      playbackModeShuffle: 'Shuffle play',
+      playbackModeRepeat: 'Repeat play',
     },
     capture: {
       saveLocation: 'Save to',
