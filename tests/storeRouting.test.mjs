@@ -519,9 +519,22 @@ test('syncPlaybackProgress exposes reconnect recovery when the playback tab is u
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-reconnect', name: '재연결 믹스테이프', segments: [makeSegment({ id: 'clip-reconnect' })] });
   installChromeStorage();
+  let shouldFail = true;
   globalThis.chrome.tabs = {
     sendMessage(_tabId, _message, callback) {
-      callback({ ok: false, error: 'tab unavailable' });
+      callback(shouldFail
+        ? { ok: false, error: 'tab unavailable' }
+        : {
+            ok: true,
+            data: {
+              isYouTubeVideoPage: true,
+              videoId: 'abc123XYZ_1',
+              title: '재연결 클립',
+              url: 'https://www.youtube.com/watch?v=abc123XYZ_1',
+              currentTime: 12,
+              duration: 120
+            }
+          });
     }
   };
   globalThis.chrome.scripting = {
@@ -566,9 +579,16 @@ test('syncPlaybackProgress exposes reconnect recovery when the playback tab is u
     startIndex: 0,
     mode: 'sequence'
   });
+
+  shouldFail = false;
+  await store.syncPlaybackProgress();
+
+  assert.equal(store.getState().playbackNotice, null);
+  assert.equal(store.getState().pageInfo.currentTime, 12);
 });
 
 test('stopPlayback shows an error when runtime stop fails', async () => {
+  const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-stop-fail', name: '정지 실패 믹스테이프', segments: [makeSegment({ id: 'clip-stop-fail' })] });
   const playbackState = {
@@ -576,9 +596,13 @@ test('stopPlayback shows an error when runtime stop fails', async () => {
     segmentIndex: 0,
     currentSegmentId: 'clip-stop-fail',
     status: 'playing',
-    startedAt: 1700000000000
+    startedAt: 1700000000000,
+    tabId: 55,
+    playbackToken: 'token-stop-fail'
   };
-  installChromeStorage();
+  const storage = installChromeStorage({
+    [PLAYBACK_STATE_KEY]: playbackState
+  });
 
   globalThis.chrome.runtime.sendMessage = (_message, callback) => {
     callback({ ok: false, error: 'stop failed' });
@@ -606,7 +630,8 @@ test('stopPlayback shows an error when runtime stop fails', async () => {
 
   await store.stopPlayback();
 
-  assert.equal(store.getState().playbackState, null);
+  assert.equal(store.getState().playbackState, playbackState);
+  assert.equal(storage[PLAYBACK_STATE_KEY], playbackState);
   assert.equal(store.getState().playbackNotice.kind, 'error');
   assert.match(store.getState().playbackNotice.message, /stop failed/);
 });

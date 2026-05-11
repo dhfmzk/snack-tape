@@ -1091,8 +1091,15 @@ export class SnackTapeAppStore {
       return;
     }
 
+    const patch: Partial<AppState> = {};
     if (!samePageInfo(this.state.pageInfo, pageInfo)) {
-      this.setState({ pageInfo });
+      patch.pageInfo = pageInfo;
+    }
+    if (this.state.playbackNotice) {
+      patch.playbackNotice = null;
+    }
+    if (Object.keys(patch).length > 0) {
+      this.setState(patch);
     }
   }
 
@@ -1458,13 +1465,19 @@ export class SnackTapeAppStore {
   }
 
   async stopPlayback(): Promise<void> {
-    this.setState({ playbackState: null, playbackDisplay: null, playbackNotice: null });
+    const previousPlaybackState = this.state.playbackState;
+    const previousPlaybackDisplay = this.state.playbackDisplay;
+    this.setState({ playbackNotice: null });
     const response = await sendRuntimeMessage({ type: 'STOP_SEQUENCE' });
     if (!response.ok) {
-      await clearPlaybackState();
+      this.setState({
+        playbackState: previousPlaybackState,
+        playbackDisplay: previousPlaybackDisplay,
+      });
       this.setPlaybackError(this.playbackStopFailedMessage(response.error), { type: 'stop' });
       return;
     }
+    this.setState({ playbackState: null, playbackDisplay: null, playbackNotice: null });
     await this.refreshPlayback();
   }
 

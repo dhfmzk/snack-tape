@@ -841,6 +841,62 @@ test('Playback queue header exposes up-next count and explicit queue edit action
   ]);
 });
 
+test('Playback queue edit is disabled until a playback session is active', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-inactive',
+    name: '비활성 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '둘째 클립', videoId: 'video2' })
+    ]
+  });
+  const calls = [];
+
+  const page = Playback({
+    state: {
+      route: 'playback',
+      store: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      settings: {
+        accentKey: 'peach',
+        autoNext: true,
+        fadeOut: true,
+        shuffleByDefault: false,
+        shortcutIn: 'I',
+        shortcutOut: 'O',
+        autoTitleFromCaptions: true
+      },
+      pageInfo: null,
+      videoState: null,
+      playbackState: null,
+      playbackDisplay: null,
+      draftIn: null,
+      capturePulseId: null,
+      queueEdit: null,
+      loading: false
+    },
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: (sequenceId) => calls.push(sequenceId),
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const queueEditButton = findByAriaLabel(page, '큐 편집');
+
+  assert.equal(queueEditButton.disabled, true);
+  queueEditButton.click();
+  assert.deepEqual(calls, []);
+});
+
 test('Playback list keeps mixtape order during shuffle without dimming earlier entries', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');

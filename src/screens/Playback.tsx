@@ -323,6 +323,10 @@ export function Playback(props: Props): HTMLElement {
   const hasNext = hasActiveOrder ? nextQueuedIndex >= 0 : index < sequence.segments.length - 1;
   const queueEdit = state.queueEdit?.sequenceId === sequence.id ? state.queueEdit : null;
   const isEditingQueue = Boolean(queueEdit);
+  const canEditQueue = Boolean(
+    state.playbackState?.sequenceId === sequence.id
+    && (state.playbackState.status === 'playing' || state.playbackState.status === 'waiting' || state.playbackState.status === 'pending')
+  );
   const queueSegments = queueEdit
     ? queueEdit.segmentIds
         .map((segmentId) => sequence.segments.find((item) => item.id === segmentId) ?? null)
@@ -606,17 +610,20 @@ export function Playback(props: Props): HTMLElement {
             el('button', {
               text: i18n.playback.editQueue,
               ariaLabel: i18n.playback.editQueue,
-              onClick: () => onBeginQueueEdit(sequence.id),
+              disabled: !canEditQueue,
+              ariaDisabled: canEditQueue ? 'false' : 'true',
+              onClick: () => canEditQueue && onBeginQueueEdit(sequence.id),
               style: {
                 border: '1px solid var(--hairline2)',
                 background: 'var(--surface2)',
                 color: 'var(--text2)',
+                opacity: canEditQueue ? '1' : '0.4',
                 height: '26px',
                 padding: '0 10px',
                 borderRadius: '6px',
                 fontSize: '10.5px',
                 fontWeight: '600',
-                cursor: 'pointer',
+                cursor: canEditQueue ? 'pointer' : 'not-allowed',
               },
             }),
             el('button', {
