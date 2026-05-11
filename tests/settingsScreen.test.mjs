@@ -130,6 +130,8 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /OUT 시 자동 제목 추론/);
   assert.match(text, /자막·챕터에서 추출/);
   assert.match(text, /데이터/);
+  assert.match(text, /진단 정보 복사/);
+  assert.match(text, /현재 화면, 재생, 저장소 요약을 복사합니다\./);
   assert.match(text, /내보내기/);
   assert.match(text, /JSON/);
   assert.match(text, /CSV/);
@@ -204,19 +206,22 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
   const page = Settings({
     state: baseState(),
     onAccent: () => {},
+    onDiagnostics: () => calls.push(['diagnostics']),
     onExport: (format) => calls.push(['export', format]),
     onImport: () => calls.push(['import']),
     onDeleteAll: () => calls.push(['delete'])
   });
   const dataSection = page.children[5];
-  const exportButtons = dataSection.children[1].children[1].children;
+  const exportButtons = dataSection.children[2].children[1].children;
 
+  dataSection.children[1].click();
   exportButtons[0].click();
   exportButtons[1].click();
-  dataSection.children[2].click();
   dataSection.children[3].click();
+  dataSection.children[4].click();
 
   assert.deepEqual(calls, [
+    ['diagnostics'],
     ['export', 'json'],
     ['export', 'csv'],
     ['import'],

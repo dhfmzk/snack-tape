@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 53 items.
+- Severity split: P1 High 10, P2 Medium 26, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -63,7 +63,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-073 | Empty states | Empty states exist, but copy is generic and not tailored per route, import state, or selected language nuance. | `src/screens/Home.tsx`, `src/screens/Capture.tsx`, `src/screens/Playback.tsx`, `src/i18n.ts` | Add route-specific empty states that point to the next real action. |
 | ST-GAP-074 | Edit tab video awareness | Edit detects the active video, but it does not clearly warn when the active tab changed away from the clip being edited. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add a small active-video/source mismatch indicator for exact range editing. |
 | ST-GAP-075 | Content resilience | Content playback handles ads and navigation, but there is no explicit coverage for mini-player, theater mode, live video, or unavailable videos. | `src/content/contentScript.ts`, `tests/contentPlayback.test.mjs` | Add fixtures or guarded tests for YouTube layout/state variants. |
-| ST-GAP-076 | Diagnostics | There is no user-facing diagnostic snapshot for support: current route, selected tape, playback state, detected tab, and storage size. | `src/screens/Settings.tsx`, `src/state/store.ts` | Add copy diagnostics action in Settings, keeping private clip data summarized. |
 | ST-GAP-077 | Test data factories | Tests repeatedly hand-build app state, playback state, and settings, which increases fixture drift. | `tests/*.test.mjs`, `tests/helpers.mjs` | Add shared state factories and migrate the noisiest tests first. |
 | ST-GAP-078 | Runtime message tests | Runtime message behavior is covered indirectly, but the request/response contracts are not tested as a shared protocol surface. | `src/shared/types.ts`, `src/background/background.ts`, `src/content/contentScript.ts` | Add protocol-focused tests around message payloads and failure shapes. |
 | ST-GAP-079 | Manual QA script | There is no single scripted checklist that matches the current product flows after playback and settings changes. | `README.md`, `docs/`, `scripts/` | Add a concise developer QA script outside README or as a command output, not as README clutter. |

@@ -1381,6 +1381,78 @@ export class SnackTapeAppStore {
     });
   }
 
+  async copyDiagnostics(): Promise<void> {
+    const i18n = createI18n(this.state.settings.language).settings;
+    const writeText = globalThis.navigator?.clipboard?.writeText;
+    if (!writeText) {
+      this.setSettingsError(i18n.diagnosticsUnavailable);
+      return;
+    }
+
+    try {
+      await writeText.call(globalThis.navigator.clipboard, JSON.stringify(this.createDiagnosticsSnapshot(), null, 2));
+      this.setSettingsInfo(i18n.diagnosticsCopied);
+    } catch {
+      this.setSettingsError(i18n.diagnosticsUnavailable);
+    }
+  }
+
+  private createDiagnosticsSnapshot(): Record<string, unknown> {
+    const store = this.state.store;
+    const selectedSequence = selectedSequenceFrom(store);
+    const clipCount = store?.sequences.reduce((total, sequence) => total + sequence.segments.length, 0) ?? 0;
+    const serializedStore = store ? serializeStoreJson(store) : '';
+
+    return {
+      app: {
+        version: '0.1.0',
+        route: this.state.route,
+        language: this.state.settings.language,
+        accentKey: this.state.settings.accentKey,
+      },
+      store: store
+        ? {
+            mixtapeCount: store.sequences.length,
+            clipCount,
+            selectedMixtape: selectedSequence
+              ? {
+                  id: selectedSequence.id,
+                  name: selectedSequence.name,
+                  clipCount: selectedSequence.segments.length,
+                }
+              : null,
+            approxExportBytes: new Blob([serializedStore]).size,
+          }
+        : null,
+      playback: this.state.playbackState
+        ? {
+            status: this.state.playbackState.status,
+            sequenceId: this.state.playbackState.sequenceId,
+            segmentIndex: this.state.playbackState.segmentIndex,
+            currentSegmentId: this.state.playbackState.currentSegmentId ?? null,
+            tabId: this.state.playbackState.tabId ?? null,
+            mode: this.state.playbackState.mode ?? 'sequence',
+            queueEdited: Boolean(this.state.playbackState.queueEdited),
+            queueLength: this.state.playbackState.orderSegmentIds?.length ?? this.state.playbackState.order?.length ?? null,
+          }
+        : null,
+      activeVideo: this.state.pageInfo
+        ? {
+            isYouTubeVideoPage: this.state.pageInfo.isYouTubeVideoPage,
+            videoId: this.state.pageInfo.videoId,
+            hasTitle: Boolean(this.state.pageInfo.title),
+            hasCurrentTime: this.state.pageInfo.currentTime !== null,
+            hasDuration: this.state.pageInfo.duration !== null,
+          }
+        : null,
+      notices: {
+        capture: this.state.captureNotice?.kind ?? null,
+        playback: this.state.playbackNotice?.kind ?? null,
+        settings: this.state.settingsNotice?.kind ?? null,
+      },
+    };
+  }
+
   private downloadTextFile(filename: string, mimeType: string, text: string): void {
     const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
     const url = URL.createObjectURL(blob);

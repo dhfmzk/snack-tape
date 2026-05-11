@@ -182,6 +182,10 @@ export type I18n = {
     autoTitle: string;
     autoTitleHelp: string;
     data: string;
+    diagnostics: string;
+    diagnosticsHelp: string;
+    diagnosticsCopied: string;
+    diagnosticsUnavailable: string;
     export: string;
     exportJson: string;
     exportCsv: string;
@@ -387,6 +391,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       autoTitle: 'OUT 시 자동 제목 추론',
       autoTitleHelp: '자막·챕터에서 추출',
       data: '데이터',
+      diagnostics: '진단 정보 복사',
+      diagnosticsHelp: '현재 화면, 재생, 저장소 요약을 복사합니다.',
+      diagnosticsCopied: '진단 정보를 클립보드에 복사했습니다.',
+      diagnosticsUnavailable: '클립보드에 접근할 수 없습니다.',
       export: '내보내기',
       exportJson: 'JSON',
       exportCsv: 'CSV',
@@ -590,6 +598,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       autoTitle: 'OUT時にタイトルを自動推定',
       autoTitleHelp: '字幕・チャプターから抽出',
       data: 'データ',
+      diagnostics: '診断情報をコピー',
+      diagnosticsHelp: '現在の画面、再生、保存データの概要をコピーします。',
+      diagnosticsCopied: '診断情報をクリップボードにコピーしました。',
+      diagnosticsUnavailable: 'クリップボードにアクセスできません。',
       export: 'エクスポート',
       exportJson: 'JSON',
       exportCsv: 'CSV',
@@ -793,6 +805,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       autoTitle: 'Infer title on OUT',
       autoTitleHelp: 'Extract from captions and chapters',
       data: 'Data',
+      diagnostics: 'Copy diagnostics',
+      diagnosticsHelp: 'Copy route, playback, and storage summaries.',
+      diagnosticsCopied: 'Diagnostics copied to clipboard.',
+      diagnosticsUnavailable: 'Clipboard access is unavailable.',
       export: 'Export',
       exportJson: 'JSON',
       exportCsv: 'CSV',

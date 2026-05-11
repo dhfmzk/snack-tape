@@ -15,6 +15,7 @@ type Props = {
   onDefaultSaveTarget?: (sequenceId: string) => void;
   onExport?: (format: ExportFormat) => void;
   onImport?: () => void;
+  onDiagnostics?: () => void;
   onDeleteAll?: () => void;
 };
 
@@ -349,6 +350,7 @@ export function Settings({
   onDefaultSaveTarget,
   onExport,
   onImport,
+  onDiagnostics,
   onDeleteAll,
 }: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
@@ -524,6 +526,7 @@ export function Settings({
     ),
     Section(
       i18n.settings.data,
+      SettingsRow(i18n, { label: i18n.settings.diagnostics, sub: i18n.settings.diagnosticsHelp, chev: true, onClick: onDiagnostics }),
       SettingsRow(i18n, {
         label: i18n.settings.export,
         rightNode: el(
