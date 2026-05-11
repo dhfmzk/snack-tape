@@ -1003,6 +1003,27 @@ export function Capture(props: Props): HTMLElement {
           minHeight: '0',
         },
       },
+      segments.length === 0 && state.draftIn === null
+        ? el(
+            'section',
+            {
+              style: {
+                border: '1px solid var(--hairline)',
+                background: 'var(--surface)',
+                borderRadius: '8px',
+                padding: '12px',
+              },
+            },
+            el('p', {
+              text: i18n.capture.emptyTitle,
+              style: { margin: '0 0 6px', fontSize: '12.5px', fontWeight: '700', color: 'var(--text)' },
+            }),
+            el('p', {
+              text: i18n.capture.emptyCopy,
+              style: { margin: '0', color: 'var(--mute)', fontSize: '11px', lineHeight: '1.45' },
+            })
+          )
+        : null,
       ...segments.map((segment) =>
         {
           const isEditingSegment = state.segmentEdit?.segmentId === segment.id;

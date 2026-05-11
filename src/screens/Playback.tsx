@@ -349,6 +349,7 @@ export function Playback(props: Props): HTMLElement {
   const progressState = progress(state, segment);
 
   if (!sequence || sequence.segments.length === 0 || !segment) {
+    const emptyCopy = sequence ? i18n.playback.emptyTapeCopy(sequence.name) : i18n.playback.emptyNoMixtapeCopy;
     return el(
       'div',
       {
@@ -366,7 +367,7 @@ export function Playback(props: Props): HTMLElement {
           },
         },
         el('p', { text: i18n.playback.emptyTitle, style: { margin: '0 0 6px', fontSize: '14px', fontWeight: '700', color: 'var(--text)' } }),
-        el('p', { text: i18n.playback.emptyCopy, style: { margin: '0', color: 'var(--mute)', fontSize: '12px', lineHeight: '1.5' } })
+        el('p', { text: emptyCopy, style: { margin: '0', color: 'var(--mute)', fontSize: '12px', lineHeight: '1.5' } })
       )
     );
   }

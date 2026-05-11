@@ -223,6 +223,8 @@ test('Home empty state shows a single new tape action', async () => {
   });
 
   assert.equal(findAllByAriaLabel(page, '새 테이프 만들기').length, 1);
+  assert.match(textOf(page), /첫 믹스테이프를 만들어보세요/);
+  assert.match(textOf(page), /편집 탭에서 YouTube 구간/);
 });
 
 test('Home total duration treats zero-second OUT as a saved boundary, not missing data', async () => {

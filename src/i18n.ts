@@ -31,6 +31,7 @@ export type I18n = {
     newTape: string;
     newTapeAria: string;
     emptyTitle: string;
+    emptyCopy: string;
     search: string;
     sort: string;
     sortManual: string;
@@ -86,6 +87,8 @@ export type I18n = {
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
+    emptyTitle: string;
+    emptyCopy: string;
     noticeOpenYoutubeVideo: string;
     noticeNoSaveTarget: string;
     noticeInFirst: string;
@@ -104,6 +107,8 @@ export type I18n = {
   playback: {
     emptyTitle: string;
     emptyCopy: string;
+    emptyNoMixtapeCopy: string;
+    emptyTapeCopy: (name: string) => string;
     backToMixtapes: string;
     renameMixtape: string;
     nowPlaying: string;
@@ -236,6 +241,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '새 테이프',
       newTapeAria: '새 테이프 만들기',
       emptyTitle: '첫 믹스테이프를 만들어보세요',
+      emptyCopy: '새 테이프를 만든 뒤 편집 탭에서 YouTube 구간을 저장하세요.',
       search: '믹스테이프 검색',
       sort: '믹스테이프 정렬',
       sortManual: '직접 순서',
@@ -291,6 +297,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
+      emptyTitle: '저장된 구간이 없습니다',
+      emptyCopy: 'YouTube 영상에서 IN을 찍고 OUT + 추가로 첫 구간을 저장하세요.',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
       noticeInFirst: 'IN 먼저 찍어주세요.',
@@ -309,6 +317,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     playback: {
       emptyTitle: '재생할 클립이 없습니다',
       emptyCopy: '편집 탭에서 첫 구간을 저장하면 큐가 만들어집니다.',
+      emptyNoMixtapeCopy: '믹스테이프 탭에서 새 테이프를 만든 뒤 편집 탭에서 구간을 저장하세요.',
+      emptyTapeCopy: (name) => `"${name}"에 저장된 구간이 없습니다. 편집 탭에서 IN/OUT으로 구간을 추가하세요.`,
       backToMixtapes: '믹스테이프로 돌아가기',
       renameMixtape: '믹스테이프 이름 변경',
       nowPlaying: 'NOW PLAYING',
@@ -439,6 +449,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '新規テープ',
       newTapeAria: '新規テープを作成',
       emptyTitle: '最初のミックステープを作成しましょう',
+      emptyCopy: '新規テープを作成してから、編集タブでYouTubeの範囲を保存してください。',
       search: 'ミックステープを検索',
       sort: 'ミックステープを並べ替え',
       sortManual: '手動順',
@@ -494,6 +505,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
+      emptyTitle: '保存済みの範囲がありません',
+      emptyCopy: 'YouTube動画でINを設定し、OUT + 追加で最初の範囲を保存してください。',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
       noticeNoSaveTarget: '保存先のミックステープを選択してください。',
       noticeInFirst: '先にINを設定してください。',
@@ -512,6 +525,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     playback: {
       emptyTitle: '再生するクリップがありません',
       emptyCopy: '編集タブで最初の範囲を保存するとキューが作成されます。',
+      emptyNoMixtapeCopy: 'ミックステープタブで新規テープを作成し、編集タブで範囲を保存してください。',
+      emptyTapeCopy: (name) => `「${name}」には保存済みの範囲がありません。編集タブでIN/OUTを追加してください。`,
       backToMixtapes: 'ミックステープに戻る',
       renameMixtape: 'ミックステープ名を変更',
       nowPlaying: 'NOW PLAYING',
@@ -642,6 +657,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: 'New Tape',
       newTapeAria: 'Create new tape',
       emptyTitle: 'Create your first mixtape',
+      emptyCopy: 'Create a tape, then save a YouTube range from the Edit tab.',
       search: 'Search mixtapes',
       sort: 'Sort mixtapes',
       sortManual: 'Manual order',
@@ -697,6 +713,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
+      emptyTitle: 'No saved ranges yet',
+      emptyCopy: 'Open a YouTube video, mark IN, then use OUT + Add to save the first range.',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
       noticeNoSaveTarget: 'Choose a save mixtape.',
       noticeInFirst: 'Mark IN first.',
@@ -715,6 +733,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
     playback: {
       emptyTitle: 'No clips to play',
       emptyCopy: 'Save the first range in the Edit tab to build a queue.',
+      emptyNoMixtapeCopy: 'Create a tape in Mixtapes, then save ranges from the Edit tab.',
+      emptyTapeCopy: (name) => `${name} has no saved ranges. Add one from the Edit tab with IN and OUT.`,
       backToMixtapes: 'Back to mixtapes',
       renameMixtape: 'Rename mixtape',
       nowPlaying: 'NOW PLAYING',

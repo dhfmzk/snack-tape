@@ -215,6 +215,59 @@ test('Playback progress uses playback state timing when live page info is unavai
   }
 });
 
+test('Playback empty state points back to edit flow for the selected empty mixtape', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({ id: 'empty-playback', name: '빈 재생 테이프', segments: [] });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const text = textOf(page);
+
+  assert.match(text, /재생할 클립이 없습니다/);
+  assert.match(text, /빈 재생 테이프/);
+  assert.match(text, /편집 탭에서 IN\/OUT/);
+});
+
 test('Playback progress prefers live YouTube page time and does not animate while waiting', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');

@@ -339,6 +339,27 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   assert.equal(segmentLists.length, 1);
 });
 
+test('Capture edit tab shows route-specific empty copy for an empty selected mixtape', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [makeSequence({ id: 'empty-sequence', name: '빈 테이프', segments: [] })],
+        selectedSequenceId: 'empty-sequence'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const text = textOf(page);
+
+  assert.match(text, /저장된 구간이 없습니다/);
+  assert.match(text, /IN을 찍고 OUT \+ 추가/);
+});
+
 test('Capture edit tab opens a segment action menu instead of deleting from the more button', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

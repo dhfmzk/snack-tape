@@ -534,7 +534,11 @@ export function Home({
             },
             el('p', {
               text: i18n.home.emptyTitle,
-              style: { margin: '0', fontSize: '14px', fontWeight: '700', color: 'var(--text)' },
+              style: { margin: '0 0 6px', fontSize: '14px', fontWeight: '700', color: 'var(--text)' },
+            }),
+            el('p', {
+              text: i18n.home.emptyCopy,
+              style: { margin: '0', color: 'var(--mute)', fontSize: '11px', lineHeight: '1.45' },
             })
           ),
         ], true)
