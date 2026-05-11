@@ -1,6 +1,6 @@
 import { describePlaybackState, playbackStateAfterSequenceEdit, type PlaybackDisplayState } from '../shared/playback.js';
 import { moveItem, removeSegmentFromSequence } from '../shared/reorder.js';
-import { parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFormat } from '../shared/dataTransfer.js';
+import { createExportFilename, parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFormat } from '../shared/dataTransfer.js';
 import {
   clearPlaybackState,
   clearSegmentDraft,
@@ -1314,7 +1314,7 @@ export class SnackTapeAppStore {
     const extension = format === 'json' ? 'json' : 'csv';
     const mimeType = format === 'json' ? 'application/json' : 'text/csv';
     const text = format === 'json' ? serializeStoreJson(this.state.store) : serializeStoreCsv(this.state.store);
-    this.downloadTextFile(`snacktape-export-${Date.now()}.${extension}`, mimeType, text);
+    this.downloadTextFile(createExportFilename(this.state.store, extension), mimeType, text);
     this.setSettingsInfo(createI18n(this.state.settings.language).settings.exportReady(format));
   }
 

@@ -277,8 +277,8 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   findButtonByText(page, /^CSV$/).click();
   await settle();
 
-  assert.match(dom.downloaded[0].download, /^snacktape-export-.*\.json$/);
-  assert.match(dom.downloaded[1].download, /^snacktape-export-.*\.csv$/);
+  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{4}-current-tape\.json$/);
+  assert.match(dom.downloaded[1].download, /^snacktape-csv-\d{8}-\d{4}-current-tape\.csv$/);
 
   findButtonByText(page, /가져오기/).click();
   assert.equal(dom.createdInputs.length, 1);
@@ -370,7 +370,7 @@ test('App exports a JSON backup before deleting a mixtape when requested', async
 
   assert.match(confirmMessages[0], /JSON.*백업/);
   assert.match(confirmMessages[1], /Delete Tape/);
-  assert.match(dom.downloaded[0].download, /^snacktape-export-.*\.json$/);
+  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{4}-delete-tape\.json$/);
   assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [second.id]);
 });
 

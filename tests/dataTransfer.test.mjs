@@ -111,3 +111,22 @@ test('createExportPayload includes app name, version, exportedAt and store', asy
   assert.equal(payload.store, store);
 });
 
+test('createExportFilename includes format, local date, and a safe selected tape slug', async () => {
+  const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const store = {
+    sequences: [
+      { id: 'first', name: '첫 믹스테이프', segments: [], createdAt: 1, updatedAt: 1 },
+      { id: 'selected', name: 'ASMR 조각 모음!', segments: [], createdAt: 1, updatedAt: 1 }
+    ],
+    selectedSequenceId: 'selected'
+  };
+
+  assert.equal(
+    createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7)),
+    'snacktape-json-20260512-2107-asmr.json'
+  );
+  assert.equal(
+    createExportFilename({ sequences: [store.sequences[0]], selectedSequenceId: 'first' }, 'csv', new Date(2026, 4, 12, 21, 7)),
+    'snacktape-csv-20260512-2107-mixtape.csv'
+  );
+});
