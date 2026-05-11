@@ -358,7 +358,7 @@ test('startSequence switches to playback before runtime playback handoff finishe
   await pending;
 });
 
-test('startSequence rolls back pending playback when runtime handoff fails', async () => {
+test('startSequence clears pending playback and shows an error when runtime handoff fails', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-fail', name: '실패할 믹스테이프', segments: [makeSegment({ id: 'clip-fail' })] });
@@ -395,9 +395,220 @@ test('startSequence rolls back pending playback when runtime handoff fails', asy
 
   await store.startSequence(0, sequence.id);
 
-  assert.equal(store.getState().route, 'home');
+  assert.equal(store.getState().route, 'playback');
   assert.equal(store.getState().playbackState, null);
   assert.equal(store.getState().playbackDisplay, null);
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /runtime failed/);
+});
+
+test('retryPlaybackRecovery repeats a failed start handoff with the saved target', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-retry-start',
+    name: '재시도 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a' }),
+      makeSegment({ id: 'clip-b' })
+    ]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+  const runtimeMessages = [];
+  let shouldFail = true;
+
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessages.push(message);
+    if (shouldFail) {
+      callback({ ok: false, error: 'runtime failed' });
+      return;
+    }
+
+    storage[PLAYBACK_STATE_KEY] = {
+      sequenceId: sequence.id,
+      segmentIndex: message.startIndex,
+      currentSegmentId: 'clip-b',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: message.mode
+    };
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(1, sequence.id, 'shuffle');
+  shouldFail = false;
+  await store.retryPlaybackRecovery();
+
+  assert.deepEqual(runtimeMessages.map((message) => [message.type, message.startIndex, message.mode]), [
+    ['START_SEQUENCE', 1, 'shuffle'],
+    ['START_SEQUENCE', 1, 'shuffle']
+  ]);
+  assert.equal(store.getState().playbackNotice, null);
+  assert.equal(store.getState().playbackState.currentSegmentId, 'clip-b');
+});
+
+test('nextClip keeps the current playback and shows an error when runtime advance fails', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-next-fail', name: '다음 실패 믹스테이프', segments: [makeSegment({ id: 'clip-next-fail' })] });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    currentSegmentId: 'clip-next-fail',
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  installChromeStorage();
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, error: 'next failed' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.nextClip();
+
+  assert.equal(store.getState().playbackState, playbackState);
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /next failed/);
+});
+
+test('syncPlaybackProgress exposes reconnect recovery when the playback tab is unreadable', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-reconnect', name: '재연결 믹스테이프', segments: [makeSegment({ id: 'clip-reconnect' })] });
+  installChromeStorage();
+  globalThis.chrome.tabs = {
+    sendMessage(_tabId, _message, callback) {
+      callback({ ok: false, error: 'tab unavailable' });
+    }
+  };
+  globalThis.chrome.scripting = {
+    async executeScript() {}
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-reconnect',
+      status: 'playing',
+      startedAt: 1700000000000,
+      tabId: 44,
+      mode: 'sequence'
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.syncPlaybackProgress();
+
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /YouTube/);
+  assert.deepEqual(store.getState().playbackNotice.recovery, {
+    type: 'start',
+    sequenceId: sequence.id,
+    startIndex: 0,
+    mode: 'sequence'
+  });
+});
+
+test('stopPlayback shows an error when runtime stop fails', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-stop-fail', name: '정지 실패 믹스테이프', segments: [makeSegment({ id: 'clip-stop-fail' })] });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    currentSegmentId: 'clip-stop-fail',
+    status: 'playing',
+    startedAt: 1700000000000
+  };
+  installChromeStorage();
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, error: 'stop failed' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.stopPlayback();
+
+  assert.equal(store.getState().playbackState, null);
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /stop failed/);
 });
 
 test('startSequence publishes a pending playback state immediately while runtime handoff is in flight', async () => {
@@ -548,6 +759,127 @@ test('saveQueueEdit preserves active shuffle playback mode', async () => {
   assert.equal(storage[PLAYBACK_STATE_KEY].mode, 'shuffle');
   assert.deepEqual(storage[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-3', 'clip-2', 'clip-1']);
   assert.equal(storage[PLAYBACK_STATE_KEY].orderPosition, 1);
+});
+
+test('saveQueueEdit updates only the active playback queue without reordering the saved mixtape', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-session-queue',
+    name: '세션 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a' }),
+      makeSegment({ id: 'clip-b' }),
+      makeSegment({ id: 'clip-c' })
+    ]
+  });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 1,
+    currentSegmentId: 'clip-b',
+    status: 'playing',
+    startedAt: 1700000000000,
+    mode: 'sequence',
+    orderSegmentIds: ['clip-a', 'clip-b', 'clip-c'],
+    orderPosition: 1
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [PLAYBACK_STATE_KEY]: playbackState
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: {
+      sequenceId: sequence.id,
+      segmentIds: ['clip-c', 'clip-b', 'clip-a'],
+      baseSegmentIds: ['clip-a', 'clip-b', 'clip-c']
+    },
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.saveQueueEdit();
+
+  assert.deepEqual(store.getState().store.sequences[0].segments.map((segment) => segment.id), ['clip-a', 'clip-b', 'clip-c']);
+  assert.deepEqual(storage[STORAGE_KEY].sequences[0].segments.map((segment) => segment.id), ['clip-a', 'clip-b', 'clip-c']);
+  assert.deepEqual(store.getState().playbackState.orderSegmentIds, ['clip-c', 'clip-b', 'clip-a']);
+  assert.equal(store.getState().playbackState.queueEdited, true);
+  assert.deepEqual(storage[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-c', 'clip-b', 'clip-a']);
+  assert.equal(storage[PLAYBACK_STATE_KEY].queueEdited, true);
+  assert.equal(storage[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-b');
+  assert.equal(storage[PLAYBACK_STATE_KEY].segmentIndex, 1);
+  assert.equal(storage[PLAYBACK_STATE_KEY].orderPosition, 1);
+  assert.equal(store.getState().queueEdit, null);
+});
+
+test('beginQueueEdit starts from the active playback queue instead of the saved mixtape order', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-active-queue',
+    name: '현재 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a' }),
+      makeSegment({ id: 'clip-b' }),
+      makeSegment({ id: 'clip-c' })
+    ]
+  });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 2,
+      currentSegmentId: 'clip-c',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence',
+      orderSegmentIds: ['clip-c', 'clip-b', 'clip-a'],
+      orderPosition: 0
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  store.beginQueueEdit(sequence.id);
+
+  assert.deepEqual(store.getState().queueEdit.segmentIds, ['clip-c', 'clip-b', 'clip-a']);
 });
 
 test('beginRenameMixtape opens the edit tab with the selected mixtape rename field active', async () => {

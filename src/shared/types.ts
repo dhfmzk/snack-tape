@@ -35,6 +35,7 @@ export type PlaybackState = {
   order?: number[];
   orderSegmentIds?: string[];
   orderPosition?: number;
+  queueEdited?: boolean;
 };
 
 export type PlaybackStartResult = {

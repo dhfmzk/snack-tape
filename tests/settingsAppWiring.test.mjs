@@ -332,3 +332,71 @@ test('App Settings route leaves data intact when delete-all confirmation is canc
   assert.equal(store.getState().store.sequences[0].id, sequence.id);
   assert.equal(storage[STORAGE_KEY].sequences[0].id, sequence.id);
 });
+
+test('App exports a JSON backup before deleting a mixtape when requested', async () => {
+  const dom = installDomShim();
+  const confirmMessages = [];
+  window.confirm = (message) => {
+    confirmMessages.push(message);
+    return true;
+  };
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({
+    id: 'sequence-delete',
+    name: 'Delete Tape',
+    segments: [makeSegment({ id: 'clip-delete' })]
+  });
+  const second = makeSequence({
+    id: 'sequence-keep',
+    name: 'Keep Tape',
+    segments: [makeSegment({ id: 'clip-keep' })]
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [first, second],
+      selectedSequenceId: first.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([first, second]),
+    route: 'home'
+  };
+
+  findByAriaLabel(App(store.getState(), store), 'Delete Tape 삭제').click();
+  await settle();
+
+  assert.match(confirmMessages[0], /JSON.*백업/);
+  assert.match(confirmMessages[1], /Delete Tape/);
+  assert.match(dom.downloaded[0].download, /^snacktape-export-.*\.json$/);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [second.id]);
+});
+
+test('App asks before deleting a single saved segment', async () => {
+  installDomShim();
+  const confirmMessages = [];
+  window.confirm = (message) => {
+    confirmMessages.push(message);
+    return false;
+  };
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-segment-confirm',
+    name: 'Segment Tape',
+    segments: [makeSegment({ id: 'clip-confirm', title: 'Clip To Keep' })]
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([sequence]),
+    route: 'capture'
+  };
+
+  findByAriaLabel(App(store.getState(), store), 'Clip To Keep 삭제').click();
+  await settle();
+
+  assert.match(confirmMessages[0], /Clip To Keep/);
+  assert.equal(store.getState().store.sequences[0].segments.length, 1);
+});

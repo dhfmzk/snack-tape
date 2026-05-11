@@ -592,6 +592,52 @@ test('Capture edit tab renders inline capture notices from store state', async (
   assert.match(textOf(page), /IN 먼저 찍어주세요\./);
 });
 
+test('Capture edit tab shows when the active tab is not a YouTube video', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      pageInfo: {
+        isYouTubeVideoPage: false,
+        videoId: null,
+        title: 'Example',
+        url: 'https://example.com/',
+        currentTime: null,
+        duration: null
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.match(textOf(page), /현재 탭은 YouTube 영상이 아닙니다/);
+});
+
+test('Capture edit tab explains when a YouTube video time is unreadable', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      pageInfo: {
+        isYouTubeVideoPage: true,
+        videoId: 'abc123XYZ_1',
+        title: '테스트 영상',
+        url: 'https://www.youtube.com/watch?v=abc123XYZ_1',
+        currentTime: null,
+        duration: null
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.match(textOf(page), /영상 시간을 읽을 수 없습니다/);
+});
+
 test('Capture edit tab uses the handoff capture layout instead of legacy card classes', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
