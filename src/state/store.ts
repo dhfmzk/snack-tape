@@ -12,7 +12,7 @@ import {
   saveStore,
   saveSegmentDraft,
 } from '../shared/storage.js';
-import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeStore, VideoState } from '../shared/types.js';
+import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeErrorCode, SnackTapeMessage, SnackTapeResponse, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseTimecodeToSeconds } from '../shared/time.js';
 import { createI18n } from '../i18n.js';
@@ -335,7 +335,18 @@ export class SnackTapeAppStore {
     }
   }
 
-  private playbackRuntimeErrorMessage(error: unknown): string {
+  private playbackRuntimeErrorMessage(error: unknown, errorCode?: SnackTapeErrorCode): string {
+    const i18n = createI18n(this.state.settings.language);
+    if (errorCode === 'content_request_failed') {
+      return i18n.playback.contentRequestFailed;
+    }
+    if (errorCode === 'runtime_unavailable') {
+      return i18n.playback.runtimeUnavailable;
+    }
+    if (errorCode === 'unsupported_request') {
+      return i18n.playback.unsupportedRequest;
+    }
+
     return error instanceof Error
       ? error.message
       : typeof error === 'string'
@@ -356,34 +367,34 @@ export class SnackTapeAppStore {
     this.setState({ playbackNotice: { kind: 'error', message, recovery } });
   }
 
-  private playbackStartFailedMessage(error: unknown): string {
+  private playbackStartFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.startFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.startFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
-  private playbackNextFailedMessage(error: unknown): string {
+  private playbackNextFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.nextFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.nextFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
-  private playbackSeekFailedMessage(error: unknown): string {
+  private playbackSeekFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.seekFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.seekFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
-  private playbackPauseFailedMessage(error: unknown): string {
+  private playbackPauseFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.pauseFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.pauseFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
-  private playbackResumeFailedMessage(error: unknown): string {
+  private playbackResumeFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.resumeFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.resumeFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
-  private playbackStopFailedMessage(error: unknown): string {
+  private playbackStopFailedMessage(response: Pick<SnackTapeResponse, 'error' | 'errorCode'>): string {
     const i18n = createI18n(this.state.settings.language);
-    return i18n.playback.stopFailed(this.playbackRuntimeErrorMessage(error));
+    return i18n.playback.stopFailed(this.playbackRuntimeErrorMessage(response.error, response.errorCode));
   }
 
   private recoveryFromPlaybackState(playbackState: PlaybackState | null | undefined): PlaybackRecoveryAction | undefined {
@@ -1649,7 +1660,7 @@ export class SnackTapeAppStore {
         playbackDisplay: previousPlaybackDisplay,
         playbackNotice: {
           kind: 'error',
-          message: this.playbackStartFailedMessage(response.error),
+          message: this.playbackStartFailedMessage(response),
           recovery,
         },
       });
@@ -1683,7 +1694,7 @@ export class SnackTapeAppStore {
         playbackState: previousPlaybackState,
         playbackDisplay: previousPlaybackDisplay,
       });
-      this.setPlaybackError(this.playbackStopFailedMessage(response.error), { type: 'stop' });
+      this.setPlaybackError(this.playbackStopFailedMessage(response), { type: 'stop' });
       return;
     }
     this.setState({ playbackState: null, playbackDisplay: null, playbackNotice: null });
@@ -1693,7 +1704,7 @@ export class SnackTapeAppStore {
   async nextClip(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'PLAY_NEXT' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackNextFailedMessage(response.error), { type: 'next' });
+      this.setPlaybackError(this.playbackNextFailedMessage(response), { type: 'next' });
       return;
     }
     this.setState({ playbackNotice: null });
@@ -1703,7 +1714,7 @@ export class SnackTapeAppStore {
   async seekPlayback(seconds: number): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'SEEK_PLAYBACK', sec: seconds });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackSeekFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackSeekFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 
@@ -1714,7 +1725,7 @@ export class SnackTapeAppStore {
   async pausePlayback(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'PAUSE_PLAYBACK' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackPauseFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackPauseFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 
@@ -1725,7 +1736,7 @@ export class SnackTapeAppStore {
   async resumePlayback(): Promise<void> {
     const response = await sendRuntimeMessage({ type: 'RESUME_PLAYBACK' });
     if (!response.ok) {
-      this.setPlaybackError(this.playbackResumeFailedMessage(response.error), this.recoveryFromPlaybackState(this.state.playbackState));
+      this.setPlaybackError(this.playbackResumeFailedMessage(response), this.recoveryFromPlaybackState(this.state.playbackState));
       return;
     }
 

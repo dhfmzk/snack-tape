@@ -1,5 +1,6 @@
 import { createPlaybackOrder, getNextPlaybackStep } from '../shared/playback.js';
 import { findYouTubePlaybackTab, isExtensionPageUrl } from '../shared/playbackTarget.js';
+import { failureResponse, SnackTapeError } from '../shared/errors.js';
 import {
   clearSegmentDraft,
   clearPlaybackState,
@@ -85,7 +86,7 @@ function normalizePlaybackMode(mode: PlaybackMode | undefined): PlaybackMode {
   return mode === 'shuffle' || mode === 'repeat' ? mode : 'sequence';
 }
 
-class ContentResponseError extends Error {}
+class ContentResponseError extends SnackTapeError {}
 
 async function playbackModeFromSettings(): Promise<PlaybackMode> {
   const settings = await loadSettings();
@@ -313,7 +314,7 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
     try {
       const response = await sendMessageToTab<T>(tabId, message);
       if (!response.ok) {
-        throw new ContentResponseError(response.error ?? '요청을 처리하지 못했습니다.');
+        throw new ContentResponseError(response.errorCode ?? 'content_request_failed', response.error ?? '요청을 처리하지 못했습니다.');
       }
 
       return response;
@@ -330,7 +331,7 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
   }
 
   void lastError;
-  throw new Error((await playbackI18n()).playback.contentRequestFailed);
+  throw new SnackTapeError('content_request_failed', (await playbackI18n()).playback.contentRequestFailed);
 }
 
 async function readActiveVideoForCapture(): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
@@ -717,7 +718,7 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
     return { ok: true };
   }
 
-  return { ok: false, error: '지원하지 않는 요청입니다.' };
+  return { ok: false, error: '지원하지 않는 요청입니다.', errorCode: 'unsupported_request' };
 }
 
 export async function handleCommand(command: CommandName): Promise<void> {
@@ -782,10 +783,7 @@ function enableSidePanelBehavior(): void {
 chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
   handleMessage(message)
     .then(sendResponse)
-    .catch((error: unknown) => {
-      const messageText = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
-      sendResponse({ ok: false, error: messageText });
-    });
+    .catch((error: unknown) => sendResponse(failureResponse(error)));
 
   return true;
 });

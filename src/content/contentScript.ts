@@ -1,4 +1,5 @@
 import { removeContinueOverlay, showContinueOverlay } from './overlay.js';
+import { failureResponse } from '../shared/errors.js';
 import type { PageInfo, PlaybackStartResult, Segment, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 import type { Language } from '../i18n.js';
@@ -409,7 +410,7 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
     return { ok: true };
   }
 
-  return { ok: false, error: '지원하지 않는 요청입니다.' };
+  return { ok: false, error: '지원하지 않는 요청입니다.', errorCode: 'unsupported_request' };
 }
 
 function handleUrlChange(): void {
@@ -427,13 +428,10 @@ function handleUrlChange(): void {
 if (!window.__snacktapeContentScriptLoaded) {
   window.__snacktapeContentScriptLoaded = true;
 
-  chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
-    handleMessage(message)
-      .then(sendResponse)
-      .catch((error: unknown) => {
-        const messageText = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.';
-        sendResponse({ ok: false, error: messageText });
-      });
+    chrome.runtime.onMessage.addListener((message: SnackTapeMessage, _sender, sendResponse) => {
+      handleMessage(message)
+        .then(sendResponse)
+        .catch((error: unknown) => sendResponse(failureResponse(error)));
 
     return true;
   });
