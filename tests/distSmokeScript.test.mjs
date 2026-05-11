@@ -14,3 +14,18 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   assert.match(smokeScript, /dist\/background\.js/);
   assert.match(smokeScript, /dist\/content\.js/);
 });
+
+test('release tooling exposes one-command check and zip packaging scripts', async () => {
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+
+  assert.equal(packageJson.scripts.check, 'npm run test && npm run build');
+  assert.equal(packageJson.scripts['package:release'], 'node scripts/package-release.mjs');
+
+  const packageScript = await readFile('scripts/package-release.mjs', 'utf8');
+  assert.match(packageScript, /\['run', 'build'\]/);
+  assert.match(packageScript, /\['run', 'smoke:dist'\]/);
+  assert.match(packageScript, /dist/);
+  assert.match(packageScript, /artifacts/);
+  assert.match(packageScript, /zip/);
+  assert.match(packageScript, /Release artifact:/);
+});
