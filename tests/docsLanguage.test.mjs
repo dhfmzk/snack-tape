@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 const DOC_PATHS = [
   'README.md',
-  'docs/snacktape-goal.md'
+  'docs/snacktape-goal.md',
+  'docs/privacy.md'
 ];
 
 test('Markdown documentation is written in English', async () => {
