@@ -9,7 +9,13 @@ export type I18n = {
     backupBeforeDeleteConfirm: (clipCount: number) => string;
     deleteMixtapeConfirm: (name: string, clipCount: number) => string;
     deleteSegmentConfirm: (title: string) => string;
-    mergeMixtapeConfirm: (sourceName: string, targetName: string, clipCount: number) => string;
+    mergeMixtapeConfirm: (
+      sourceName: string,
+      targetName: string,
+      clipCount: number,
+      targetClipCount: number,
+      duplicateClipCount: number
+    ) => string;
   };
   common: {
     noMixtape: string;
@@ -214,7 +220,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       backupBeforeDeleteConfirm: (clipCount) => `삭제 전에 JSON 백업을 먼저 받을까요? 저장된 클립 ${clipCount}개가 포함됩니다.`,
       deleteMixtapeConfirm: (name, clipCount) => `"${name}" 믹스테이프를 삭제할까요? 저장된 구간 ${clipCount}개도 함께 삭제됩니다.`,
       deleteSegmentConfirm: (title) => `"${title}" 구간을 삭제할까요?`,
-      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `"${sourceName}"의 구간 ${clipCount}개를 "${targetName}"에 병합할까요? 원본 테이프는 삭제됩니다.`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount, targetClipCount, duplicateClipCount) =>
+        [
+          `"${sourceName}"의 구간 ${clipCount}개를 "${targetName}"에 병합할까요?`,
+          `결과: ${targetClipCount}개 → ${targetClipCount + clipCount}개`,
+          `중복처럼 보이는 구간: ${duplicateClipCount}개`,
+          '원본 테이프는 삭제됩니다.',
+        ].join('\n'),
     },
     common: {
       noMixtape: '믹스테이프 없음',
@@ -417,7 +429,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       backupBeforeDeleteConfirm: (clipCount) => `削除前にJSONバックアップを書き出しますか？保存済みクリップ${clipCount}件が含まれます。`,
       deleteMixtapeConfirm: (name, clipCount) => `「${name}」を削除しますか？保存済みクリップ${clipCount}件も削除されます。`,
       deleteSegmentConfirm: (title) => `「${title}」の範囲を削除しますか？`,
-      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `「${sourceName}」のクリップ${clipCount}件を「${targetName}」に結合しますか？元のテープは削除されます。`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount, targetClipCount, duplicateClipCount) =>
+        [
+          `「${sourceName}」のクリップ${clipCount}件を「${targetName}」に結合しますか？`,
+          `結果: ${targetClipCount}件 → ${targetClipCount + clipCount}件`,
+          `重複らしい範囲: ${duplicateClipCount}件`,
+          '元のテープは削除されます。',
+        ].join('\n'),
     },
     common: {
       noMixtape: 'ミックステープなし',
@@ -620,7 +638,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       backupBeforeDeleteConfirm: (clipCount) => `Export a JSON backup before deleting? It will include ${clipCount} saved clip${clipCount === 1 ? '' : 's'}.`,
       deleteMixtapeConfirm: (name, clipCount) => `Delete "${name}"? ${clipCount} saved clip${clipCount === 1 ? '' : 's'} will be deleted too.`,
       deleteSegmentConfirm: (title) => `Delete the "${title}" range?`,
-      mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `Merge ${clipCount} clip${clipCount === 1 ? '' : 's'} from "${sourceName}" into "${targetName}"? The source tape will be deleted.`,
+      mergeMixtapeConfirm: (sourceName, targetName, clipCount, targetClipCount, duplicateClipCount) =>
+        [
+          `Merge ${clipCount} clip${clipCount === 1 ? '' : 's'} from "${sourceName}" into "${targetName}"?`,
+          `Result: ${targetClipCount} -> ${targetClipCount + clipCount} clips`,
+          `Duplicate-looking ranges: ${duplicateClipCount}`,
+          'The source tape will be deleted.',
+        ].join('\n'),
     },
     common: {
       noMixtape: 'No mixtape',

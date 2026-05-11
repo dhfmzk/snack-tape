@@ -7,6 +7,7 @@ import { Home } from './screens/Home.js';
 import { Playback } from './screens/Playback.js';
 import { Settings } from './screens/Settings.js';
 import type { AppState, SnackTapeAppStore } from './state/store.js';
+import type { Segment, Sequence } from './shared/types.js';
 
 function requestImportFile(onFile: (file: File) => void): void {
   const input = document.createElement('input');
@@ -39,6 +40,15 @@ function confirmDeleteMixtape(state: AppState, store: SnackTapeAppStore, i18n: I
   if (window.confirm(i18n.app.deleteMixtapeConfirm(name, clipCount))) {
     void store.deleteMixtape(sequenceId);
   }
+}
+
+function segmentMergeKey(segment: Segment): string {
+  return `${segment.videoId}\u0000${segment.startSeconds}\u0000${segment.endSeconds ?? 'end'}`;
+}
+
+function countMergeDuplicateCandidates(source: Sequence, target: Sequence): number {
+  const targetKeys = new Set(target.segments.map(segmentMergeKey));
+  return source.segments.filter((segment) => targetKeys.has(segmentMergeKey(segment))).length;
 }
 
 function confirmDeleteSegment(state: AppState, store: SnackTapeAppStore, i18n: I18n, segmentId: string): void {
@@ -144,7 +154,13 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
         return;
       }
       offerJsonBackupBeforeDelete(store, i18n, source.segments.length);
-      if (window.confirm(i18n.app.mergeMixtapeConfirm(source.name, target.name, source.segments.length))) {
+      if (window.confirm(i18n.app.mergeMixtapeConfirm(
+        source.name,
+        target.name,
+        source.segments.length,
+        target.segments.length,
+        countMergeDuplicateCandidates(source, target)
+      ))) {
         void store.mergeMixtapeInto(sourceSequenceId, targetSequenceId);
       }
     },

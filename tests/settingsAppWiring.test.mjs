@@ -374,6 +374,65 @@ test('App exports a JSON backup before deleting a mixtape when requested', async
   assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [second.id]);
 });
 
+test('App merge confirmation previews resulting count and duplicate-looking ranges', async () => {
+  installDomShim();
+  const confirmMessages = [];
+  const confirmAnswers = [false, true];
+  window.confirm = (message) => {
+    confirmMessages.push(message);
+    return confirmAnswers.shift() ?? false;
+  };
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const duplicateRange = makeSegment({
+    id: 'source-duplicate',
+    title: 'Duplicate-looking source clip',
+    videoId: 'same-video',
+    startSeconds: 10,
+    endSeconds: 20
+  });
+  const source = makeSequence({
+    id: 'sequence-source',
+    name: 'Source Tape',
+    segments: [
+      duplicateRange,
+      makeSegment({ id: 'source-new', title: 'New source clip', videoId: 'new-video', startSeconds: 30, endSeconds: 40 })
+    ]
+  });
+  const target = makeSequence({
+    id: 'sequence-target',
+    name: 'Target Tape',
+    segments: [
+      makeSegment({
+        id: 'target-existing',
+        title: 'Existing target clip',
+        videoId: duplicateRange.videoId,
+        startSeconds: duplicateRange.startSeconds,
+        endSeconds: duplicateRange.endSeconds
+      })
+    ]
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [source, target],
+      selectedSequenceId: source.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([source, target]),
+    route: 'home'
+  };
+
+  findByAriaLabel(App(store.getState(), store), 'Source Tape 병합').click();
+  await settle();
+
+  assert.match(confirmMessages[1], /결과: 1개 → 3개/);
+  assert.match(confirmMessages[1], /중복처럼 보이는 구간: 1개/);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [target.id]);
+});
+
 test('App asks before deleting a single saved segment', async () => {
   installDomShim();
   const confirmMessages = [];
