@@ -101,6 +101,7 @@ export type AppState = {
   settingsNotice: SettingsNotice | null;
   homeSearch: string;
   homeSort: HomeSort;
+  editSearch: string;
   loading: boolean;
 };
 
@@ -307,6 +308,7 @@ export class SnackTapeAppStore {
       settingsNotice: null,
       homeSearch: '',
       homeSort: 'manual',
+      editSearch: '',
       loading: true,
     };
   }
@@ -492,6 +494,10 @@ export class SnackTapeAppStore {
 
   setHomeSort(sort: HomeSort): void {
     this.setState({ homeSort: sort });
+  }
+
+  setEditSearch(query: string): void {
+    this.setState({ editSearch: query });
   }
 
   async createMixtape(): Promise<void> {

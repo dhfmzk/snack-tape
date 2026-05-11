@@ -34,6 +34,7 @@ type Attrs = Events & {
   alt?: string;
   loading?: string;
   value?: string;
+  placeholder?: string;
   tabIndex?: number;
   disabled?: boolean;
   selected?: boolean;
@@ -71,6 +72,9 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (attrs.alt !== undefined && 'alt' in node) (node as HTMLImageElement).alt = attrs.alt;
   if (attrs.loading) node.setAttribute('loading', attrs.loading);
   if (attrs.value !== undefined && 'value' in node) (node as HTMLInputElement | HTMLOptionElement).value = attrs.value;
+  if (attrs.placeholder !== undefined && 'placeholder' in node) {
+    (node as HTMLInputElement | HTMLTextAreaElement).placeholder = attrs.placeholder;
+  }
   if (attrs.tabIndex !== undefined) node.setAttribute('tabindex', String(attrs.tabIndex));
   if (attrs.disabled !== undefined && 'disabled' in node) (node as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = attrs.disabled;
   if (attrs.selected !== undefined && 'selected' in node) (node as HTMLOptionElement).selected = attrs.selected;

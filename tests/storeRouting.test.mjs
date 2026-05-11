@@ -209,6 +209,17 @@ test('openMixtape keeps filled mixtapes on playback', async () => {
   assert.equal(store.getState().store.selectedSequenceId, filled.id);
 });
 
+test('setEditSearch updates only the edit tab clip filter state', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  installChromeStorage();
+  const store = new SnackTapeAppStore();
+
+  store.setEditSearch('rain');
+
+  assert.equal(store.getState().editSearch, 'rain');
+  assert.equal(store.getState().homeSearch, '');
+});
+
 test('openMixtape clears stale playback state from a different mixtape', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

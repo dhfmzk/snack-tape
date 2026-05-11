@@ -96,6 +96,10 @@ export type I18n = {
     saveDraftClip: string;
     saveDraftClipAria: string;
     sessionSaved: (count: number) => string;
+    sessionFiltered: (visible: number, total: number) => string;
+    searchAria: string;
+    searchPlaceholder: string;
+    searchEmpty: string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
     noticeNoSaveTarget: string;
@@ -336,6 +340,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveDraftClip: '저장',
       saveDraftClipAria: '현재 구간 저장',
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
+      sessionFiltered: (visible, total) => `검색 결과 · ${visible}/${total}`,
+      searchAria: '저장된 클립 검색',
+      searchPlaceholder: '제목, URL, 노트, 시간 검색',
+      searchEmpty: '검색 결과가 없습니다.',
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
@@ -574,6 +582,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveDraftClip: '保存',
       saveDraftClipAria: '現在の範囲を保存',
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
+      sessionFiltered: (visible, total) => `検索結果 · ${visible}/${total}`,
+      searchAria: '保存済みクリップを検索',
+      searchPlaceholder: 'タイトル、URL、メモ、時間を検索',
+      searchEmpty: '検索結果がありません。',
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
       noticeNoSaveTarget: '保存先のミックステープを選択してください。',
@@ -812,6 +824,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveDraftClip: 'Save',
       saveDraftClipAria: 'Save current range',
       sessionSaved: (count) => `This session · ${count} saved`,
+      sessionFiltered: (visible, total) => `Search results · ${visible}/${total}`,
+      searchAria: 'Search saved clips',
+      searchPlaceholder: 'Search title, URL, note, or time',
+      searchEmpty: 'No clips match this search.',
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
       noticeNoSaveTarget: 'Choose a save mixtape.',

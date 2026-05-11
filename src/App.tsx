@@ -79,6 +79,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onCreateMixtape: () => void store.createMixtape(),
       onRefreshVideo: () => void store.refreshVideo(),
       onDeleteMixtape: (sequenceId) => confirmDeleteMixtape(state, store, i18n, sequenceId),
+      onEditSearch: (query) => store.setEditSearch(query),
     });
   }
 

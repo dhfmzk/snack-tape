@@ -29,6 +29,7 @@ type Props = {
   onDeleteMixtape?: (sequenceId: string) => void;
   onCreateMixtape?: () => void;
   onRefreshVideo?: () => void;
+  onEditSearch?: (query: string) => void;
 };
 
 type Style = Partial<CSSStyleDeclaration>;
@@ -40,6 +41,32 @@ function selectedSequence(state: AppState): Sequence | null {
 
 function editableSegments(sequence: Sequence | null): Segment[] {
   return sequence ? sequence.segments.slice().reverse() : [];
+}
+
+function searchableTimeRange(segment: Segment): string {
+  return [
+    formatTimecode(segment.startSeconds),
+    formatEditableTimecode(segment.startSeconds),
+    String(segment.startSeconds),
+    segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : '',
+    segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : '',
+    segment.endSeconds !== null ? String(segment.endSeconds) : '',
+  ].join(' ');
+}
+
+function segmentMatchesSearch(segment: Segment, query: string): boolean {
+  const search = query.trim().toLowerCase();
+  if (!search) {
+    return true;
+  }
+
+  return [
+    segment.title,
+    segment.videoId,
+    segment.originalUrl,
+    segment.note ?? '',
+    searchableTimeRange(segment),
+  ].join(' ').toLowerCase().includes(search);
 }
 
 function clipDuration(segment: Segment): string {
@@ -707,6 +734,7 @@ export function Capture(props: Props): HTMLElement {
     onDeleteMixtape,
     onCreateMixtape,
     onRefreshVideo,
+    onEditSearch,
   } = props;
   const i18n = props.i18n ?? createI18n(state.settings.language);
   const pageInfo = state.pageInfo;
@@ -714,7 +742,9 @@ export function Capture(props: Props): HTMLElement {
   const videoStatus = captureVideoStatus(pageInfo, usable, i18n);
   const currentTime = pageInfo?.currentTime ?? 0;
   const sequence = selectedSequence(state);
-  const segments = editableSegments(sequence);
+  const editSearch = state.editSearch ?? '';
+  const allSegments = editableSegments(sequence);
+  const segments = allSegments.filter((segment) => segmentMatchesSearch(segment, editSearch));
   const segmentCount = sequence?.segments.length ?? 0;
   const sequences = state.store?.sequences ?? [];
   const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
@@ -1089,14 +1119,37 @@ export function Capture(props: Props): HTMLElement {
       : null,
     el(
       'div',
-      { style: { padding: '4px 14px 8px' } },
-      el('span', {
-        text: i18n.capture.sessionSaved(segmentCount),
+      { style: { padding: '4px 14px 8px', display: 'grid', gap: '8px' } },
+      el(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } },
+        el('span', {
+          text: editSearch.trim() ? i18n.capture.sessionFiltered(segments.length, segmentCount) : i18n.capture.sessionSaved(segmentCount),
+          style: {
+            color: 'var(--mute)',
+            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: '10px',
+            letterSpacing: '0.6px',
+          },
+        })
+      ),
+      el('input', {
+        type: 'search',
+        value: editSearch,
+        placeholder: i18n.capture.searchPlaceholder,
+        ariaLabel: i18n.capture.searchAria,
+        dataset: { persistKey: `capture-search:${sequence?.id ?? 'none'}` },
+        onInput: (event) => onEditSearch?.((event.target as HTMLInputElement).value),
         style: {
-          color: 'var(--mute)',
-          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-          fontSize: '10px',
-          letterSpacing: '0.6px',
+          width: '100%',
+          height: '32px',
+          padding: '0 10px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          borderRadius: '8px',
+          outline: '0',
+          fontSize: '11px',
         },
       })
     ),
@@ -1133,7 +1186,22 @@ export function Capture(props: Props): HTMLElement {
           minHeight: '0',
         },
       },
-      ...segments.map((segment) =>
+      ...(segments.length === 0 && editSearch.trim()
+        ? [
+            el('div', {
+              text: i18n.capture.searchEmpty,
+              style: {
+                padding: '18px 12px',
+                border: '1px solid var(--hairline)',
+                background: 'var(--surface)',
+                color: 'var(--mute)',
+                borderRadius: '8px',
+                textAlign: 'center',
+                fontSize: '11px',
+              },
+            }),
+          ]
+        : segments.map((segment) =>
         {
           const isEditingSegment = state.segmentEdit?.segmentId === segment.id;
           return (
@@ -1215,7 +1283,7 @@ export function Capture(props: Props): HTMLElement {
         )
           );
         }
-      ),
+      )),
       draftIn !== null
         ? el(
             'div',

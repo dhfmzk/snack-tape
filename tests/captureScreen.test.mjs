@@ -340,6 +340,78 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   assert.equal(segmentLists.length, 1);
 });
 
+test('Capture edit tab filters saved clips by title, source, note, and time range', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+  const segments = [
+    makeSegment({
+      id: 'clip-title',
+      title: 'Quiet keyboard tapping',
+      videoId: 'video-title',
+      originalUrl: 'https://www.youtube.com/watch?v=video-title',
+      note: 'soft',
+      startSeconds: 10,
+      endSeconds: 20
+    }),
+    makeSegment({
+      id: 'clip-note',
+      title: 'Rain sounds',
+      videoId: 'video-note',
+      originalUrl: 'https://www.youtube.com/watch?v=video-note',
+      note: 'sleep stack',
+      startSeconds: 30,
+      endSeconds: 40
+    }),
+    makeSegment({
+      id: 'clip-url',
+      title: 'Page source',
+      videoId: 'video-url',
+      originalUrl: 'https://www.youtube.com/watch?v=special-source',
+      startSeconds: 65,
+      endSeconds: 70
+    })
+  ];
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      editSearch: 'sleep',
+      store: {
+        sequences: [makeSequence({ id: 'selected', name: '선택된 테이프', segments })],
+        selectedSequenceId: 'selected'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {},
+    onEditSearch: (query) => calls.push(query)
+  });
+  const search = findByAriaLabel(page, '저장된 클립 검색');
+
+  assert.match(textOf(page), /검색 결과 · 1\/3/);
+  assert.match(textOf(page), /Rain sounds/);
+  assert.doesNotMatch(textOf(page), /Quiet keyboard tapping/);
+
+  search.value = 'special-source';
+  search.input();
+  assert.deepEqual(calls, ['special-source']);
+
+  const timePage = Capture({
+    state: {
+      ...baseState(),
+      editSearch: '01:05',
+      store: {
+        sequences: [makeSequence({ id: 'selected', name: '선택된 테이프', segments })],
+        selectedSequenceId: 'selected'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  assert.match(textOf(timePage), /Page source/);
+  assert.doesNotMatch(textOf(timePage), /Rain sounds/);
+});
+
 test('Capture edit tab opens a segment action menu instead of deleting from the more button', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
