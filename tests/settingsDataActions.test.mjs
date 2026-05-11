@@ -161,8 +161,8 @@ test('exportData downloads JSON and CSV backups from the current store', async (
   await store.exportData('json');
   await store.exportData('csv');
 
-  assert.match(dom.clicks[0].download, /^snacktape-json-\d{4}-\d{2}-\d{2}-\d{6}-ko\.json$/);
-  assert.match(dom.clicks[1].download, /^snacktape-csv-\d{4}-\d{2}-\d{2}-\d{6}-ko\.csv$/);
+  assert.match(dom.clicks[0].download, /^snacktape-json-\d{8}-\d{6}-\d{3}-export-tape\.json$/);
+  assert.match(dom.clicks[1].download, /^snacktape-csv-\d{8}-\d{6}-\d{3}-export-tape\.csv$/);
   assert.equal(store.getState().settingsNotice.kind, 'info');
 });
 
