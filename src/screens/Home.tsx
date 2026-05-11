@@ -19,6 +19,7 @@ type Props = {
   onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void;
   onHomeSearch?: (query: string) => void;
   onHomeSort?: (sort: HomeSort) => void;
+  onMoveSequence?: (sequenceId: string, direction: -1 | 1) => void;
 };
 
 type Style = Partial<CSSStyleDeclaration>;
@@ -285,22 +286,86 @@ function MixtapeActionMenu(
   );
 }
 
+function reorderButtonStyle(disabled: boolean): Style {
+  return {
+    width: '28px',
+    height: '28px',
+    border: '1px solid var(--hairline2)',
+    background: 'var(--surface2)',
+    color: 'var(--text2)',
+    borderRadius: '8px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? '0.35' : '1',
+  };
+}
+
+function ReorderControls(
+  i18n: I18n,
+  sequence: Sequence,
+  canMoveUp: boolean,
+  canMoveDown: boolean,
+  onMoveSequence?: (sequenceId: string, direction: -1 | 1) => void
+): HTMLElement {
+  return el(
+    'div',
+    { style: { display: 'inline-flex', alignItems: 'center', gap: '4px' } },
+    el(
+      'button',
+      {
+        disabled: !canMoveUp,
+        ariaLabel: i18n.home.moveUp(sequence.name),
+        onClick: (event) => {
+          event.stopPropagation();
+          if (canMoveUp) {
+            onMoveSequence?.(sequence.id, -1);
+          }
+        },
+        style: reorderButtonStyle(!canMoveUp),
+      },
+      Glyph('up', 12)
+    ),
+    el(
+      'button',
+      {
+        disabled: !canMoveDown,
+        ariaLabel: i18n.home.moveDown(sequence.name),
+        onClick: (event) => {
+          event.stopPropagation();
+          if (canMoveDown) {
+            onMoveSequence?.(sequence.id, 1);
+          }
+        },
+        style: reorderButtonStyle(!canMoveDown),
+      },
+      Glyph('down', 12)
+    )
+  );
+}
+
 function MixtapeCard(
   state: AppState,
   i18n: I18n,
   sequence: Sequence,
   sequences: Sequence[],
   index: number,
+  canManualReorder: boolean,
   onOpenSequence: (sequenceId: string) => void,
   onPlaySequence: (sequenceId: string) => void,
   onEditSequence?: (sequenceId: string) => void,
   onRenameSequence?: (sequenceId: string) => void,
   onDuplicateSequence?: (sequenceId: string) => void,
   onDeleteSequence?: (sequenceId: string) => void,
-  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void
+  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void,
+  onMoveSequence?: (sequenceId: string, direction: -1 | 1) => void
 ): HTMLElement {
   const clipCount = sequence.segments.length;
   const duration = totalDuration(sequence);
+  const sequenceIndex = sequences.findIndex((item) => item.id === sequence.id);
+  const canMoveUp = canManualReorder && sequenceIndex > 0;
+  const canMoveDown = canManualReorder && sequenceIndex >= 0 && sequenceIndex < sequences.length - 1;
 
   return el(
     'div',
@@ -361,6 +426,7 @@ function MixtapeCard(
               color: 'var(--mute)',
             },
           }),
+          canManualReorder ? ReorderControls(i18n, sequence, canMoveUp, canMoveDown, onMoveSequence) : null,
           MixtapeActionMenu(i18n, sequence, sequences, onEditSequence, onRenameSequence, onDuplicateSequence, onDeleteSequence, onMergeSequence)
         )
       ),
@@ -509,10 +575,12 @@ export function Home({
   onMergeSequence,
   onHomeSearch,
   onHomeSort,
+  onMoveSequence,
 }: Props): HTMLElement {
   const sequences = state.store?.sequences ?? [];
   const homeSearch = state.homeSearch ?? '';
   const homeSort = state.homeSort ?? 'manual';
+  const canManualReorder = homeSort === 'manual' && homeSearch.trim() === '';
   const filteredSequences = visibleSequences(sequences, homeSearch, homeSort);
 
   return el(
@@ -544,13 +612,15 @@ export function Home({
           sequence,
           sequences,
           index,
+          canManualReorder,
           onOpenSequence,
           onPlaySequence,
           onEditSequence,
           onRenameSequence,
           onDuplicateSequence,
           onDeleteSequence,
-          onMergeSequence
+          onMergeSequence,
+          onMoveSequence
         ))),
     newTapeButton(i18n, onCreate)
   );

@@ -150,6 +150,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
     },
     onHomeSearch: (query) => store.setHomeSearch(query),
     onHomeSort: (sort) => store.setHomeSort(sort),
+    onMoveSequence: (sequenceId, direction) => void store.moveMixtape(sequenceId, direction),
   });
 }
 

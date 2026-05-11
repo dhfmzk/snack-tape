@@ -440,6 +440,26 @@ export class SnackTapeAppStore {
     this.setState({ homeSort: sort });
   }
 
+  async moveMixtape(sequenceId: string, direction: -1 | 1): Promise<void> {
+    const currentStore = this.state.store;
+    const fromIndex = currentStore?.sequences.findIndex((sequence) => sequence.id === sequenceId) ?? -1;
+    if (!currentStore || fromIndex < 0) {
+      return;
+    }
+    const toIndex = fromIndex + direction;
+    if (toIndex < 0 || toIndex >= currentStore.sequences.length) {
+      return;
+    }
+    const previousState = this.state;
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: moveItem(currentStore.sequences, fromIndex, toIndex),
+    };
+
+    this.setState({ store });
+    await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
+  }
+
   async createMixtape(): Promise<void> {
     const currentStore = this.state.store;
     if (!currentStore) {

@@ -1673,6 +1673,51 @@ test('duplicateMixtape creates an independent copied mixtape with fresh ids', as
   assert.equal(store.getState().store.selectedSequenceId, copy.id);
 });
 
+test('moveMixtape persists manual sequence order changes', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'first-sequence', name: 'First' });
+  const second = makeSequence({ id: 'second-sequence', name: 'Second' });
+  const third = makeSequence({ id: 'third-sequence', name: 'Third' });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, second, third],
+      selectedSequenceId: second.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [first, second, third],
+      selectedSequenceId: second.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.moveMixtape(second.id, -1);
+
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [
+    second.id,
+    first.id,
+    third.id
+  ]);
+  assert.equal(store.getState().store.selectedSequenceId, second.id);
+});
+
 test('mergeMixtapeInto appends copied clips to the target and removes the source', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

@@ -50,6 +50,8 @@ export type I18n = {
     mergeTarget: (name: string) => string;
     merge: (name: string) => string;
     playAria: (name: string) => string;
+    moveUp: (name: string) => string;
+    moveDown: (name: string) => string;
     clipCount: (count: number) => string;
   };
   capture: {
@@ -255,6 +257,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mergeTarget: (name) => `${name} 병합 대상`,
       merge: (name) => `${name} 병합`,
       playAria: (name) => `${name} 재생`,
+      moveUp: (name) => `${name} 위로 이동`,
+      moveDown: (name) => `${name} 아래로 이동`,
       clipCount: (count) => `${count} CLIPS`,
     },
     capture: {
@@ -458,6 +462,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mergeTarget: (name) => `${name}の結合先`,
       merge: (name) => `${name}を結合`,
       playAria: (name) => `${name}を再生`,
+      moveUp: (name) => `${name}を上へ移動`,
+      moveDown: (name) => `${name}を下へ移動`,
       clipCount: (count) => `${count} CLIPS`,
     },
     capture: {
@@ -661,6 +667,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mergeTarget: (name) => `Merge target for ${name}`,
       merge: (name) => `Merge ${name}`,
       playAria: (name) => `Play ${name}`,
+      moveUp: (name) => `Move ${name} up`,
+      moveDown: (name) => `Move ${name} down`,
       clipCount: (count) => `${count} ${count === 1 ? 'CLIP' : 'CLIPS'}`,
     },
     capture: {

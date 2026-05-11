@@ -322,6 +322,36 @@ test('Home search and sort controls are wired to state callbacks', async () => {
   ]);
 });
 
+test('Home manual order exposes mixtape reorder controls', async () => {
+  installDomShim();
+  const { Home } = await import('../.tmp-tests/src/screens/Home.js');
+  const calls = [];
+  const first = makeSequence({ id: 'first', name: '첫 테이프', segments: [makeSegment({ id: 'first-clip' })] });
+  const second = makeSequence({ id: 'second', name: '둘째 테이프', segments: [makeSegment({ id: 'second-clip' })] });
+
+  const page = Home({
+    state: {
+      ...homeState([first, second]),
+      homeSort: 'manual',
+      homeSearch: ''
+    },
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {},
+    onMoveSequence: (sequenceId, direction) => calls.push([sequenceId, direction])
+  });
+
+  findAllByAriaLabel(page, '둘째 테이프 위로 이동')[0].click();
+  findAllByAriaLabel(page, '첫 테이프 아래로 이동')[0].click();
+
+  assert.deepEqual(calls, [
+    ['second', -1],
+    ['first', 1]
+  ]);
+  assert.equal(findAllByAriaLabel(page, '첫 테이프 위로 이동')[0].disabled, true);
+  assert.equal(findAllByAriaLabel(page, '둘째 테이프 아래로 이동')[0].disabled, true);
+});
+
 test('Home merge control targets another mixtape', async () => {
   installDomShim();
   const { Home } = await import('../.tmp-tests/src/screens/Home.js');
