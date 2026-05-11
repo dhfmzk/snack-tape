@@ -111,3 +111,15 @@ test('createExportPayload includes app name, version, exportedAt and store', asy
   assert.equal(payload.store, store);
 });
 
+test('createExportFilename includes format, local date stamp, and language slug', async () => {
+  const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+
+  assert.equal(
+    createExportFilename('json', 'ko', new Date(2026, 4, 12, 20, 31, 5)),
+    'snacktape-json-2026-05-12-203105-ko.json'
+  );
+  assert.equal(
+    createExportFilename('csv', 'en-US / Test', new Date(2026, 0, 2, 3, 4, 5)),
+    'snacktape-csv-2026-01-02-030405-en-us-test.csv'
+  );
+});

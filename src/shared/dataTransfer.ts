@@ -15,6 +15,30 @@ function csvCell(value: unknown): string {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function localDateStamp(date: Date): string {
+  return [
+    date.getFullYear(),
+    padDatePart(date.getMonth() + 1),
+    padDatePart(date.getDate()),
+  ].join('-') + '-' + [
+    padDatePart(date.getHours()),
+    padDatePart(date.getMinutes()),
+    padDatePart(date.getSeconds()),
+  ].join('');
+}
+
+function filenameSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'unknown';
+}
+
 function segmentRows(store: SnackTapeStore): Array<{ sequenceName: string; segment: Segment }> {
   return store.sequences.flatMap((sequence) =>
     sequence.segments.map((segment) => ({
@@ -31,6 +55,10 @@ export function createExportPayload(store: SnackTapeStore, exportedAt = new Date
     exportedAt,
     store,
   };
+}
+
+export function createExportFilename(format: ExportFormat, language: string, date = new Date()): string {
+  return `snacktape-${format}-${localDateStamp(date)}-${filenameSlug(language)}.${format}`;
 }
 
 export function serializeStoreJson(store: SnackTapeStore): string {
