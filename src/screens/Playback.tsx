@@ -11,6 +11,7 @@ type Props = {
   i18n?: I18n;
   onBack: () => void;
   onPlay: (index: number, sequenceId?: string, mode?: PlaybackMode) => void;
+  onPlayQueueFrom?: (sequenceId: string, segmentId: string, queueSegmentIds: string[]) => void;
   onPause?: () => void;
   onResume?: () => void;
   onStop: () => void;
@@ -237,7 +238,7 @@ function playbackOrderCount(state: AppState, sequence: Sequence): number {
   return sequence.segments.length;
 }
 
-function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segment[] {
+function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[], appendMissing: boolean): Segment[] {
   const used = new Set<string>();
   const ordered = segmentIds
     .map((segmentId) => {
@@ -251,6 +252,10 @@ function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segme
       return segment;
     })
     .filter((segment): segment is Segment => segment !== null);
+  if (!appendMissing) {
+    return ordered;
+  }
+
   const missing = sequence.segments.filter((segment) => !used.has(segment.id));
   return [...ordered, ...missing];
 }
@@ -258,7 +263,7 @@ function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segme
 function playbackQueueSegments(state: AppState, sequence: Sequence): Segment[] {
   const playbackState = state.playbackState;
   if (playbackState?.sequenceId === sequence.id && playbackState.queueEdited && playbackState.orderSegmentIds?.length) {
-    return orderedSegmentsFromIds(sequence, playbackState.orderSegmentIds);
+    return orderedSegmentsFromIds(sequence, playbackState.orderSegmentIds, false);
   }
 
   return sequence.segments;
@@ -317,6 +322,7 @@ export function Playback(props: Props): HTMLElement {
     state,
     onBack,
     onPlay,
+    onPlayQueueFrom,
     onPause,
     onResume,
     onStop,
@@ -848,7 +854,15 @@ export function Playback(props: Props): HTMLElement {
             'button',
             {
               ariaLabel: i18n.playback.playFromHere(queueSegment.title),
-              onClick: () => onPlay(originalIndex, sequence.id, 'sequence'),
+              onClick: () => {
+                const queueSegmentIds = queueSegments.slice(queueIndex).map((item) => item.id);
+                if (onPlayQueueFrom && queueSegmentIds.length > 0) {
+                  onPlayQueueFrom(sequence.id, queueSegment.id, queueSegmentIds);
+                  return;
+                }
+
+                onPlay(originalIndex, sequence.id, 'sequence');
+              },
               style: {
                 flex: '1',
                 minWidth: '0',

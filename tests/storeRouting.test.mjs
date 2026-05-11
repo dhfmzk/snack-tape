@@ -587,6 +587,81 @@ test('syncPlaybackProgress exposes reconnect recovery when the playback tab is u
   assert.equal(store.getState().pageInfo.currentTime, 12);
 });
 
+test('syncPlaybackProgress exposes reconnect recovery when the playback tab changes video', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-video-mismatch',
+    name: '다른 영상 감지',
+    segments: [makeSegment({ id: 'clip-video-mismatch', videoId: 'expected-video' })]
+  });
+  installChromeStorage();
+  globalThis.chrome.tabs = {
+    sendMessage(_tabId, _message, callback) {
+      callback({
+        ok: true,
+        data: {
+          isYouTubeVideoPage: true,
+          videoId: 'other-video',
+          title: 'Other video',
+          url: 'https://www.youtube.com/watch?v=other-video',
+          currentTime: 32,
+          duration: 120
+        }
+      });
+    }
+  };
+  globalThis.chrome.scripting = {
+    async executeScript() {}
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'expected-video',
+      title: 'Expected video',
+      url: 'https://www.youtube.com/watch?v=expected-video',
+      currentTime: 12,
+      duration: 120
+    },
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 0,
+      currentSegmentId: 'clip-video-mismatch',
+      status: 'paused',
+      startedAt: 1700000000000,
+      tabId: 44,
+      mode: 'sequence'
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.syncPlaybackProgress();
+
+  assert.equal(store.getState().pageInfo.videoId, 'other-video');
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /YouTube/);
+  assert.deepEqual(store.getState().playbackNotice.recovery, {
+    type: 'start',
+    sequenceId: sequence.id,
+    startIndex: 0,
+    mode: 'sequence'
+  });
+});
+
 test('stopPlayback shows an error when runtime stop fails', async () => {
   const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -806,7 +881,7 @@ test('editPlaybackSegment opens the edit tab for the selected playback clip', as
   assert.deepEqual(store.getState().segmentEdit, { segmentId: 'clip-edit-playback' });
 });
 
-test('removePlaybackQueueSegment removes a non-current row from the active session queue', async () => {
+test('removePlaybackQueueSegment removes non-current rows from the active session queue without resurrecting removed clips', async () => {
   const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
   const sequence = makeSequence({
@@ -815,7 +890,8 @@ test('removePlaybackQueueSegment removes a non-current row from the active sessi
     segments: [
       makeSegment({ id: 'clip-current' }),
       makeSegment({ id: 'clip-remove' }),
-      makeSegment({ id: 'clip-keep' })
+      makeSegment({ id: 'clip-keep' }),
+      makeSegment({ id: 'clip-remove-second' })
     ]
   });
   const playbackState = {
@@ -827,9 +903,10 @@ test('removePlaybackQueueSegment removes a non-current row from the active sessi
     tabId: 55,
     playbackToken: 'token-remove-playback-queue',
     mode: 'sequence',
-    order: [0, 1, 2],
-    orderSegmentIds: ['clip-current', 'clip-remove', 'clip-keep'],
-    orderPosition: 0
+    order: [0, 1, 2, 3],
+    orderSegmentIds: ['clip-current', 'clip-remove', 'clip-keep', 'clip-remove-second'],
+    orderPosition: 0,
+    queueEdited: true
   };
   const storage = installChromeStorage({
     [PLAYBACK_STATE_KEY]: playbackState
@@ -855,11 +932,78 @@ test('removePlaybackQueueSegment removes a non-current row from the active sessi
   };
 
   await store.removePlaybackQueueSegment('clip-remove');
+  await store.removePlaybackQueueSegment('clip-remove-second');
 
   assert.deepEqual(storage[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-current', 'clip-keep']);
   assert.equal(storage[PLAYBACK_STATE_KEY].queueEdited, true);
   assert.equal(store.getState().playbackState.orderPosition, 0);
   assert.deepEqual(store.getState().playbackState.orderSegmentIds, ['clip-current', 'clip-keep']);
+});
+
+test('startQueueFrom starts playback from the displayed queue suffix', async () => {
+  const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-from',
+    name: '큐에서 시작',
+    segments: [
+      makeSegment({ id: 'clip-a' }),
+      makeSegment({ id: 'clip-b' }),
+      makeSegment({ id: 'clip-c' })
+    ]
+  });
+  const storage = installChromeStorage();
+  const runtimeMessages = [];
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessages.push(message);
+    if (message.type === 'START_SEQUENCE') {
+      storage[PLAYBACK_STATE_KEY] = {
+        sequenceId: sequence.id,
+        segmentIndex: 2,
+        currentSegmentId: 'clip-c',
+        status: 'playing',
+        startedAt: 1700000000000,
+        mode: 'sequence',
+        order: [2, 0],
+        orderSegmentIds: ['clip-c', 'clip-a'],
+        orderPosition: 0,
+        queueEdited: true
+      };
+    }
+    callback({ ok: true });
+  };
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startQueueFrom(sequence.id, 'clip-c', ['clip-c', 'clip-a']);
+
+  assert.deepEqual(runtimeMessages, [{
+    type: 'START_SEQUENCE',
+    sequenceId: sequence.id,
+    startIndex: 2,
+    mode: 'sequence',
+    orderSegmentIds: ['clip-c', 'clip-a'],
+    queueEdited: true
+  }]);
+  assert.equal(store.getState().playbackState.currentSegmentId, 'clip-c');
+  assert.deepEqual(store.getState().playbackState.orderSegmentIds, ['clip-c', 'clip-a']);
 });
 
 test('startSequence publishes a pending playback state immediately while runtime handoff is in flight', async () => {

@@ -144,6 +144,9 @@ export type I18n = {
     reconnectAria: string;
     stopRecoveryAria: string;
     connectionLost: string;
+    noPlaybackTab: string;
+    currentSegmentMissing: string;
+    contentRequestFailed: string;
     startFailed: (message: string) => string;
     nextFailed: (message: string) => string;
     seekFailed: (message: string) => string;
@@ -346,6 +349,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: '재생 다시 연결',
       stopRecoveryAria: '재생 정지',
       connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
+      noPlaybackTab: '재생 중인 YouTube 탭을 찾을 수 없습니다.',
+      currentSegmentMissing: '재생 중인 구간을 찾을 수 없습니다.',
+      contentRequestFailed: 'YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.',
       startFailed: (message) => `재생을 시작할 수 없습니다. ${message}`,
       nextFailed: (message) => `다음 클립으로 이동할 수 없습니다. ${message}`,
       seekFailed: (message) => `재생 위치를 이동할 수 없습니다. ${message}`,
@@ -546,6 +552,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: '再生を再接続',
       stopRecoveryAria: '再生を停止',
       connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
+      noPlaybackTab: '再生中のYouTubeタブが見つかりません。',
+      currentSegmentMissing: '再生中の範囲が見つかりません。',
+      contentRequestFailed: 'YouTubeページに接続できません。再読み込みしてからもう一度お試しください。',
       startFailed: (message) => `再生を開始できません。 ${message}`,
       nextFailed: (message) => `次のクリップへ移動できません。 ${message}`,
       seekFailed: (message) => `再生位置を移動できません。 ${message}`,
@@ -746,6 +755,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: 'Reconnect playback',
       stopRecoveryAria: 'Stop playback',
       connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
+      noPlaybackTab: 'Cannot find the active YouTube playback tab.',
+      currentSegmentMissing: 'Cannot find the current playback range.',
+      contentRequestFailed: 'Cannot connect to the YouTube page. Refresh it and try again.',
       startFailed: (message) => `Cannot start playback. ${message}`,
       nextFailed: (message) => `Cannot move to the next clip. ${message}`,
       seekFailed: (message) => `Cannot seek playback. ${message}`,

@@ -1638,6 +1638,76 @@ test('Playback previous and next controls use edited session queue boundaries', 
   assert.equal(findByAriaLabel(finalSessionPage, '다음 클립').disabled, true);
 });
 
+test('Playback renders edited session queue exactly and starts from the displayed suffix', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-edited-queue',
+    name: '세션 큐',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '원본 첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-b', title: '제거된 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-c', title: '표시 첫 클립', videoId: 'video3' })
+    ]
+  });
+  const calls = [];
+  const page = Playback({
+    state: {
+      route: 'playback',
+      store: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      settings: {
+        accentKey: 'peach',
+        autoNext: true,
+        fadeOut: true,
+        shuffleByDefault: false,
+        shortcutIn: 'I',
+        shortcutOut: 'O',
+        autoTitleFromCaptions: true
+      },
+      pageInfo: null,
+      videoState: null,
+      playbackState: {
+        sequenceId: sequence.id,
+        segmentIndex: 2,
+        currentSegmentId: 'clip-c',
+        status: 'playing',
+        startedAt: 1700000000000,
+        orderSegmentIds: ['clip-c', 'clip-a'],
+        orderPosition: 0,
+        queueEdited: true
+      },
+      playbackDisplay: null,
+      draftIn: null,
+      capturePulseId: null,
+      queueEdit: null,
+      loading: false
+    },
+    onBack: () => {},
+    onPlay: (...args) => calls.push(['play', ...args]),
+    onPlayQueueFrom: (...args) => calls.push(['queue', ...args]),
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {},
+    onRemovePlaybackQueueSegment: () => {}
+  });
+
+  assert.match(textOf(page), /표시 첫 클립/);
+  assert.match(textOf(page), /원본 첫 클립/);
+  assert.doesNotMatch(textOf(page), /제거된 클립/);
+
+  findByAriaLabel(page, '원본 첫 클립부터 순서대로 재생').click();
+
+  assert.deepEqual(calls, [['queue', sequence.id, 'clip-a', ['clip-a']]]);
+});
+
 test('Playback renders runtime playback errors in the Now Playing header', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');

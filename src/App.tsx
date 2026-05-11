@@ -85,6 +85,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       i18n,
       onBack: () => store.setRoute('home'),
       onPlay: (index, sequenceId, mode) => void store.startSequence(index, sequenceId, mode),
+      onPlayQueueFrom: (sequenceId, segmentId, queueSegmentIds) => void store.startQueueFrom(sequenceId, segmentId, queueSegmentIds),
       onPause: () => void store.pausePlayback(),
       onResume: () => void store.resumePlayback(),
       onStop: () => void store.stopPlayback(),

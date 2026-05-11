@@ -11,7 +11,8 @@ import {
   saveSegmentDraft,
   saveStore
 } from '../shared/storage.js';
-import type { PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
+import { createI18n } from '../i18n.js';
+import type { PageInfo, PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 import { loadSettings } from '../state/storage.js';
@@ -114,6 +115,28 @@ function orderSegmentIds(sequence: Sequence, order: number[]): string[] {
   return order.map((index) => sequence.segments[index]?.id).filter((id): id is string => Boolean(id));
 }
 
+function existingUniqueSegmentIds(sequence: Sequence, segmentIds: string[]): string[] {
+  const existingIds = new Set(sequence.segments.map((segment) => segment.id));
+  const used = new Set<string>();
+  const nextIds: string[] = [];
+
+  for (const segmentId of segmentIds) {
+    if (!existingIds.has(segmentId) || used.has(segmentId)) {
+      continue;
+    }
+    used.add(segmentId);
+    nextIds.push(segmentId);
+  }
+
+  return nextIds;
+}
+
+function segmentOrder(sequence: Sequence, segmentIds: string[]): number[] {
+  return segmentIds
+    .map((segmentId) => sequence.segments.findIndex((segment) => segment.id === segmentId))
+    .filter((index) => index >= 0);
+}
+
 function currentPlaybackSegment(sequence: Sequence, state: PlaybackState): Segment | null {
   return (state.currentSegmentId ? sequence.segments.find((item) => item.id === state.currentSegmentId) : null)
     ?? sequence.segments[state.segmentIndex]
@@ -132,24 +155,43 @@ function startedAtForSegmentTime(segment: Segment, absoluteSeconds: number): num
   return Date.now() - Math.round(elapsed * 1000);
 }
 
-async function playbackContext(): Promise<{ state: PlaybackState; sequence: Sequence; segment: Segment }> {
+async function playbackI18n() {
+  const settings = await loadSettings();
+  return createI18n(settings.language);
+}
+
+async function playbackContext(): Promise<{ state: PlaybackState & { tabId: number }; sequence: Sequence; segment: Segment }> {
   const state = await loadPlaybackState();
   if (!state?.tabId) {
-    throw new Error('재생 중인 YouTube 탭을 찾을 수 없습니다.');
+    throw new Error((await playbackI18n()).playback.noPlaybackTab);
   }
 
   const store = await loadStore();
   const sequence = getSequence(store.sequences, state.sequenceId);
   const segment = currentPlaybackSegment(sequence, state);
   if (!segment) {
-    throw new Error('재생 중인 구간을 찾을 수 없습니다.');
+    throw new Error((await playbackI18n()).playback.currentSegmentMissing);
   }
 
-  return { state, sequence, segment };
+  return { state: state as PlaybackState & { tabId: number }, sequence, segment };
 }
 
-async function readCurrentPlaybackTime(state: PlaybackState, segment: Segment): Promise<number> {
-  if (state.tabId) {
+async function assertPlaybackTabMatches(state: PlaybackState & { tabId: number }, segment: Segment): Promise<PageInfo> {
+  const response = await sendMessageWithRetries<PageInfo>(state.tabId, { type: 'GET_PAGE_INFO' });
+  const pageInfo = response.data;
+  if (!pageInfo?.isYouTubeVideoPage || pageInfo.videoId !== segment.videoId) {
+    throw new Error((await playbackI18n()).playback.connectionLost);
+  }
+
+  return pageInfo;
+}
+
+async function readCurrentPlaybackTime(state: PlaybackState & { tabId: number }, segment: Segment, pageInfo?: PageInfo): Promise<number> {
+  if (typeof pageInfo?.currentTime === 'number' && Number.isFinite(pageInfo.currentTime)) {
+    return clampToSegment(pageInfo.currentTime, segment);
+  }
+
+  {
     const response = await sendMessageWithRetries<number | null>(state.tabId, { type: 'GET_CURRENT_TIME' });
     if (typeof response.data === 'number' && Number.isFinite(response.data)) {
       return clampToSegment(response.data, segment);
@@ -288,7 +330,7 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
   }
 
   void lastError;
-  throw new Error('YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.');
+  throw new Error((await playbackI18n()).playback.contentRequestFailed);
 }
 
 async function readActiveVideoForCapture(): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
@@ -363,7 +405,14 @@ export async function captureOutFromCommand(): Promise<void> {
   await clearSegmentDraft(videoState.videoId!);
 }
 
-export async function startSequence(sequenceId: string, startIndex = 0, mode?: PlaybackMode, requestedTabId?: number): Promise<void> {
+export async function startSequence(
+  sequenceId: string,
+  startIndex = 0,
+  mode?: PlaybackMode,
+  requestedTabId?: number,
+  requestedOrderSegmentIds?: string[],
+  queueEdited?: boolean
+): Promise<void> {
   const store = await loadStore();
   const sequence = getSequence(store.sequences, sequenceId);
   const errors = validateSequence(sequence);
@@ -372,12 +421,13 @@ export async function startSequence(sequenceId: string, startIndex = 0, mode?: P
     throw new Error(errors[0]);
   }
 
-  if (startIndex < 0 || startIndex >= sequence.segments.length) {
-    throw new Error('재생할 구간을 찾을 수 없습니다.');
-  }
-
   const playbackMode = mode ? normalizePlaybackMode(mode) : await playbackModeFromSettings();
-  const order = createPlaybackOrder(sequence.segments.length, startIndex, playbackMode);
+  const explicitOrderSegmentIds = requestedOrderSegmentIds?.length
+    ? existingUniqueSegmentIds(sequence, requestedOrderSegmentIds)
+    : [];
+  const order = explicitOrderSegmentIds.length > 0
+    ? segmentOrder(sequence, explicitOrderSegmentIds)
+    : createPlaybackOrder(sequence.segments.length, startIndex, playbackMode);
   if (order.length === 0) {
     throw new Error('재생할 구간을 찾을 수 없습니다.');
   }
@@ -392,8 +442,9 @@ export async function startSequence(sequenceId: string, startIndex = 0, mode?: P
   await playSegment(sequenceId, firstSegmentIndex, tabId, {
     mode: playbackMode,
     order,
-    orderSegmentIds: orderSegmentIds(sequence, order),
-    orderPosition: 0
+    orderSegmentIds: explicitOrderSegmentIds.length > 0 ? explicitOrderSegmentIds : orderSegmentIds(sequence, order),
+    orderPosition: 0,
+    queueEdited
   });
 }
 
@@ -549,9 +600,10 @@ export async function markPlaybackStarted(playbackToken: string, currentTime?: n
 
 export async function seekPlayback(seconds: number): Promise<void> {
   const { state, segment } = await playbackContext();
+  await assertPlaybackTabMatches(state, segment);
   const targetSeconds = clampToSegment(seconds, segment);
 
-  await sendMessageWithRetries(state.tabId!, { type: 'seek', sec: targetSeconds });
+  await sendMessageWithRetries(state.tabId, { type: 'seek', sec: targetSeconds });
   await savePlaybackState({
     ...state,
     currentTime: targetSeconds,
@@ -566,8 +618,9 @@ export async function pausePlayback(): Promise<void> {
     return;
   }
 
-  const currentTime = await readCurrentPlaybackTime(state, segment);
-  await sendMessageWithRetries(state.tabId!, { type: 'pause' });
+  const pageInfo = await assertPlaybackTabMatches(state, segment);
+  const currentTime = await readCurrentPlaybackTime(state, segment, pageInfo);
+  await sendMessageWithRetries(state.tabId, { type: 'pause' });
   await savePlaybackState({
     ...state,
     status: 'paused',
@@ -583,13 +636,22 @@ export async function resumePlayback(): Promise<void> {
     return;
   }
 
-  const currentTime = await readCurrentPlaybackTime(state, segment);
-  await sendMessageWithRetries(state.tabId!, { type: 'play' });
+  const pageInfo = await assertPlaybackTabMatches(state, segment);
+  const currentTime = await readCurrentPlaybackTime(state, segment, pageInfo);
+  const settings = await loadSettings();
+  const response = await sendMessageWithRetries<PlaybackStartResult>(state.tabId, {
+    type: 'play',
+    language: settings.language,
+    accentKey: settings.accentKey
+  });
+  const resumedTime = typeof response.data?.currentTime === 'number' && Number.isFinite(response.data.currentTime)
+    ? clampToSegment(response.data.currentTime, segment)
+    : currentTime;
   await savePlaybackState({
     ...state,
-    status: 'playing',
-    currentTime,
-    startedAt: startedAtForSegmentTime(segment, currentTime)
+    status: response.data?.status === 'waiting' ? 'waiting' : 'playing',
+    currentTime: resumedTime,
+    startedAt: startedAtForSegmentTime(segment, resumedTime)
   });
   await notifyPlaybackStateChanged();
 }
@@ -618,7 +680,9 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
       message.sequenceId,
       message.startIndex ?? 0,
       message.mode ? normalizePlaybackMode(message.mode) : undefined,
-      message.tabId
+      message.tabId,
+      message.orderSegmentIds,
+      message.queueEdited
     );
     return { ok: true };
   }
