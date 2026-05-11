@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 52 items.
+- Severity split: P1 High 9, P2 Medium 27, P3 Low 16.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -17,7 +17,7 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 2. Harden user-visible failures: `ST-GAP-044`, `ST-GAP-054`, `ST-GAP-056`.
 3. Add data-safety guardrails: `ST-GAP-052`, `ST-GAP-055`, `ST-GAP-059`.
 4. Add real extension/browser confidence: `ST-GAP-046`, `ST-GAP-045`, `ST-GAP-079`.
-5. Prepare release assets and package flow: `ST-GAP-051`, `ST-GAP-058`, `ST-GAP-053`.
+5. Prepare release assets and package flow: `ST-GAP-051`, `ST-GAP-053`.
 6. Use remaining time for edit-library productivity: `ST-GAP-063` through `ST-GAP-068`.
 
 ## P1 High
@@ -33,7 +33,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-054 | Runtime errors | Runtime message failures are transported as display strings, which makes localization and recovery behavior harder to keep consistent. | `src/background/background.ts`, `src/state/store.ts`, `src/shared/types.ts` | Return stable error codes from background/content and map them to localized UI copy in the store layer. |
 | ST-GAP-055 | Storage migrations | Storage normalization repairs current data, but there is no explicit schema version, migration path, or migration test fixture. | `src/shared/storage.ts`, `src/state/storage.ts`, `tests/storage.test.mjs` | Add schema version metadata, migration helpers, and legacy fixture tests. |
 | ST-GAP-056 | Playback reconnect UX | Recovery can restart playback, but the UI does not clearly explain whether it will preserve current session queue order, mode, and edited queue state. | `src/screens/Playback.tsx`, `src/state/store.ts` | Show reconnect copy that names the target tape and mode, and preserve edited queue recovery explicitly. |
-| ST-GAP-058 | Release package | There is no zip/CRX packaging script or pre-release validation command. | `package.json`, `scripts/`, `dist/`, `manifest.json` | Add a release script that builds, smoke-checks, zips `dist`, and prints the artifact path. |
 
 ## P2 Medium
 
@@ -87,7 +86,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-091 | Focus ring polish | Focus states exist through native behavior and inline styles, but there is no visual audit across themes. | `src/screens/*.tsx`, `src/sidepanel/styles.css` | Run focus-ring visual pass after keyboard QA tests. |
 | ST-GAP-092 | Narrow-width sweep | Side panel layouts are tested mostly by DOM expectations, not visual width sweeps. | `src/screens/*.tsx`, `tests/*Screen.test.mjs` | Add narrow-width screenshot checks when browser QA exists. |
 | ST-GAP-093 | Architecture notes | README is intentionally concise, but there is no short developer architecture note for future work. | `README.md`, `src/` | Add a separate `docs/architecture.md` if onboarding becomes slow. |
-| ST-GAP-094 | All-check script | Developers currently run test and build separately. | `package.json`, `scripts/` | Add `npm run check` that runs tests and build in the expected order. |
 | ST-GAP-095 | Dependency hygiene | The npx-first TypeScript flow works, but tool versions and local dependency assumptions are not summarized in one place. | `package.json`, `scripts/`, `README.md` | Add a short dev environment note outside README if the workflow grows. |
 
 ## Removed From Active Backlog
