@@ -149,6 +149,15 @@ export type I18n = {
     done: string;
     reconnect: string;
     reconnectAria: string;
+    sequenceMode: string;
+    repeatMode: string;
+    recoveryStartSummary: (tapeName: string, mode: string, queue: string) => string;
+    recoveryEditedQueue: (count: number) => string;
+    recoverySessionQueue: (count: number) => string;
+    recoveryShuffleQueue: string;
+    recoverySavedQueue: string;
+    recoveryNextSummary: string;
+    recoveryStopSummary: string;
     stopRecoveryAria: string;
     connectionLost: string;
     noPlaybackTab: string;
@@ -361,6 +370,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '완료',
       reconnect: '다시 연결',
       reconnectAria: '재생 다시 연결',
+      sequenceMode: '순서 재생',
+      repeatMode: '반복 재생',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `편집된 큐 ${count}개 유지`,
+      recoverySessionQueue: (count) => `세션 순서 ${count}개 유지`,
+      recoveryShuffleQueue: '새 셔플 순서',
+      recoverySavedQueue: '저장된 목록 순서',
+      recoveryNextSummary: '현재 재생 세션에서 다음 클립으로 다시 시도합니다.',
+      recoveryStopSummary: '현재 재생 세션을 정지 상태로 정리합니다.',
       stopRecoveryAria: '재생 정지',
       connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
       noPlaybackTab: '재생 중인 YouTube 탭을 찾을 수 없습니다.',
@@ -571,6 +589,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '完了',
       reconnect: '再接続',
       reconnectAria: '再生を再接続',
+      sequenceMode: '順番再生',
+      repeatMode: 'リピート再生',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `編集済みキュー${count}件を保持`,
+      recoverySessionQueue: (count) => `セッション順${count}件を保持`,
+      recoveryShuffleQueue: '新しいシャッフル順',
+      recoverySavedQueue: '保存済みリスト順',
+      recoveryNextSummary: '現在の再生セッションで次のクリップを再試行します。',
+      recoveryStopSummary: '現在の再生セッションを停止状態に戻します。',
       stopRecoveryAria: '再生を停止',
       connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
       noPlaybackTab: '再生中のYouTubeタブが見つかりません。',
@@ -781,6 +808,15 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: 'Done',
       reconnect: 'Reconnect',
       reconnectAria: 'Reconnect playback',
+      sequenceMode: 'Sequence play',
+      repeatMode: 'Repeat play',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `keep edited queue of ${count}`,
+      recoverySessionQueue: (count) => `keep session order of ${count}`,
+      recoveryShuffleQueue: 'new shuffle order',
+      recoverySavedQueue: 'saved list order',
+      recoveryNextSummary: 'Retry the next clip in the current playback session.',
+      recoveryStopSummary: 'Stop and clear the current playback session.',
       stopRecoveryAria: 'Stop playback',
       connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
       noPlaybackTab: 'Cannot find the active YouTube playback tab.',
