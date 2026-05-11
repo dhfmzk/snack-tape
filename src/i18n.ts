@@ -63,6 +63,8 @@ export type I18n = {
     segmentMenu: (title: string) => string;
     editSegment: string;
     editSegmentAria: (title: string) => string;
+    duplicateSegment: string;
+    duplicateSegmentAria: (title: string) => string;
     deleteSegment: string;
     deleteSegmentAria: (title: string) => string;
     segmentTransferTarget: (title: string) => string;
@@ -268,6 +270,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} 메뉴`,
       editSegment: '구간 편집',
       editSegmentAria: (title) => `${title} 구간 편집`,
+      duplicateSegment: '복제',
+      duplicateSegmentAria: (title) => `${title} 복제`,
       deleteSegment: '삭제',
       deleteSegmentAria: (title) => `${title} 삭제`,
       segmentTransferTarget: (title) => `${title} 이동/복사 대상`,
@@ -471,6 +475,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} メニュー`,
       editSegment: '範囲を編集',
       editSegmentAria: (title) => `${title}の範囲を編集`,
+      duplicateSegment: '複製',
+      duplicateSegmentAria: (title) => `${title}を複製`,
       deleteSegment: '削除',
       deleteSegmentAria: (title) => `${title}を削除`,
       segmentTransferTarget: (title) => `${title}の移動/コピー先`,
@@ -674,6 +680,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       segmentMenu: (title) => `${title} menu`,
       editSegment: 'Edit range',
       editSegmentAria: (title) => `Edit range for ${title}`,
+      duplicateSegment: 'Duplicate',
+      duplicateSegmentAria: (title) => `Duplicate ${title}`,
       deleteSegment: 'Delete',
       deleteSegmentAria: (title) => `Delete ${title}`,
       segmentTransferTarget: (title) => `Move/copy target for ${title}`,

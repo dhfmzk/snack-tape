@@ -17,6 +17,7 @@ type Props = {
   onCancelSegmentEdit?: () => void;
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void;
   onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void;
+  onDuplicateSegment?: (segmentId: string) => void;
   onDeleteSegment?: (segmentId: string) => void;
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
@@ -132,6 +133,7 @@ function SegmentActionMenu(
   segment: Segment,
   transferTargets: Sequence[],
   onBeginSegmentEdit?: (segmentId: string) => void,
+  onDuplicateSegment?: (segmentId: string) => void,
   onDeleteSegment?: (segmentId: string) => void,
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void,
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void
@@ -191,6 +193,19 @@ function SegmentActionMenu(
         },
         Glyph('note', 12),
         i18n.capture.editSegment
+      ),
+      el(
+        'button',
+        {
+          role: 'menuitem',
+          ariaLabel: i18n.capture.duplicateSegmentAria(segment.title),
+          onClick: (event) => {
+            closeSegmentActionMenu(event);
+            onDuplicateSegment?.(segment.id);
+          },
+          style: menuButtonStyle(),
+        },
+        i18n.capture.duplicateSegment
       ),
       transferTargets.length > 0
         ? el(
@@ -678,6 +693,7 @@ export function Capture(props: Props): HTMLElement {
     onCancelSegmentEdit,
     onNudgeSegment,
     onSetSegmentTimecode,
+    onDuplicateSegment,
     onDeleteSegment,
     onCopySegmentToMixtape,
     onMoveSegmentToMixtape,
@@ -1033,7 +1049,16 @@ export function Capture(props: Props): HTMLElement {
                 whiteSpace: 'nowrap',
               },
             }),
-            SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
+            SegmentActionMenu(
+              i18n,
+              segment,
+              transferTargets,
+              onBeginSegmentEdit,
+              onDuplicateSegment,
+              onDeleteSegment,
+              onCopySegmentToMixtape,
+              onMoveSegmentToMixtape
+            )
           ),
           el(
             'div',

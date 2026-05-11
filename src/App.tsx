@@ -67,6 +67,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onCancelSegmentEdit: () => store.cancelSegmentEdit(),
       onNudgeSegment: (segmentId, edge, deltaSeconds) => void store.nudgeSegmentTime(segmentId, edge, deltaSeconds),
       onSetSegmentTimecode: (segmentId, edge, timecode) => void store.setSegmentTimecode(segmentId, edge, timecode),
+      onDuplicateSegment: (segmentId) => void store.duplicateSelectedSegment(segmentId),
       onDeleteSegment: (segmentId) => confirmDeleteSegment(state, store, i18n, segmentId),
       onCopySegmentToMixtape: (segmentId, targetSequenceId) => void store.copySegmentToMixtape(segmentId, targetSequenceId),
       onMoveSegmentToMixtape: (segmentId, targetSequenceId) => void store.moveSegmentToMixtape(segmentId, targetSequenceId),

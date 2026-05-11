@@ -975,6 +975,54 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async duplicateSelectedSegment(segmentId: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = this.selectedSequence();
+    const sourceIndex = sequence?.segments.findIndex((segment) => segment.id === segmentId) ?? -1;
+    const segment = sourceIndex >= 0 ? sequence?.segments[sourceIndex] : null;
+    if (!currentStore || !sequence || !segment) {
+      return;
+    }
+    const previousState = this.state;
+    const timestamp = Date.now();
+    const duplicate = cloneSegment(segment, timestamp);
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments: [
+        ...sequence.segments.slice(0, sourceIndex + 1),
+        duplicate,
+        ...sequence.segments.slice(sourceIndex + 1),
+      ],
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+    const playbackState = this.state.playbackState;
+    const nextPlaybackState = playbackState?.sequenceId === updatedSequence.id
+      ? playbackStateAfterSequenceEdit(playbackState, updatedSequence)
+      : playbackState;
+
+    this.setState({
+      store,
+      playbackState: nextPlaybackState,
+      playbackDisplay: describePlaybackState(store, nextPlaybackState),
+      captureNotice: null,
+    });
+
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(store);
+      if (playbackState?.sequenceId === updatedSequence.id && nextPlaybackState) {
+        await savePlaybackState(nextPlaybackState);
+      }
+    });
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async copySegmentToMixtape(segmentId: string, targetSequenceId: string): Promise<void> {
     await this.transferSegmentToMixtape(segmentId, targetSequenceId, 'copy');
   }
