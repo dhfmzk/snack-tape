@@ -166,7 +166,7 @@ test('exportData downloads JSON and CSV backups from the current store', async (
   assert.equal(store.getState().settingsNotice.kind, 'info');
 });
 
-test('importDataFile replaces the store and clears stale default save targets', async () => {
+test('importDataFile previews before replace and clears stale default save targets on apply', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
   const { serializeStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
@@ -182,6 +182,7 @@ test('importDataFile replaces the store and clears stale default save targets', 
     [SEGMENT_DRAFT_KEY]: { videoId: 'video-1', startSeconds: 1, endSeconds: null, updatedAt: 1 },
     [SETTINGS_KEY]: baseSettings({ defaultMixtapeId: oldSequence.id })
   });
+  const dom = installDownloadDom();
   const store = new SnackTapeAppStore();
   store.state = baseState(oldSequence, baseSettings({ defaultMixtapeId: oldSequence.id }));
 
@@ -192,8 +193,18 @@ test('importDataFile replaces the store and clears stale default save targets', 
     })
   });
 
+  assert.equal(store.getState().store.sequences[0].id, oldSequence.id);
+  assert.equal(data[STORAGE_KEY].sequences[0].id, oldSequence.id);
+  assert.equal(store.getState().pendingImport.store.sequences[0].id, newSequence.id);
+  assert.equal(store.getState().settingsNotice.kind, 'info');
+
+  await store.replaceWithPendingImport();
+
+  assert.equal(dom.clicks.length, 1);
+  assert.match(dom.clicks[0].download, /^snacktape-pre-import-backup-.*\.json$/);
   assert.equal(store.getState().store.sequences[0].id, newSequence.id);
   assert.equal(store.getState().settings.defaultMixtapeId, undefined);
+  assert.equal(store.getState().pendingImport, null);
   assert.equal(data[STORAGE_KEY].sequences[0].id, newSequence.id);
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);

@@ -291,6 +291,16 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   dom.createdInputs[0].change();
   await settle();
 
+  assert.equal(store.getState().store.sequences[0].id, current.id);
+  assert.equal(storage[STORAGE_KEY].sequences[0].id, current.id);
+  assert.equal(store.getState().pendingImport.store.sequences[0].id, imported.id);
+  assert.match(store.getState().settingsNotice.message, /1개 믹스테이프와 1개 클립을 확인했습니다/);
+
+  findButtonByText(App(store.getState(), store), /교체/).click();
+  await settle();
+
+  assert.match(dom.downloaded[2].download, /^snacktape-pre-import-backup-.*\.json$/);
+  assert.equal(store.getState().pendingImport, null);
   assert.equal(store.getState().store.sequences[0].id, imported.id);
   assert.equal(storage[STORAGE_KEY].sequences[0].id, imported.id);
   assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
@@ -302,6 +312,70 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   assert.deepEqual(storage[STORAGE_KEY].sequences, []);
   assert.equal(storage[PLAYBACK_STATE_KEY], undefined);
   assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
+});
+
+test('App Settings route can merge or cancel a pending import preview', async () => {
+  const dom = installDomShim();
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { serializeStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const current = makeSequence({
+    id: 'sequence-current-merge-import',
+    name: 'Merge Tape',
+    segments: [makeSegment({ id: 'clip-current-merge-import' })]
+  });
+  const imported = makeSequence({
+    id: 'sequence-current-merge-import',
+    name: 'Merge Tape',
+    segments: [makeSegment({ id: 'clip-current-merge-import' })]
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [current],
+      selectedSequenceId: current.id
+    },
+    [SETTINGS_KEY]: baseSettings()
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState([current], baseSettings());
+
+  findButtonByText(App(store.getState(), store), /가져오기/).click();
+  dom.createdInputs[0].files = [{
+    text: async () => serializeStoreJson({
+      sequences: [imported],
+      selectedSequenceId: imported.id
+    })
+  }];
+  dom.createdInputs[0].change();
+  await settle();
+
+  findButtonByText(App(store.getState(), store), /취소/).click();
+  await settle();
+  assert.equal(store.getState().pendingImport, null);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((item) => item.id), [current.id]);
+
+  findButtonByText(App(store.getState(), store), /가져오기/).click();
+  dom.createdInputs[1].files = [{
+    text: async () => serializeStoreJson({
+      sequences: [imported],
+      selectedSequenceId: imported.id
+    })
+  }];
+  dom.createdInputs[1].change();
+  await settle();
+
+  findButtonByText(App(store.getState(), store), /병합/).click();
+  await settle();
+
+  assert.equal(dom.downloaded.length, 0);
+  assert.equal(store.getState().store.sequences.length, 2);
+  assert.equal(storage[STORAGE_KEY].sequences.length, 2);
+  assert.equal(storage[STORAGE_KEY].sequences[0].id, current.id);
+  assert.notEqual(storage[STORAGE_KEY].sequences[1].id, current.id);
+  assert.match(storage[STORAGE_KEY].sequences[1].name, /^Merge Tape \(Imported 2\)$/);
+  assert.notEqual(storage[STORAGE_KEY].sequences[1].segments[0].id, 'clip-current-merge-import');
 });
 
 test('App Settings route leaves data intact when delete-all confirmation is cancelled', async () => {
