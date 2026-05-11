@@ -175,3 +175,60 @@ test('mergeImportedStore keeps current data and renames imported conflicts', asy
   assert.notEqual(merged.sequences[1].segments[0].id, 'clip-shared');
   assert.equal(merged.sequences[1].segments[0].title, 'Imported clip');
 });
+
+test('createExportFilename differentiates exports inside the same minute', async () => {
+  const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const store = {
+    sequences: [
+      { id: 'selected', name: 'Export Tape', segments: [], createdAt: 1, updatedAt: 1 }
+    ],
+    selectedSequenceId: 'selected'
+  };
+
+  const first = createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7, 8, 9));
+  const second = createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7, 9, 10));
+
+  assert.equal(first, 'snacktape-json-20260512-210708-009-export-tape.json');
+  assert.equal(second, 'snacktape-json-20260512-210709-010-export-tape.json');
+  assert.notEqual(first, second);
+});
+
+test('createExportFilename can name a backup after an explicit target tape', async () => {
+  const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const store = {
+    sequences: [
+      { id: 'delete', name: 'Delete Tape', segments: [], createdAt: 1, updatedAt: 1 },
+      { id: 'selected', name: 'Selected Tape', segments: [], createdAt: 1, updatedAt: 1 }
+    ],
+    selectedSequenceId: 'selected'
+  };
+
+  assert.equal(
+    createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7, 8, 9), { targetSequenceId: 'delete' }),
+    'snacktape-json-20260512-210708-009-delete-tape.json'
+  );
+  assert.equal(
+    createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7, 8, 9), { library: true }),
+    'snacktape-json-20260512-210708-009-library.json'
+  );
+});
+
+test('createExportFilename includes format, local date, and a safe selected tape slug', async () => {
+  const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const store = {
+    sequences: [
+      { id: 'first', name: '첫 믹스테이프', segments: [], createdAt: 1, updatedAt: 1 },
+      { id: 'selected', name: 'ASMR 조각 모음!', segments: [], createdAt: 1, updatedAt: 1 }
+    ],
+    selectedSequenceId: 'selected'
+  };
+
+  assert.equal(
+    createExportFilename(store, 'json', new Date(2026, 4, 12, 21, 7, 8, 9)),
+    'snacktape-json-20260512-210708-009-asmr.json'
+  );
+  assert.equal(
+    createExportFilename({ sequences: [store.sequences[0]], selectedSequenceId: 'first' }, 'csv', new Date(2026, 4, 12, 21, 7, 8, 9)),
+    'snacktape-csv-20260512-210708-009-mixtape.csv'
+  );
+});

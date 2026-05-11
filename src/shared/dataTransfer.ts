@@ -21,6 +21,31 @@ function csvCell(value: unknown): string {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function pad(value: number, width = 2): string {
+  return String(value).padStart(width, '0');
+}
+
+function localDateStamp(date: Date): string {
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('') + `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}`;
+}
+
+function slugifyFilePart(value: string): string {
+  const slug = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/g, '');
+
+  return slug || 'mixtape';
+}
+
 function segmentRows(store: SnackTapeStore): Array<{ sequenceName: string; segment: Segment }> {
   return store.sequences.flatMap((sequence) =>
     sequence.segments.map((segment) => ({
@@ -75,6 +100,29 @@ export function createExportPayload(store: SnackTapeStore, exportedAt = new Date
     exportedAt,
     store,
   };
+}
+
+export type ExportFilenameContext = {
+  targetSequenceId?: string | null;
+  library?: boolean;
+};
+
+function exportFilenameSequence(store: SnackTapeStore, context: ExportFilenameContext): SnackTapeStore['sequences'][number] | null {
+  if (context.library) {
+    return null;
+  }
+
+  if (context.targetSequenceId !== undefined) {
+    return store.sequences.find((sequence) => sequence.id === context.targetSequenceId) ?? null;
+  }
+
+  return store.sequences.find((sequence) => sequence.id === store.selectedSequenceId) ?? store.sequences[0] ?? null;
+}
+
+export function createExportFilename(store: SnackTapeStore, format: ExportFormat, exportedAt = new Date(), context: ExportFilenameContext = {}): string {
+  const sequence = exportFilenameSequence(store, context);
+  const tapeSlug = slugifyFilePart(sequence?.name ?? 'library');
+  return `snacktape-${format}-${localDateStamp(exportedAt)}-${tapeSlug}.${format}`;
 }
 
 export function serializeStoreJson(store: SnackTapeStore): string {
