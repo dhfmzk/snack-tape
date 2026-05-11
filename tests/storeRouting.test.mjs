@@ -402,6 +402,90 @@ test('startSequence clears pending playback and shows an error when runtime hand
   assert.match(store.getState().playbackNotice.message, /runtime failed/);
 });
 
+test('startSequence maps stable runtime error codes to localized playback copy', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-coded-fail', name: '코드 실패 믹스테이프', segments: [makeSegment({ id: 'clip-coded-fail' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, error: 'raw transport failure', errorCode: 'content_request_failed' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /YouTube 페이지와 연결할 수 없습니다/);
+  assert.doesNotMatch(store.getState().playbackNotice.message, /raw transport failure/);
+});
+
+test('startSequence localizes unknown runtime failures when no raw message is available', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-unknown-fail', name: '알 수 없는 실패 믹스테이프', segments: [makeSegment({ id: 'clip-unknown-fail' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, errorCode: 'unknown' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: { ...baseSettings(), language: 'ja' },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /不明な再生エラー/);
+  assert.doesNotMatch(store.getState().playbackNotice.message, /Unknown playback error/);
+});
+
 test('retryPlaybackRecovery repeats a failed start handoff with the saved target', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

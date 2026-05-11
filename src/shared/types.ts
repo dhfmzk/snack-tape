@@ -95,8 +95,15 @@ export type SnackTapeMessage =
   | { type: 'navigate'; videoId: string; sec: number }
   | { type: 'COMMAND_EVENT'; name: 'capture-in' | 'capture-out' | 'play-pause' | 'next-clip' };
 
+export type SnackTapeErrorCode =
+  | 'unknown'
+  | 'unsupported_request'
+  | 'content_request_failed'
+  | 'runtime_unavailable';
+
 export type SnackTapeResponse<T = unknown> = {
   ok: boolean;
   data?: T;
   error?: string;
+  errorCode?: SnackTapeErrorCode;
 };
