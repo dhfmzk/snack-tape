@@ -83,7 +83,13 @@ export type I18n = {
     mark: string;
     now: string;
     inFirst: string;
+    adjustInMarker: string;
+    adjustOutMarker: string;
     adjust: (label: string) => string;
+    clearDraft: string;
+    clearDraftAria: string;
+    saveDraftClip: string;
+    saveDraftClipAria: string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
@@ -288,7 +294,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      adjustInMarker: 'IN 조정',
+      adjustOutMarker: 'OUT 조정',
       adjust: (label) => `${label} 조정`,
+      clearDraft: '취소',
+      clearDraftAria: '캡처 드래프트 취소',
+      saveDraftClip: '저장',
+      saveDraftClipAria: '현재 구간 저장',
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
@@ -491,7 +503,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      adjustInMarker: 'INを調整',
+      adjustOutMarker: 'OUTを調整',
       adjust: (label) => `${label}を調整`,
+      clearDraft: '取消',
+      clearDraftAria: 'キャプチャ下書きを取り消す',
+      saveDraftClip: '保存',
+      saveDraftClipAria: '現在の範囲を保存',
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
@@ -694,7 +712,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      adjustInMarker: 'Adjust IN',
+      adjustOutMarker: 'Adjust OUT',
       adjust: (label) => `Adjust ${label}`,
+      clearDraft: 'Clear',
+      clearDraftAria: 'Clear capture draft',
+      saveDraftClip: 'Save',
+      saveDraftClipAria: 'Save current range',
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
