@@ -45,6 +45,8 @@ export function normalizeSettings(input: unknown): Settings {
     return { ...DEFAULT_SETTINGS };
   }
 
+  const defaultMixtapeId = typeof input.defaultMixtapeId === 'string' ? input.defaultMixtapeId : undefined;
+
   return {
     accentKey: isThemeKey(input.accentKey) ? input.accentKey : DEFAULT_SETTINGS.accentKey,
     language: isLanguage(input.language) ? input.language : DEFAULT_SETTINGS.language,
@@ -53,8 +55,8 @@ export function normalizeSettings(input: unknown): Settings {
     shuffleByDefault: bool(input.shuffleByDefault, DEFAULT_SETTINGS.shuffleByDefault),
     shortcutIn: DEFAULT_SETTINGS.shortcutIn,
     shortcutOut: DEFAULT_SETTINGS.shortcutOut,
-    defaultMixtapeId: typeof input.defaultMixtapeId === 'string' ? input.defaultMixtapeId : undefined,
     autoTitleFromCaptions: bool(input.autoTitleFromCaptions, DEFAULT_SETTINGS.autoTitleFromCaptions),
+    ...(defaultMixtapeId ? { defaultMixtapeId } : {}),
   };
 }
 

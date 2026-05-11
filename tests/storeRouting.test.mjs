@@ -1802,6 +1802,75 @@ test('updateSettings normalizes settings before publishing visible state', async
   assert.equal(storage[SETTINGS_KEY].shortcutOut, 'Alt+O');
 });
 
+test('resetSettings restores defaults without clearing user data', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY, DEFAULT_SETTINGS } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const segment = makeSegment({ id: 'clip-reset-settings' });
+  const sequence = makeSequence({ id: 'sequence-reset-settings', name: '설정 보존', segments: [segment] });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    currentSegmentId: segment.id,
+    tabId: 12,
+    status: 'playing',
+    startedAt: 10
+  };
+  const draft = { videoId: segment.videoId, startSeconds: 1, endSeconds: null, updatedAt: 2 };
+  const dirtySettings = {
+    ...baseSettings(),
+    accentKey: 'sky',
+    language: 'ja',
+    autoNext: false,
+    fadeOut: false,
+    shuffleByDefault: true,
+    defaultMixtapeId: sequence.id,
+    autoTitleFromCaptions: false
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: dirtySettings,
+    [PLAYBACK_STATE_KEY]: playbackState,
+    [SEGMENT_DRAFT_KEY]: draft
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'settings',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: dirtySettings,
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: 1,
+    capturePulseId: 'pulse-1',
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    homeSearch: '',
+    homeSort: 'manual',
+    loading: false
+  };
+
+  await store.resetSettings();
+
+  assert.deepEqual(store.getState().settings, DEFAULT_SETTINGS);
+  assert.deepEqual(storage[SETTINGS_KEY], DEFAULT_SETTINGS);
+  assert.deepEqual(store.getState().store.sequences.map((item) => item.id), [sequence.id]);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((item) => item.id), [sequence.id]);
+  assert.deepEqual(store.getState().playbackState, playbackState);
+  assert.deepEqual(storage[PLAYBACK_STATE_KEY], playbackState);
+  assert.deepEqual(storage[SEGMENT_DRAFT_KEY], draft);
+});
+
 test('store refreshes playback when background reports playback state changed', async () => {
   const { PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

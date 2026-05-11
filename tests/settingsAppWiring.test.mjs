@@ -304,6 +304,84 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
 });
 
+test('App Settings route resets only settings after confirmation', async () => {
+  installDomShim();
+  const confirmMessages = [];
+  window.confirm = (message) => {
+    confirmMessages.push(message);
+    return true;
+  };
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY, DEFAULT_SETTINGS } = await import('../.tmp-tests/src/state/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-keep-settings-reset',
+    name: 'Keep Settings Reset Tape',
+    segments: [makeSegment({ id: 'clip-keep-settings-reset' })]
+  });
+  const playbackState = { sequenceId: sequence.id, segmentIndex: 0, status: 'playing', startedAt: 1 };
+  const draft = { videoId: 'video-reset', startSeconds: 12, endSeconds: null, updatedAt: 1 };
+  const dirtySettings = baseSettings({
+    accentKey: 'sky',
+    language: 'ja',
+    autoNext: false,
+    fadeOut: false,
+    shuffleByDefault: true,
+    defaultMixtapeId: sequence.id,
+    autoTitleFromCaptions: false
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: dirtySettings,
+    [PLAYBACK_STATE_KEY]: playbackState,
+    [SEGMENT_DRAFT_KEY]: draft
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([sequence], dirtySettings),
+    playbackState
+  };
+
+  findButtonByText(App(store.getState(), store), /設定をリセット/).click();
+  await settle();
+
+  assert.match(confirmMessages[0], /アプリ設定だけを初期値に戻しますか/);
+  assert.deepEqual(store.getState().settings, DEFAULT_SETTINGS);
+  assert.deepEqual(storage[SETTINGS_KEY], DEFAULT_SETTINGS);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((item) => item.id), [sequence.id]);
+  assert.deepEqual(storage[PLAYBACK_STATE_KEY], playbackState);
+  assert.deepEqual(storage[SEGMENT_DRAFT_KEY], draft);
+  assert.match(store.getState().settingsNotice.message, /설정을 기본값으로 초기화했습니다/);
+});
+
+test('App Settings route leaves settings intact when reset confirmation is cancelled', async () => {
+  installDomShim();
+  window.confirm = () => false;
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-cancel-settings-reset', name: 'Keep Tape', segments: [] });
+  const dirtySettings = baseSettings({
+    accentKey: 'sky',
+    language: 'en',
+    shuffleByDefault: true,
+    defaultMixtapeId: sequence.id
+  });
+  const storage = installChrome({ [SETTINGS_KEY]: dirtySettings });
+  const store = new SnackTapeAppStore();
+  store.state = baseState([sequence], dirtySettings);
+
+  findButtonByText(App(store.getState(), store), /Reset settings/).click();
+  await settle();
+
+  assert.deepEqual(store.getState().settings, dirtySettings);
+  assert.deepEqual(storage[SETTINGS_KEY], dirtySettings);
+});
+
 test('App Settings route leaves data intact when delete-all confirmation is cancelled', async () => {
   installDomShim();
   window.confirm = () => false;

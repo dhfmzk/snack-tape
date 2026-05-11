@@ -196,7 +196,7 @@ test('Settings wires default save target selection to persisted setting patches'
   assert.deepEqual(selected, ['sequence-2']);
 });
 
-test('Settings wires data actions to export, import, and delete callbacks', async () => {
+test('Settings wires data actions to export, import, reset, and delete callbacks', async () => {
   installDomShim();
   const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
   const calls = [];
@@ -206,6 +206,7 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
     onAccent: () => {},
     onExport: (format) => calls.push(['export', format]),
     onImport: () => calls.push(['import']),
+    onResetSettings: () => calls.push(['reset']),
     onDeleteAll: () => calls.push(['delete'])
   });
   const dataSection = page.children[5];
@@ -215,11 +216,13 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
   exportButtons[1].click();
   dataSection.children[2].click();
   dataSection.children[3].click();
+  dataSection.children[4].click();
 
   assert.deepEqual(calls, [
     ['export', 'json'],
     ['export', 'csv'],
     ['import'],
+    ['reset'],
     ['delete']
   ]);
 });
@@ -288,6 +291,7 @@ test('Settings renders English app copy when language is English', async () => {
   assert.match(text, /Playback/);
   assert.match(text, /Capture/);
   assert.match(text, /Default save location/);
+  assert.match(text, /Reset settings/);
   assert.match(text, /Data/);
 });
 
@@ -309,6 +313,7 @@ test('Settings renders Japanese app copy when language is Japanese', async () =>
   assert.match(text, /再生/);
   assert.match(text, /編集/);
   assert.match(text, /既定の保存先/);
+  assert.match(text, /設定をリセット/);
   assert.match(text, /データ/);
 });
 
