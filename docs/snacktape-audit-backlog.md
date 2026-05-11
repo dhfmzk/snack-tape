@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 53 items.
+- Severity split: P1 High 10, P2 Medium 26, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -40,7 +40,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ID | Area | Remaining work | Evidence | Next step |
 | --- | --- | --- | --- | --- |
 | ST-GAP-024 | Edit visual continuity | Saved clip rows in the Edit tab are more text-heavy than Playback queue/Home and do not fully use thumbnail continuity. | `src/screens/Capture.tsx`, `src/components/Thumb.tsx` | Add compact thumbnails only if it does not hurt Edit density. |
-| ST-GAP-025 | Capture metadata | Content reads channel metadata, but the Edit tab does not surface it. | `src/content/contentScript.ts`, `src/screens/Capture.tsx` | Either show channel/source metadata or remove unused channel from the app-facing model. |
 | ST-GAP-028 | Multi-tab capture | Capture uses the active tab only. There is no explicit selector when several YouTube videos are open. | `src/state/youtube.ts`, `src/state/videoDetection.ts` | Add a small YouTube tab selector only when more than one candidate tab is available. |
 | ST-GAP-040 | Clip notes | `Segment.note` exists and exports to CSV, but there is no note editing UI. | `src/shared/types.ts`, `src/shared/dataTransfer.ts`, `src/screens/Capture.tsx` | Add notes after time editing stabilizes, or remove the field before release. |
 | ST-GAP-041 | Organization | There are no tags, categories, or source filters for larger clip libraries. | `src/shared/types.ts`, `src/screens/Home.tsx` | Add a minimal tag model only after search/filter basics exist. |

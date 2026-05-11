@@ -693,6 +693,8 @@ export function Capture(props: Props): HTMLElement {
   const usable = Boolean(pageInfo?.isYouTubeVideoPage && pageInfo.videoId && pageInfo.currentTime !== null && pageInfo.currentTime !== undefined);
   const videoStatus = captureVideoStatus(pageInfo, usable, i18n);
   const currentTime = pageInfo?.currentTime ?? 0;
+  const channelName = state.videoState?.channel?.trim() ?? '';
+  const activeChannel = channelName && (!pageInfo?.videoId || state.videoState?.videoId === pageInfo.videoId) ? channelName : '';
   const sequence = selectedSequence(state);
   const segments = editableSegments(sequence);
   const segmentCount = sequence?.segments.length ?? 0;
@@ -760,6 +762,20 @@ export function Capture(props: Props): HTMLElement {
             whiteSpace: 'nowrap',
           },
         }),
+        activeChannel
+          ? el('div', {
+              text: activeChannel,
+              style: {
+                color: 'var(--mute)',
+                fontSize: '9.5px',
+                lineHeight: '1.25',
+                marginTop: '1px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              },
+            })
+          : null,
         el(
           'div',
           { style: { display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' } },

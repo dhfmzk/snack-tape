@@ -755,3 +755,25 @@ test('Capture video header can request a manual current-time refresh', async () 
 
   assert.deepEqual(calls, ['refresh']);
 });
+
+test('Capture video header surfaces the active YouTube channel metadata', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({
+      videoState: {
+        videoId: 'abc123XYZ_1',
+        title: '테스트 영상',
+        channel: '테스트 채널',
+        currentTime: 42,
+        duration: 120,
+        paused: false
+      }
+    }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.match(textOf(page), /테스트 채널/);
+});
