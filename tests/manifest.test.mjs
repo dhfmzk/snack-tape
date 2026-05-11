@@ -62,3 +62,19 @@ test('manifest metadata uses Chrome locale messages with English default locale'
   assert.equal(englishLocale.appName.message, 'SnackTape');
   assert.match(englishLocale.appDescription.message, /YouTube ranges/);
 });
+
+test('manifest permissions are covered by the permission audit', async () => {
+  const [manifestText, audit] = await Promise.all([
+    readFile(new URL('../manifest.json', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/permissions-audit.md', import.meta.url), 'utf8'),
+  ]);
+  const manifest = JSON.parse(manifestText);
+
+  assert.deepEqual(manifest.permissions, ['sidePanel', 'storage', 'tabs', 'scripting']);
+  assert.deepEqual(manifest.host_permissions, ['https://*.youtube.com/*']);
+  for (const permission of manifest.permissions) {
+    assert.match(audit, new RegExp(`\`${permission}\``));
+  }
+  assert.match(audit, /https:\/\/\*\.youtube\.com\/\*/);
+  assert.match(audit, /activeTab/);
+});

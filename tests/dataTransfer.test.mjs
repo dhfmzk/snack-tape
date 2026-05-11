@@ -176,6 +176,20 @@ test('mergeImportedStore keeps current data and renames imported conflicts', asy
   assert.equal(merged.sequences[1].segments[0].title, 'Imported clip');
 });
 
+test('mergeImportedStore preserves the imported selection when merging into an empty library', async () => {
+  const { mergeImportedStore } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const first = makeSequence({ id: 'seq-first', name: 'First Imported', segments: [] });
+  const selected = makeSequence({ id: 'seq-selected', name: '', segments: [] });
+
+  const merged = mergeImportedStore(
+    { sequences: [], selectedSequenceId: null },
+    { sequences: [first, selected], selectedSequenceId: selected.id }
+  );
+
+  assert.equal(merged.selectedSequenceId, selected.id);
+  assert.equal(merged.sequences[1].name, 'Imported Mixtape');
+});
+
 test('createExportFilename differentiates exports inside the same minute', async () => {
   const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
   const store = {

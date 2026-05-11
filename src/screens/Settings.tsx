@@ -18,6 +18,7 @@ type Props = {
   onReplaceImport?: () => void;
   onMergeImport?: () => void;
   onCancelImport?: () => void;
+  onResetSettings?: () => void;
   onDeleteAll?: () => void;
 };
 
@@ -414,6 +415,7 @@ export function Settings({
   onReplaceImport,
   onMergeImport,
   onCancelImport,
+  onResetSettings,
   onDeleteAll,
 }: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
@@ -600,6 +602,7 @@ export function Settings({
         ),
       }),
       SettingsRow(i18n, { label: i18n.settings.import, sub: i18n.settings.importHelp, chev: true, onClick: onImport }),
+      SettingsRow(i18n, { label: i18n.settings.resetSettings, sub: i18n.settings.resetSettingsHelp, onClick: onResetSettings }),
       SettingsRow(i18n, { label: i18n.settings.deleteAllClips, sub: i18n.settings.deleteAllClipsHelp, danger: true, onClick: onDeleteAll })
     ),
     el(

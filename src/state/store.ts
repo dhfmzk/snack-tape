@@ -1348,6 +1348,16 @@ export class SnackTapeAppStore {
     await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
   }
 
+  async resetSettings(): Promise<void> {
+    const previousState = this.state;
+    const settings = normalizeSettings(DEFAULT_SETTINGS);
+    this.setState({
+      settings,
+      settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.resetSettingsDone },
+    });
+    await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
+  }
+
   async setAccentKey(accentKey: Settings['accentKey']): Promise<void> {
     await this.updateSettings({ accentKey });
   }
@@ -1389,7 +1399,7 @@ export class SnackTapeAppStore {
   }
 
   cancelImportPreview(): void {
-    this.setState({ pendingImport: null });
+    this.setState({ pendingImport: null, settingsNotice: null });
   }
 
   async replaceWithPendingImport(): Promise<void> {

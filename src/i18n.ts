@@ -213,6 +213,10 @@ export type I18n = {
     replaceImport: string;
     mergeImport: string;
     cancelImport: string;
+    resetSettings: string;
+    resetSettingsHelp: string;
+    resetSettingsConfirm: string;
+    resetSettingsDone: string;
     deleteAllClips: string;
     deleteAllClipsHelp: string;
     deleteAllClipsConfirm: (clipCount: number) => string;
@@ -445,6 +449,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       replaceImport: '교체',
       mergeImport: '병합',
       cancelImport: '취소',
+      resetSettings: '설정 초기화',
+      resetSettingsHelp: '믹스테이프와 저장된 구간은 유지합니다.',
+      resetSettingsConfirm: '앱 설정만 기본값으로 되돌릴까요? 믹스테이프와 저장된 구간은 삭제되지 않습니다.',
+      resetSettingsDone: '설정을 기본값으로 초기화했습니다.',
       deleteAllClips: '모든 클립 삭제',
       deleteAllClipsHelp: '믹스테이프와 저장된 구간을 비웁니다.',
       deleteAllClipsConfirm: (clipCount) => `저장된 클립 ${clipCount}개와 모든 믹스테이프를 삭제할까요?`,
@@ -675,6 +683,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       replaceImport: '置き換え',
       mergeImport: '結合',
       cancelImport: 'キャンセル',
+      resetSettings: '設定をリセット',
+      resetSettingsHelp: 'ミックステープと保存済み範囲は残します。',
+      resetSettingsConfirm: 'アプリ設定だけを初期値に戻しますか？ミックステープと保存済み範囲は削除されません。',
+      resetSettingsDone: '設定を初期値に戻しました。',
       deleteAllClips: 'すべてのクリップを削除',
       deleteAllClipsHelp: 'ミックステープと保存済み範囲を空にします。',
       deleteAllClipsConfirm: (clipCount) => `保存済みクリップ${clipCount}件とすべてのミックステープを削除しますか？`,
@@ -905,6 +917,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       replaceImport: 'Replace',
       mergeImport: 'Merge',
       cancelImport: 'Cancel',
+      resetSettings: 'Reset settings',
+      resetSettingsHelp: 'Keeps mixtapes and saved ranges.',
+      resetSettingsConfirm: 'Reset app settings to defaults? Mixtapes and saved ranges will not be deleted.',
+      resetSettingsDone: 'Reset settings to defaults.',
       deleteAllClips: 'Delete all clips',
       deleteAllClipsHelp: 'Clear mixtapes and saved ranges.',
       deleteAllClipsConfirm: (clipCount) => `Delete ${clipCount} saved clip${clipCount === 1 ? '' : 's'} and all mixtapes?`,

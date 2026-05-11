@@ -60,7 +60,7 @@ function rangeIdentity(segment: Segment): string {
 }
 
 function uniqueName(name: string, usedNames: Set<string>): string {
-  const baseName = name.trim() || 'Imported Tape';
+  const baseName = name.trim() || 'Imported Mixtape';
   if (!usedNames.has(baseName)) {
     usedNames.add(baseName);
     return baseName;
@@ -148,15 +148,20 @@ export function mergeImportedStore(currentStore: SnackTapeStore, importedStore: 
   const usedSequenceIds = new Set(currentStore.sequences.map((sequence) => sequence.id));
   const usedSegmentIds = new Set(currentStore.sequences.flatMap((sequence) => sequence.segments.map((segment) => segment.id)));
   const usedNames = new Set(currentStore.sequences.map((sequence) => sequence.name.trim()).filter(Boolean));
-  const importedSequences: Sequence[] = importedStore.sequences.map((sequence) => ({
-    ...sequence,
-    id: uniqueId(sequence.id, usedSequenceIds, 'sequence'),
-    name: uniqueName(sequence.name, usedNames),
-    segments: sequence.segments.map((segment) => ({
-      ...segment,
-      id: uniqueId(segment.id, usedSegmentIds, 'clip'),
-    })),
-  }));
+  const importedSequenceIdMap = new Map<string, string>();
+  const importedSequences: Sequence[] = importedStore.sequences.map((sequence) => {
+    const id = uniqueId(sequence.id, usedSequenceIds, 'sequence');
+    importedSequenceIdMap.set(sequence.id, id);
+    return {
+      ...sequence,
+      id,
+      name: uniqueName(sequence.name, usedNames),
+      segments: sequence.segments.map((segment) => ({
+        ...segment,
+        id: uniqueId(segment.id, usedSegmentIds, 'clip'),
+      })),
+    };
+  });
   const sequences = [
     ...currentStore.sequences.map((sequence) => ({
       ...sequence,
@@ -164,10 +169,14 @@ export function mergeImportedStore(currentStore: SnackTapeStore, importedStore: 
     })),
     ...importedSequences,
   ];
+  const currentSelection = currentStore.selectedSequenceId && sequences.some((sequence) => sequence.id === currentStore.selectedSequenceId)
+    ? currentStore.selectedSequenceId
+    : null;
+  const importedSelection = importedStore.selectedSequenceId ? importedSequenceIdMap.get(importedStore.selectedSequenceId) ?? null : null;
 
   return {
     sequences,
-    selectedSequenceId: currentStore.selectedSequenceId ?? sequences[0]?.id ?? null,
+    selectedSequenceId: currentSelection ?? importedSelection ?? sequences[0]?.id ?? null,
   };
 }
 

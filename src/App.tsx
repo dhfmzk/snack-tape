@@ -118,6 +118,11 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onReplaceImport: () => void store.replaceWithPendingImport(),
       onMergeImport: () => void store.mergePendingImport(),
       onCancelImport: () => store.cancelImportPreview(),
+      onResetSettings: () => {
+        if (window.confirm(i18n.settings.resetSettingsConfirm)) {
+          void store.resetSettings();
+        }
+      },
       onDeleteAll: () => {
         const clipCount = state.store?.sequences.reduce((total, sequence) => total + sequence.segments.length, 0) ?? 0;
         offerJsonBackupBeforeDelete(store, i18n, clipCount, { library: true });
