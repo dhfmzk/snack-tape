@@ -30,6 +30,7 @@ export type PlaybackState = {
   tabId?: number;
   status: 'idle' | 'pending' | 'waiting' | 'playing' | 'paused' | 'stopped';
   startedAt: number;
+  currentTime?: number;
   playbackToken?: string;
   mode?: PlaybackMode;
   order?: number[];
@@ -81,12 +82,15 @@ export type SnackTapeMessage =
   | { type: 'SEGMENT_ENDED'; playbackToken: string }
   | { type: 'PLAYBACK_STARTED'; playbackToken: string; currentTime?: number }
   | { type: 'PLAYBACK_STATE_CHANGED' }
-  | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number }
+  | { type: 'START_SEQUENCE'; sequenceId: string; startIndex?: number; mode?: PlaybackMode; tabId?: number; orderSegmentIds?: string[]; queueEdited?: boolean }
   | { type: 'PLAY_NEXT'; playbackToken?: string }
+  | { type: 'SEEK_PLAYBACK'; sec: number }
+  | { type: 'PAUSE_PLAYBACK' }
+  | { type: 'RESUME_PLAYBACK' }
   | { type: 'STOP_SEQUENCE' }
   | { type: 'getVideoState' }
   | { type: 'seek'; sec: number }
-  | { type: 'play' }
+  | { type: 'play'; language?: Language; accentKey?: ThemeKey }
   | { type: 'pause' }
   | { type: 'navigate'; videoId: string; sec: number }
   | { type: 'COMMAND_EVENT'; name: 'capture-in' | 'capture-out' | 'play-pause' | 'next-clip' };

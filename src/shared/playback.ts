@@ -144,7 +144,7 @@ export function getNextPlaybackStep(sequence: Sequence, state: PlaybackState): P
 }
 
 export function describePlaybackState(store: SnackTapeStore, state: PlaybackState | null): PlaybackDisplayState | null {
-  if (!state || (state.status !== 'playing' && state.status !== 'waiting' && state.status !== 'pending')) {
+  if (!state || (state.status !== 'playing' && state.status !== 'waiting' && state.status !== 'pending' && state.status !== 'paused')) {
     return null;
   }
 

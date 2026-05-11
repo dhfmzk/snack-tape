@@ -110,10 +110,16 @@ export type I18n = {
     ready: string;
     starting: string;
     waiting: string;
+    paused: string;
+    targetTab: (tabId: number | undefined) => string;
+    connected: string;
+    disconnected: string;
     progress: string;
     shuffle: string;
     previous: string;
     stop: string;
+    pause: string;
+    resume: string;
     play: string;
     next: string;
     repeatCurrent: string;
@@ -122,11 +128,14 @@ export type I18n = {
     edit: string;
     editMixtape: string;
     editQueue: string;
+    editSegment: (title: string) => string;
     upNextCount: (count: number) => string;
     moveUp: (title: string) => string;
     moveDown: (title: string) => string;
     removeFromQueue: (title: string) => string;
     playSegment: (title: string) => string;
+    playFromHere: (title: string) => string;
+    repeatSegment: (title: string) => string;
     cancelQueueEdit: string;
     saveQueueEdit: string;
     cancel: string;
@@ -135,8 +144,14 @@ export type I18n = {
     reconnectAria: string;
     stopRecoveryAria: string;
     connectionLost: string;
+    noPlaybackTab: string;
+    currentSegmentMissing: string;
+    contentRequestFailed: string;
     startFailed: (message: string) => string;
     nextFailed: (message: string) => string;
+    seekFailed: (message: string) => string;
+    pauseFailed: (message: string) => string;
+    resumeFailed: (message: string) => string;
     stopFailed: (message: string) => string;
   };
   settings: {
@@ -300,10 +315,16 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       ready: 'READY',
       starting: 'STARTING',
       waiting: 'WAITING',
+      paused: 'PAUSED',
+      targetTab: (tabId) => `TAB ${tabId ?? '-'}`,
+      connected: 'CONNECTED',
+      disconnected: 'SYNCING',
       progress: '재생 진행률',
       shuffle: '셔플 재생',
       previous: '이전 클립',
       stop: '정지',
+      pause: '일시정지',
+      resume: '재개',
       play: '재생',
       next: '다음 클립',
       repeatCurrent: '현재 클립 다시 재생',
@@ -312,11 +333,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       edit: '편집',
       editMixtape: '믹스테이프 편집',
       editQueue: '큐 편집',
+      editSegment: (title) => `${title} 구간 편집`,
       upNextCount: (count) => `${count} UP NEXT`,
       moveUp: (title) => `${title} 위로 이동`,
       moveDown: (title) => `${title} 아래로 이동`,
       removeFromQueue: (title) => `${title} 큐에서 제거`,
       playSegment: (title) => `${title} 재생`,
+      playFromHere: (title) => `${title}부터 순서대로 재생`,
+      repeatSegment: (title) => `${title}만 반복 재생`,
       cancelQueueEdit: '큐 편집 취소',
       saveQueueEdit: '큐 편집 완료',
       cancel: '취소',
@@ -325,8 +349,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: '재생 다시 연결',
       stopRecoveryAria: '재생 정지',
       connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
+      noPlaybackTab: '재생 중인 YouTube 탭을 찾을 수 없습니다.',
+      currentSegmentMissing: '재생 중인 구간을 찾을 수 없습니다.',
+      contentRequestFailed: 'YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.',
       startFailed: (message) => `재생을 시작할 수 없습니다. ${message}`,
       nextFailed: (message) => `다음 클립으로 이동할 수 없습니다. ${message}`,
+      seekFailed: (message) => `재생 위치를 이동할 수 없습니다. ${message}`,
+      pauseFailed: (message) => `재생을 일시정지할 수 없습니다. ${message}`,
+      resumeFailed: (message) => `재생을 재개할 수 없습니다. ${message}`,
       stopFailed: (message) => `재생을 정지할 수 없습니다. ${message}`,
     },
     settings: {
@@ -488,10 +518,16 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       ready: 'READY',
       starting: 'STARTING',
       waiting: 'WAITING',
+      paused: 'PAUSED',
+      targetTab: (tabId) => `TAB ${tabId ?? '-'}`,
+      connected: 'CONNECTED',
+      disconnected: 'SYNCING',
       progress: '再生の進行状況',
       shuffle: 'シャッフル再生',
       previous: '前のクリップ',
       stop: '停止',
+      pause: '一時停止',
+      resume: '再開',
       play: '再生',
       next: '次のクリップ',
       repeatCurrent: '現在のクリップをもう一度再生',
@@ -500,11 +536,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       edit: '編集',
       editMixtape: 'ミックステープを編集',
       editQueue: 'キューを編集',
+      editSegment: (title) => `${title}の範囲を編集`,
       upNextCount: (count) => `${count} UP NEXT`,
       moveUp: (title) => `${title}を上へ移動`,
       moveDown: (title) => `${title}を下へ移動`,
       removeFromQueue: (title) => `${title}をキューから削除`,
       playSegment: (title) => `${title}を再生`,
+      playFromHere: (title) => `${title}から順番に再生`,
+      repeatSegment: (title) => `${title}だけをリピート再生`,
       cancelQueueEdit: 'キュー編集をキャンセル',
       saveQueueEdit: 'キュー編集を完了',
       cancel: 'キャンセル',
@@ -513,8 +552,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: '再生を再接続',
       stopRecoveryAria: '再生を停止',
       connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
+      noPlaybackTab: '再生中のYouTubeタブが見つかりません。',
+      currentSegmentMissing: '再生中の範囲が見つかりません。',
+      contentRequestFailed: 'YouTubeページに接続できません。再読み込みしてからもう一度お試しください。',
       startFailed: (message) => `再生を開始できません。 ${message}`,
       nextFailed: (message) => `次のクリップへ移動できません。 ${message}`,
+      seekFailed: (message) => `再生位置を移動できません。 ${message}`,
+      pauseFailed: (message) => `再生を一時停止できません。 ${message}`,
+      resumeFailed: (message) => `再生を再開できません。 ${message}`,
       stopFailed: (message) => `再生を停止できません。 ${message}`,
     },
     settings: {
@@ -676,10 +721,16 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       ready: 'READY',
       starting: 'STARTING',
       waiting: 'WAITING',
+      paused: 'PAUSED',
+      targetTab: (tabId) => `TAB ${tabId ?? '-'}`,
+      connected: 'CONNECTED',
+      disconnected: 'SYNCING',
       progress: 'Playback progress',
       shuffle: 'Shuffle play',
       previous: 'Previous clip',
       stop: 'Stop',
+      pause: 'Pause',
+      resume: 'Resume',
       play: 'Play',
       next: 'Next clip',
       repeatCurrent: 'Replay current clip',
@@ -688,11 +739,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       edit: 'Edit',
       editMixtape: 'Edit mixtape',
       editQueue: 'Edit queue',
+      editSegment: (title) => `Edit range for ${title}`,
       upNextCount: (count) => `${count} UP NEXT`,
       moveUp: (title) => `Move ${title} up`,
       moveDown: (title) => `Move ${title} down`,
       removeFromQueue: (title) => `Remove ${title} from queue`,
       playSegment: (title) => `Play ${title}`,
+      playFromHere: (title) => `Play from ${title}`,
+      repeatSegment: (title) => `Repeat ${title} only`,
       cancelQueueEdit: 'Cancel queue edit',
       saveQueueEdit: 'Save queue edit',
       cancel: 'Cancel',
@@ -701,8 +755,14 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       reconnectAria: 'Reconnect playback',
       stopRecoveryAria: 'Stop playback',
       connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
+      noPlaybackTab: 'Cannot find the active YouTube playback tab.',
+      currentSegmentMissing: 'Cannot find the current playback range.',
+      contentRequestFailed: 'Cannot connect to the YouTube page. Refresh it and try again.',
       startFailed: (message) => `Cannot start playback. ${message}`,
       nextFailed: (message) => `Cannot move to the next clip. ${message}`,
+      seekFailed: (message) => `Cannot seek playback. ${message}`,
+      pauseFailed: (message) => `Cannot pause playback. ${message}`,
+      resumeFailed: (message) => `Cannot resume playback. ${message}`,
       stopFailed: (message) => `Cannot stop playback. ${message}`,
     },
     settings: {

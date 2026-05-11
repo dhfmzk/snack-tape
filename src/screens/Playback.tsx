@@ -11,16 +11,22 @@ type Props = {
   i18n?: I18n;
   onBack: () => void;
   onPlay: (index: number, sequenceId?: string, mode?: PlaybackMode) => void;
+  onPlayQueueFrom?: (sequenceId: string, segmentId: string, queueSegmentIds: string[]) => void;
+  onPause?: () => void;
+  onResume?: () => void;
   onStop: () => void;
   onNext: () => void;
+  onSeek?: (seconds: number) => void;
   onRetryPlayback?: () => void;
   onEditSequence: (sequenceId: string) => void;
+  onEditSegment?: (sequenceId: string, segmentId: string) => void;
   onBeginQueueEdit: (sequenceId: string) => void;
   onRenameSequence?: (sequenceId: string) => void;
   onCancelQueueEdit: () => void;
   onSaveQueueEdit: () => void;
   onMoveQueueSegment: (fromIndex: number, toIndex: number) => void;
   onRemoveQueueSegment: (segmentId: string) => void;
+  onRemovePlaybackQueueSegment?: (segmentId: string) => void;
 };
 
 type Style = Partial<CSSStyleDeclaration>;
@@ -90,6 +96,12 @@ function progress(state: AppState, segment: Segment | null): { ratio: number; el
     elapsed = pageTime - segment.startSeconds;
     usesLivePageTime = true;
   } else if (
+    state.playbackState?.currentSegmentId === segment.id
+    && typeof state.playbackState.currentTime === 'number'
+    && Number.isFinite(state.playbackState.currentTime)
+  ) {
+    elapsed = state.playbackState.currentTime - segment.startSeconds;
+  } else if (
     state.playbackState?.status === 'playing'
     && (!state.playbackState.currentSegmentId || state.playbackState.currentSegmentId === segment.id)
     && Number.isFinite(state.playbackState.startedAt)
@@ -153,7 +165,48 @@ function playbackStatusText(state: AppState, isPlaying: boolean, i18n: I18n): st
     return i18n.playback.waiting;
   }
 
+  if (state.playbackState?.status === 'paused') {
+    return i18n.playback.paused;
+  }
+
   return isPlaying ? i18n.playback.nowPlaying : i18n.playback.ready;
+}
+
+function playbackConnectionText(state: AppState, segment: Segment, i18n: I18n): string | null {
+  if (!state.playbackState?.tabId) {
+    return null;
+  }
+
+  const isConnected = state.pageInfo?.isYouTubeVideoPage === true
+    && state.pageInfo.videoId === segment.videoId
+    && state.pageInfo.currentTime !== null
+    && state.pageInfo.currentTime !== undefined;
+  return `${i18n.playback.targetTab(state.playbackState.tabId)} · ${isConnected ? i18n.playback.connected : i18n.playback.disconnected}`;
+}
+
+function seekTimeFromPointer(event: MouseEvent, segment: Segment, duration: number): number {
+  const target = event.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const width = rect.width > 0 ? rect.width : 1;
+  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / width));
+  return segment.startSeconds + (duration * ratio);
+}
+
+function seekTimeFromKey(key: string, segment: Segment, currentElapsed: number, duration: number): number | null {
+  if (key === 'Home') {
+    return segment.startSeconds;
+  }
+  if (key === 'End') {
+    return segment.startSeconds + duration;
+  }
+  if (key === 'ArrowLeft') {
+    return segment.startSeconds + Math.max(0, currentElapsed - 1);
+  }
+  if (key === 'ArrowRight') {
+    return segment.startSeconds + Math.min(duration, currentElapsed + 1);
+  }
+
+  return null;
 }
 
 function playbackOrderPosition(state: AppState, sequence: Sequence, index: number): number {
@@ -185,7 +238,7 @@ function playbackOrderCount(state: AppState, sequence: Sequence): number {
   return sequence.segments.length;
 }
 
-function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segment[] {
+function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[], appendMissing: boolean): Segment[] {
   const used = new Set<string>();
   const ordered = segmentIds
     .map((segmentId) => {
@@ -199,6 +252,10 @@ function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segme
       return segment;
     })
     .filter((segment): segment is Segment => segment !== null);
+  if (!appendMissing) {
+    return ordered;
+  }
+
   const missing = sequence.segments.filter((segment) => !used.has(segment.id));
   return [...ordered, ...missing];
 }
@@ -206,7 +263,7 @@ function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segme
 function playbackQueueSegments(state: AppState, sequence: Sequence): Segment[] {
   const playbackState = state.playbackState;
   if (playbackState?.sequenceId === sequence.id && playbackState.queueEdited && playbackState.orderSegmentIds?.length) {
-    return orderedSegmentsFromIds(sequence, playbackState.orderSegmentIds);
+    return orderedSegmentsFromIds(sequence, playbackState.orderSegmentIds, false);
   }
 
   return sequence.segments;
@@ -265,21 +322,30 @@ export function Playback(props: Props): HTMLElement {
     state,
     onBack,
     onPlay,
+    onPlayQueueFrom,
+    onPause,
+    onResume,
     onStop,
     onNext,
+    onSeek,
     onRetryPlayback,
     onEditSequence,
+    onEditSegment,
     onBeginQueueEdit,
     onRenameSequence,
     onCancelQueueEdit,
     onSaveQueueEdit,
     onMoveQueueSegment,
     onRemoveQueueSegment,
+    onRemovePlaybackQueueSegment,
   } = props;
   const i18n = props.i18n ?? createI18n(state.settings.language);
   const sequence = playbackSequence(state);
   const { segment, index } = currentSegment(state, sequence);
-  const isPlaying = state.playbackDisplay?.canStop === true;
+  const playbackStatus = state.playbackState?.status ?? null;
+  const isPlaying = playbackStatus === 'playing' || (!playbackStatus && state.playbackDisplay?.canStop === true);
+  const isPaused = playbackStatus === 'paused';
+  const hasPlaybackSession = state.playbackDisplay?.canStop === true || playbackStatus === 'pending' || playbackStatus === 'waiting' || playbackStatus === 'playing' || playbackStatus === 'paused';
   const progressState = progress(state, segment);
 
   if (!sequence || sequence.segments.length === 0 || !segment) {
@@ -325,13 +391,14 @@ export function Playback(props: Props): HTMLElement {
   const isEditingQueue = Boolean(queueEdit);
   const canEditQueue = Boolean(
     state.playbackState?.sequenceId === sequence.id
-    && (state.playbackState.status === 'playing' || state.playbackState.status === 'waiting' || state.playbackState.status === 'pending')
+    && (state.playbackState.status === 'playing' || state.playbackState.status === 'waiting' || state.playbackState.status === 'pending' || state.playbackState.status === 'paused')
   );
   const queueSegments = queueEdit
     ? queueEdit.segmentIds
         .map((segmentId) => sequence.segments.find((item) => item.id === segmentId) ?? null)
         .filter((item): item is Segment => item !== null)
     : playbackQueueSegments(state, sequence);
+  const connectionText = playbackConnectionText(state, segment, i18n);
 
   return el(
     'div',
@@ -395,7 +462,9 @@ export function Playback(props: Props): HTMLElement {
             { style: { display: 'flex', gap: '6px', marginTop: '3px', fontFamily: 'JetBrains Mono', fontSize: '9.5px', color: 'var(--mute)' } },
             el('span', { text: `${index + 1} / ${sequence.segments.length}` }),
             el('span', { text: '·', style: { color: 'var(--mute2)' } }),
-            el('span', { text: formatSeconds(totalDuration(sequence)) })
+            el('span', { text: formatSeconds(totalDuration(sequence)) }),
+            connectionText ? el('span', { text: '·', style: { color: 'var(--mute2)' } }) : null,
+            connectionText ? el('span', { text: connectionText }) : null
           )
         )
       ),
@@ -516,12 +585,23 @@ export function Playback(props: Props): HTMLElement {
           'div',
           {
             ariaLabel: i18n.playback.progress,
-            role: 'progressbar',
+            role: 'slider',
+            tabIndex: 0,
             ariaValueMin: '0',
             ariaValueMax: String(Number(progressState.duration.toFixed(2))),
             ariaValueNow: String(Number(progressState.elapsed.toFixed(2))),
             ariaValueText: `${formatSeconds(progressState.elapsed)} / ${formatSeconds(progressState.duration)}`,
             dataset: { progressRatio: String(Number(progressState.ratio.toFixed(4))) },
+            onClick: (event) => onSeek?.(seekTimeFromPointer(event, segment, progressState.duration)),
+            onKeyDown: (event) => {
+              const targetTime = seekTimeFromKey(event.key, segment, progressState.elapsed, progressState.duration);
+              if (targetTime === null) {
+                return;
+              }
+
+              event.preventDefault();
+              onSeek?.(targetTime);
+            },
             style: { height: '5px', background: 'var(--surface3)', borderRadius: '999px', position: 'relative' },
           },
           el('div', {
@@ -556,8 +636,18 @@ export function Playback(props: Props): HTMLElement {
         el(
           'button',
           {
-            ariaLabel: isPlaying ? i18n.playback.stop : i18n.playback.play,
-            onClick: () => (isPlaying ? onStop() : onPlay(index, sequence.id, currentMode)),
+            ariaLabel: isPlaying ? i18n.playback.pause : isPaused ? i18n.playback.resume : i18n.playback.play,
+            onClick: () => {
+              if (isPlaying) {
+                onPause?.();
+                return;
+              }
+              if (isPaused) {
+                onResume?.();
+                return;
+              }
+              onPlay(index, sequence.id, currentMode);
+            },
             style: {
               width: '48px',
               height: '48px',
@@ -577,9 +667,15 @@ export function Playback(props: Props): HTMLElement {
         el('button', {
           ariaLabel: i18n.playback.next,
           disabled: !hasNext,
-          onClick: () => hasNext && (isPlaying ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
+          onClick: () => hasNext && (hasPlaybackSession ? onNext() : onPlay(nextIndex, sequence.id, currentMode)),
           style: btnIconStyle({ width: '32px', height: '32px', cursor: hasNext ? 'pointer' : 'not-allowed' }),
         }, Glyph('next', 16)),
+        el('button', {
+          ariaLabel: i18n.playback.stop,
+          disabled: !hasPlaybackSession,
+          onClick: () => hasPlaybackSession && onStop(),
+          style: btnIconStyle({ width: '30px', height: '30px', cursor: hasPlaybackSession ? 'pointer' : 'not-allowed' }),
+        }, Glyph('x', 14)),
         el('button', {
           ariaLabel: i18n.playback.repeatCurrent,
           ariaPressed: currentMode === 'repeat' ? 'true' : 'false',
@@ -741,58 +837,100 @@ export function Playback(props: Props): HTMLElement {
         }
 
         return el(
-          'button',
+          'div',
           {
-            ariaLabel: i18n.playback.playSegment(queueSegment.title),
-            onClick: () => onPlay(originalIndex, sequence.id, currentMode),
             style: {
               width: '100%',
-              border: 'none',
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '8px 8px',
+              gap: '6px',
+              padding: '0',
               background: now ? 'var(--accent-soft)' : 'transparent',
               borderRadius: '6px',
               borderLeft: now ? '2px solid var(--accent)' : '2px solid transparent',
-              color: 'inherit',
-              cursor: 'pointer',
-              textAlign: 'left',
             },
           },
           el(
-            'div',
-            { style: { width: '16px', display: 'flex', justifyContent: 'center', color: now ? 'var(--accent)' : 'var(--mute)' } },
-            now ? Glyph('play', 10) : el('span', { text: String(queueIndex + 1), style: { fontFamily: 'JetBrains Mono', fontSize: '10px' } })
-          ),
-          thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: queueSegment.videoId, variant: originalIndex }), 40, 40),
-          el(
-            'div',
-            { style: { flex: '1', minWidth: '0' } },
-            el('div', {
-              text: queueSegment.title,
-              style: {
-                fontSize: '12px',
-                fontWeight: now ? '600' : '500',
-                color: 'var(--text)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+            'button',
+            {
+              ariaLabel: i18n.playback.playFromHere(queueSegment.title),
+              onClick: () => {
+                const queueSegmentIds = queueSegments.slice(queueIndex).map((item) => item.id);
+                if (onPlayQueueFrom && queueSegmentIds.length > 0) {
+                  onPlayQueueFrom(sequence.id, queueSegment.id, queueSegmentIds);
+                  return;
+                }
+
+                onPlay(originalIndex, sequence.id, 'sequence');
               },
-            }),
-            el('div', {
-              text: timeRange(queueSegment, i18n),
               style: {
-                fontSize: '10px',
-                color: 'var(--mute)',
-                marginTop: '1px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                flex: '1',
+                minWidth: '0',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 8px',
+                background: 'transparent',
+                color: 'inherit',
+                cursor: 'pointer',
+                textAlign: 'left',
               },
-            })
+            },
+            el(
+              'div',
+              { style: { width: '16px', display: 'flex', justifyContent: 'center', color: now ? 'var(--accent)' : 'var(--mute)' } },
+              now ? Glyph('play', 10) : el('span', { text: String(queueIndex + 1), style: { fontFamily: 'JetBrains Mono', fontSize: '10px' } })
+            ),
+            thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: queueSegment.videoId, variant: originalIndex }), 40, 40),
+            el(
+              'div',
+              { style: { flex: '1', minWidth: '0' } },
+              el('div', {
+                text: queueSegment.title,
+                style: {
+                  fontSize: '12px',
+                  fontWeight: now ? '600' : '500',
+                  color: 'var(--text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                },
+              }),
+              el('div', {
+                text: timeRange(queueSegment, i18n),
+                style: {
+                  fontSize: '10px',
+                  color: 'var(--mute)',
+                  marginTop: '1px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                },
+              })
+            ),
+            el('span', { text: formatSeconds(clipDuration(queueSegment)), style: { fontFamily: 'JetBrains Mono', fontSize: '10px', color: 'var(--mute)' } })
           ),
-          el('span', { text: formatSeconds(clipDuration(queueSegment)), style: { fontFamily: 'JetBrains Mono', fontSize: '10px', color: 'var(--mute)' } })
+          el('button', {
+            ariaLabel: i18n.playback.repeatSegment(queueSegment.title),
+            title: i18n.playback.repeatSegment(queueSegment.title),
+            onClick: () => onPlay(originalIndex, sequence.id, 'repeat'),
+            style: queueActionButtonStyle(false),
+          }, Glyph('repeat', 12)),
+          el('button', {
+            ariaLabel: i18n.playback.editSegment(queueSegment.title),
+            title: i18n.playback.editSegment(queueSegment.title),
+            onClick: () => onEditSegment?.(sequence.id, queueSegment.id),
+            style: queueActionButtonStyle(!onEditSegment),
+            disabled: !onEditSegment,
+          }, Glyph('edit', 12)),
+          el('button', {
+            ariaLabel: i18n.playback.removeFromQueue(queueSegment.title),
+            title: i18n.playback.removeFromQueue(queueSegment.title),
+            disabled: now || !onRemovePlaybackQueueSegment,
+            onClick: () => !now && onRemovePlaybackQueueSegment?.(queueSegment.id),
+            style: queueActionButtonStyle(now || !onRemovePlaybackQueueSegment),
+          }, Glyph('x', 12))
         );
       })
     ),

@@ -85,16 +85,22 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       i18n,
       onBack: () => store.setRoute('home'),
       onPlay: (index, sequenceId, mode) => void store.startSequence(index, sequenceId, mode),
+      onPlayQueueFrom: (sequenceId, segmentId, queueSegmentIds) => void store.startQueueFrom(sequenceId, segmentId, queueSegmentIds),
+      onPause: () => void store.pausePlayback(),
+      onResume: () => void store.resumePlayback(),
       onStop: () => void store.stopPlayback(),
       onNext: () => void store.nextClip(),
+      onSeek: (seconds) => void store.seekPlayback(seconds),
       onRetryPlayback: () => void store.retryPlaybackRecovery(),
       onEditSequence: (sequenceId) => void store.editMixtape(sequenceId),
+      onEditSegment: (sequenceId, segmentId) => void store.editPlaybackSegment(sequenceId, segmentId),
       onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
       onBeginQueueEdit: (sequenceId) => store.beginQueueEdit(sequenceId),
       onCancelQueueEdit: () => store.cancelQueueEdit(),
       onSaveQueueEdit: () => void store.saveQueueEdit(),
       onMoveQueueSegment: (fromIndex, toIndex) => store.moveQueueEditSegment(fromIndex, toIndex),
       onRemoveQueueSegment: (segmentId) => store.removeQueueEditSegment(segmentId),
+      onRemovePlaybackQueueSegment: (segmentId) => void store.removePlaybackQueueSegment(segmentId),
     });
   }
 

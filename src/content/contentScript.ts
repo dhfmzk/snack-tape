@@ -371,8 +371,11 @@ async function handleMessage(message: SnackTapeMessage): Promise<SnackTapeRespon
 
   if (message.type === 'play') {
     const video = await waitForVideoElement();
-    await tryPlay(video);
-    return { ok: true };
+    const status = await tryPlay(video, activeToken ?? undefined, {
+      language: message.language,
+      accentKey: message.accentKey
+    });
+    return { ok: true, data: { status, currentTime: roundTime(video.currentTime) } };
   }
 
   if (message.type === 'pause') {

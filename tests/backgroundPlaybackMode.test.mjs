@@ -183,6 +183,33 @@ test('background startSequence preserves repeat mode for the current clip', asyn
   assert.equal(data[PLAYBACK_STATE_KEY].orderPosition, 0);
 });
 
+test('background startSequence uses an explicit session queue order when provided', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-explicit-queue',
+    segments: [
+      makeSegment({ id: 'clip-a', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-b', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-c', videoId: 'video-1' })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js?explicit-session-queue');
+
+  await startSequence(sequence.id, 2, 'sequence', 9, ['clip-c', 'clip-a'], true);
+
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-c');
+  assert.deepEqual(data[PLAYBACK_STATE_KEY].order, [2, 0]);
+  assert.deepEqual(data[PLAYBACK_STATE_KEY].orderSegmentIds, ['clip-c', 'clip-a']);
+  assert.equal(data[PLAYBACK_STATE_KEY].queueEdited, true);
+  assert.equal(data[PLAYBACK_STATE_KEY].orderPosition, 0);
+});
+
 test('background repeats the current clip when a repeat-mode segment ends', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
@@ -366,6 +393,236 @@ test('background promotes waiting playback when content reports user-started pla
   assert.deepEqual(response, { ok: true });
   assert.equal(data[PLAYBACK_STATE_KEY].status, 'playing');
   assert.ok(data[PLAYBACK_STATE_KEY].startedAt <= Date.now());
+});
+
+test('background seekPlayback clamps to the active segment and forwards seek to YouTube', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-seek-command',
+    segments: [makeSegment({ id: 'clip-seek-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-seek-command',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-seek-command',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-seek-command'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 12, duration: 120 } };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { seekPlayback } = await import('../.tmp-tests/src/background/background.js?seek-playback');
+
+  await seekPlayback(25);
+
+  assert.deepEqual(data.messages.at(-1), { type: 'seek', sec: 20 });
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'playing');
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
+test('background seekPlayback rejects controls when the stored tab moved to another video', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-seek-mismatch',
+    segments: [makeSegment({ id: 'clip-seek-mismatch', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings({ language: 'en' }),
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-seek-mismatch',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-seek-mismatch',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-seek-mismatch'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'other-video', title: 'Other', url: 'https://www.youtube.com/watch?v=other-video', currentTime: 12, duration: 120 } };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { seekPlayback } = await import('../.tmp-tests/src/background/background.js?seek-playback-mismatch');
+
+  await assert.rejects(() => seekPlayback(15), /Cannot connect to the YouTube tab/);
+
+  assert.deepEqual(data.messages.map((message) => message.type), ['GET_PAGE_INFO']);
+  assert.equal(data[PLAYBACK_STATE_KEY].currentTime, undefined);
+});
+
+test('background pausePlayback pauses YouTube and stores the paused segment position', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-pause-command',
+    segments: [makeSegment({ id: 'clip-pause-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-pause-command',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-pause-command',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-pause-command'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 14, duration: 120 } };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { pausePlayback } = await import('../.tmp-tests/src/background/background.js?pause-playback');
+
+  await pausePlayback();
+
+  assert.deepEqual(data.messages.map((message) => message.type), ['GET_PAGE_INFO', 'pause']);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'paused');
+  assert.ok(data[PLAYBACK_STATE_KEY].startedAt <= Date.now());
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
+test('background resumePlayback resumes YouTube from the stored paused position', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-resume-command',
+    segments: [makeSegment({ id: 'clip-resume-command', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-resume-command',
+        tabId: 9,
+        status: 'paused',
+        startedAt: Date.now() - 4000,
+        playbackToken: 'token-resume-command',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-resume-command'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 14, duration: 120 } };
+        }
+        if (message.type === 'play') {
+          return { ok: true, data: { status: 'playing', currentTime: 14 } };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { resumePlayback } = await import('../.tmp-tests/src/background/background.js?resume-playback');
+
+  await resumePlayback();
+
+  assert.deepEqual(data.messages.map((message) => message.type), ['GET_PAGE_INFO', 'play']);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'playing');
+  assert.ok(data.runtimeMessages.some((message) => message.type === 'PLAYBACK_STATE_CHANGED'));
+});
+
+test('background resumePlayback keeps waiting status when content cannot resume immediately', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-resume-waiting',
+    segments: [makeSegment({ id: 'clip-resume-waiting', videoId: 'video-1', startSeconds: 10, endSeconds: 20 })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings({ language: 'en', accentKey: 'sky' }),
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-resume-waiting',
+        tabId: 9,
+        status: 'paused',
+        startedAt: Date.now() - 4000,
+        playbackToken: 'token-resume-waiting',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-resume-waiting'],
+        orderPosition: 0
+      }
+    },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 14, duration: 120 } };
+        }
+        if (message.type === 'play') {
+          return { ok: true, data: { status: 'waiting', currentTime: 14 } };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { resumePlayback } = await import('../.tmp-tests/src/background/background.js?resume-playback-waiting');
+
+  await resumePlayback();
+
+  assert.deepEqual(data.messages.at(-1), { type: 'play', language: 'en', accentKey: 'sky' });
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'waiting');
+  assert.equal(data[PLAYBACK_STATE_KEY].currentTime, 14);
 });
 
 test('background stops after the current segment when autoNext is disabled', async () => {
@@ -574,7 +831,13 @@ test('background play-pause command starts the selected mixtape when the side pa
       [SETTINGS_KEY]: settings()
     },
     {
-      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.'
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.',
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 12, duration: 120 } };
+        }
+        return { ok: true };
+      }
     }
   );
   await import('../.tmp-tests/src/background/background.js?command-play-pause-start');
@@ -588,7 +851,7 @@ test('background play-pause command starts the selected mixtape when the side pa
   assert.equal(data.messages.some((message) => message.type === 'PLAY_SEGMENT'), true);
 });
 
-test('background play-pause command stops playback when the side panel is closed', async () => {
+test('background play-pause command pauses playback when the side panel is closed', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const sequence = makeSequence({
     id: 'sequence-command-stop',
@@ -615,7 +878,13 @@ test('background play-pause command stops playback when the side panel is closed
       }
     },
     {
-      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.'
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.',
+      sendMessageResponse(message) {
+        if (message.type === 'GET_PAGE_INFO') {
+          return { ok: true, data: { isYouTubeVideoPage: true, videoId: 'video-1', title: 'Video 1', url: 'https://www.youtube.com/watch?v=video-1', currentTime: 12, duration: 120 } };
+        }
+        return { ok: true };
+      }
     }
   );
   await import('../.tmp-tests/src/background/background.js?command-play-pause-stop');
@@ -623,8 +892,9 @@ test('background play-pause command stops playback when the side panel is closed
   data.commandListeners[0]('play-pause');
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(data[PLAYBACK_STATE_KEY], undefined);
-  assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), true);
+  assert.equal(data[PLAYBACK_STATE_KEY].status, 'paused');
+  assert.equal(data.messages.some((message) => message.type === 'pause'), true);
+  assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), false);
 });
 
 test('background next-clip command advances playback when the side panel is closed', async () => {
