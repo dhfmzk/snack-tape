@@ -72,7 +72,7 @@ export function sendRuntimeMessage(message: SnackTapeMessage): Promise<SnackTape
     chrome.runtime.sendMessage(message, (response: SnackTapeResponse | undefined) => {
       const error = chrome.runtime.lastError;
       if (error) {
-        resolve({ ok: false, error: '확장 프로그램과 연결할 수 없습니다.' });
+        resolve({ ok: false, error: '확장 프로그램과 연결할 수 없습니다.', errorCode: 'runtime_unavailable' });
         return;
       }
 
