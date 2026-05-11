@@ -778,12 +778,14 @@ test('setSegmentTimecode rejects invalid exact ranges without changing storage',
   store.state = baseState(sequence);
 
   await store.setSegmentTimecode('clip-invalid-range', 'start', '00:21.00');
+  assert.match(store.getState().captureNotice.message, /시작.*끝|끝.*시작/);
+
   await store.setSegmentTimecode('clip-invalid-range', 'end', 'bad');
 
   const savedSegment = storage[STORAGE_KEY].sequences[0].segments[0];
   assert.equal(savedSegment.startSeconds, 10);
   assert.equal(savedSegment.endSeconds, 20);
-  assert.match(store.getState().captureNotice.message, /시간|구간/);
+  assert.match(store.getState().captureNotice.message, /초|1:00:00\.00/);
 });
 
 test('setSegmentTimecode rolls back the visible range when persistence fails', async () => {

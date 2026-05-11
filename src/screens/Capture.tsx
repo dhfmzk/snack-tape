@@ -2,7 +2,7 @@ import { Thumb } from '../components/Thumb.js';
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
-import { formatTimecode } from '../shared/time.js';
+import { formatEditableTimecode, formatTimecode } from '../shared/time.js';
 import type { PageInfo, Segment, Sequence } from '../shared/types.js';
 import type { AppState, SegmentEditEdge } from '../state/store.js';
 
@@ -387,8 +387,8 @@ function SegmentEditControls(
         },
       })
     ),
-    row(i18n.capture.start, 'start', formatTimecode(segment.startSeconds)),
-    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : '')
+    row(i18n.capture.start, 'start', formatEditableTimecode(segment.startSeconds)),
+    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : '')
   );
 }
 

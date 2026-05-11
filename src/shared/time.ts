@@ -104,3 +104,21 @@ export function formatTimecode(seconds: number): string {
 
   return `${paddedMinutes}:${paddedSeconds}.${paddedHundredths}`;
 }
+
+export function formatEditableTimecode(seconds: number): string {
+  const totalHundredths = Math.max(0, Math.round(seconds * 100));
+  const wholeSeconds = Math.floor(totalHundredths / 100);
+  const hundredths = totalHundredths % 100;
+  const hours = Math.floor(wholeSeconds / 3600);
+  const minutes = Math.floor((wholeSeconds % 3600) / 60);
+  const rest = wholeSeconds % 60;
+  const paddedMinutes = String(minutes).padStart(2, '0');
+  const paddedSeconds = String(rest).padStart(2, '0');
+  const paddedHundredths = String(hundredths).padStart(2, '0');
+
+  if (hours > 0) {
+    return `${hours}:${paddedMinutes}:${paddedSeconds}.${paddedHundredths}`;
+  }
+
+  return `${paddedMinutes}:${paddedSeconds}.${paddedHundredths}`;
+}
