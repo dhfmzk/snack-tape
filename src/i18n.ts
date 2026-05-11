@@ -83,6 +83,8 @@ export type I18n = {
     mark: string;
     now: string;
     inFirst: string;
+    clearDraft: string;
+    clearDraftAria: string;
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
@@ -288,6 +290,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      clearDraft: 'IN 지우기',
+      clearDraftAria: '현재 IN 마커 지우기',
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
@@ -491,6 +495,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      clearDraft: 'INを消去',
+      clearDraftAria: '現在のINマーカーを消去',
       adjust: (label) => `${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
@@ -694,6 +700,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      clearDraft: 'Clear IN',
+      clearDraftAria: 'Clear current IN marker',
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',

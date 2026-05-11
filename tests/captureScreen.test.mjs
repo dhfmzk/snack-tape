@@ -591,6 +591,26 @@ test('Capture edit tab wires draft nudge controls to frame and second deltas', a
   assert.deepEqual(calls, [-1, -1 / 30, 1 / 30, 1]);
 });
 
+test('Capture edit tab can clear the current IN marker', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  let cleared = false;
+
+  const page = Capture({
+    state: usableState(),
+    onIn: () => {},
+    onOut: () => {},
+    onClearDraft: () => {
+      cleared = true;
+    }
+  });
+
+  findByAriaLabel(page, '현재 IN 마커 지우기').click();
+
+  assert.equal(cleared, true);
+  assert.match(textOf(page), /IN 지우기/);
+});
+
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

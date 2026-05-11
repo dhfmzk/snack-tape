@@ -629,6 +629,48 @@ test('nudgeDraft adjusts the current IN marker and persists the draft', async ()
   assert.equal(storage[SEGMENT_DRAFT_KEY].startSeconds, 10 + 1 / 30);
 });
 
+test('clearCaptureDraft clears the visible draft and persisted session draft', async () => {
+  const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-clear-draft', segments: [] });
+  const storage = installChromeForCapture({
+    storage: {
+      [SEGMENT_DRAFT_KEY]: {
+        videoId: 'video_12345',
+        startSeconds: 10,
+        endSeconds: null,
+        updatedAt: 1
+      }
+    },
+    videoState: {
+      videoId: 'video_12345',
+      title: '테스트 영상',
+      channel: '채널',
+      currentTime: 42,
+      duration: 300,
+      paused: false
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    pageInfo: {
+      isYouTubeVideoPage: true,
+      videoId: 'video_12345',
+      title: '테스트 영상',
+      url: 'https://www.youtube.com/watch?v=video_12345',
+      currentTime: 42,
+      duration: 300
+    },
+    draftIn: 10
+  };
+
+  await store.clearCaptureDraft();
+
+  assert.equal(store.getState().draftIn, null);
+  assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
+});
+
 test('nudgeSegmentTime adjusts a saved segment range in the selected mixtape', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

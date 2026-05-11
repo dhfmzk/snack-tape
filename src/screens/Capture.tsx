@@ -12,6 +12,7 @@ type Props = {
   onIn: () => void;
   onOut: () => void;
   onNudgeDraft?: (deltaSeconds: number) => void;
+  onClearDraft?: () => void;
   onTargetSequence?: (sequenceId: string) => void;
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
@@ -673,6 +674,7 @@ export function Capture(props: Props): HTMLElement {
     onIn,
     onOut,
     onNudgeDraft,
+    onClearDraft,
     onTargetSequence,
     onBeginSegmentEdit,
     onCancelSegmentEdit,
@@ -934,7 +936,7 @@ export function Capture(props: Props): HTMLElement {
     ),
     el(
       'div',
-      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px' } },
+      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' } },
       ...nudgeButtons.map(({ label, delta }) =>
         el('button', {
           text: label,
@@ -955,7 +957,26 @@ export function Capture(props: Props): HTMLElement {
             fontSize: '10.5px',
           },
         })
-      )
+      ),
+      el('button', {
+        text: i18n.capture.clearDraft,
+        disabled: !canNudgeDraft,
+        onClick: () => onClearDraft?.(),
+        ariaLabel: i18n.capture.clearDraftAria,
+        style: {
+          minWidth: '74px',
+          height: '26px',
+          padding: '0 10px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface2)',
+          color: canNudgeDraft ? 'var(--rec)' : 'var(--mute)',
+          borderRadius: '6px',
+          cursor: canNudgeDraft ? 'pointer' : 'not-allowed',
+          opacity: canNudgeDraft ? '1' : '0.45',
+          fontSize: '10.5px',
+          fontWeight: '700',
+        },
+      })
     ),
     el(
       'div',
