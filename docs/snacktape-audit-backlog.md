@@ -7,19 +7,18 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 20 items.
-- Severity split: P1 High 0, P2 Medium 13, P3 Low 7.
+- Open product and release work: 19 items.
+- Severity split: P1 High 0, P2 Medium 12, P3 Low 7.
 
 ## Priority Order
 
-1. Improve P2 repeated-use friction: precise capture editing, playback seeking, pause/resume semantics, queue row actions, localization, and browser-level QA.
+1. Improve P2 repeated-use friction: playback seeking, pause/resume semantics, queue row actions, localization, and browser-level QA.
 2. Defer P3 polish and release packaging until the core flows feel calm in manual use.
 
 ## P2 Medium
 
 | ID | Area | Remaining work | Evidence | Next step |
 | --- | --- | --- | --- | --- |
-| ST-GAP-014 | Segment editing | Saved segment range editing is still nudge-only. Users cannot type exact start/end timecodes. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add exact start/end inputs with parse, validation, Enter/Escape behavior, and persistence rollback tests. |
 | ST-GAP-026 | Capture precision | Draft capture only previews and nudges the IN point. OUT is still captured as "now" without a pre-save preview or adjustment path. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add optional draft OUT preview once IN exists, with frame/second nudges before save. |
 | ST-GAP-027 | Capture | There is no explicit "clear current IN" action. Users can only overwrite the draft or finish it with OUT. | `src/screens/Capture.tsx`, `src/state/store.ts`, `src/shared/draft.ts` | Add a clear-draft action and test that storage/session state clears immediately. |
 | ST-GAP-029 | Playback | The progress bar is display-only. Users cannot scrub within the saved segment range even though content supports a `seek` message. | `src/screens/Playback.tsx`, `src/content/contentScript.ts` | Wire progress pointer/keyboard seeking to content `seek`, clamped to the active segment. |
@@ -48,5 +47,5 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Removed From Active Backlog
 
 - All previously tracked `ST-BUG-*` items are considered fixed and are no longer listed here.
-- Completed settings, mixtape management, rendering, storage, language, queue-separation, capture status, playback error visibility, playback recovery, and closed-panel command coverage work has been removed from the active table.
+- Completed settings, mixtape management, rendering, storage, language, queue-separation, capture status, exact saved-range editing, playback error visibility, playback recovery, and closed-panel command coverage work has been removed from the active table.
 - Shorts/embed support was removed from the active backlog because the current MVP manifest and parser target YouTube watch pages only.

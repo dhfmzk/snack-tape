@@ -450,6 +450,65 @@ test('Capture edit tab exposes segment range edit controls when a segment is sel
   ]);
 });
 
+test('Capture edit tab commits exact segment timecode inputs and resets them with Escape', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ segmentEdit: { segmentId: 'second-clip' } }),
+    onIn: () => {},
+    onOut: () => {},
+    onSetSegmentTimecode: (segmentId, edge, value) => calls.push([segmentId, edge, value])
+  });
+  const startInput = findByAriaLabel(page, '선택된 클립 시작 시간');
+  const endInput = findByAriaLabel(page, '선택된 클립 끝 시간');
+
+  assert.equal(startInput.value, '00:10.00');
+  assert.equal(endInput.value, '00:20.00');
+
+  startInput.value = '00:12.50';
+  startInput.change();
+  endInput.value = '00:18.25';
+  endInput.keydown('Enter');
+  endInput.value = 'bad';
+  endInput.keydown('Escape');
+
+  assert.equal(endInput.value, '00:20.00');
+  assert.deepEqual(calls, [
+    ['second-clip', 'start', '00:12.50'],
+    ['second-clip', 'end', '00:18.25']
+  ]);
+});
+
+test('Capture exact segment timecode inputs preserve hour-long hundredths', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const hourSegment = makeSegment({
+    id: 'hour-clip',
+    title: '긴 클립',
+    startSeconds: 3723.25,
+    endSeconds: 3784.05
+  });
+
+  const page = Capture({
+    state: {
+      ...usableState({ segmentEdit: { segmentId: 'hour-clip' } }),
+      store: {
+        sequences: [makeSequence({ id: 'hour-sequence', name: '긴 테이프', segments: [hourSegment] })],
+        selectedSequenceId: 'hour-sequence'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const startInput = findByAriaLabel(page, '긴 클립 시작 시간');
+  const endInput = findByAriaLabel(page, '긴 클립 끝 시간');
+
+  assert.equal(startInput.value, '1:02:03.25');
+  assert.equal(endInput.value, '1:03:04.05');
+});
+
 test('Capture edit tab renders zero-second OUT values as saved times, not END', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

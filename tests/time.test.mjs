@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatSeconds, formatTimecode, parseTimeToSeconds } from '../.tmp-tests/src/shared/time.js';
+import { formatEditableTimecode, formatSeconds, formatTimecode, parseTimecodeToSeconds, parseTimeToSeconds } from '../.tmp-tests/src/shared/time.js';
 
 test('parseTimeToSeconds parses seconds, mm:ss, and h:mm:ss', () => {
   assert.equal(parseTimeToSeconds('305'), 305);
@@ -27,6 +27,19 @@ test('parseTimeToSeconds handles boundary mm:ss values', () => {
   assert.equal(parseTimeToSeconds('59:59'), 3599);
   assert.equal(parseTimeToSeconds('0:00'), 0);
   assert.equal(parseTimeToSeconds('  10  '), 10);
+});
+
+test('parseTimecodeToSeconds parses exact edit timecodes with hundredths', () => {
+  assert.equal(parseTimecodeToSeconds('12.5'), 12.5);
+  assert.equal(parseTimecodeToSeconds('00:12.50'), 12.5);
+  assert.equal(parseTimecodeToSeconds('1:02:03.25'), 3723.25);
+  assert.equal(parseTimecodeToSeconds('  01:10.05  '), 70.05);
+});
+
+test('parseTimecodeToSeconds rejects malformed exact edit timecodes', () => {
+  for (const value of ['bad', '-1', '1::2', '00:60', '01:02.999']) {
+    assert.equal(parseTimecodeToSeconds(value), null);
+  }
 });
 
 test('formatSeconds formats seconds as mm:ss or h:mm:ss', () => {
@@ -59,4 +72,11 @@ test('formatTimecode uses h:mm:ss format for durations over one hour', () => {
 
 test('formatTimecode clamps negative input to 00:00.00', () => {
   assert.equal(formatTimecode(-5), '00:00.00');
+});
+
+test('formatEditableTimecode keeps exact hundredths for saved range inputs', () => {
+  assert.equal(formatEditableTimecode(3723.25), '1:02:03.25');
+  assert.equal(formatEditableTimecode(70.05), '01:10.05');
+  assert.equal(formatEditableTimecode(59.999), '01:00.00');
+  assert.equal(formatEditableTimecode(3599.999), '1:00:00.00');
 });

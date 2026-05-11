@@ -2,7 +2,7 @@ import { Thumb } from '../components/Thumb.js';
 import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
-import { formatTimecode } from '../shared/time.js';
+import { formatEditableTimecode, formatTimecode } from '../shared/time.js';
 import type { PageInfo, Segment, Sequence } from '../shared/types.js';
 import type { AppState, SegmentEditEdge } from '../state/store.js';
 
@@ -16,6 +16,7 @@ type Props = {
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void;
+  onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void;
   onDeleteSegment?: (segmentId: string) => void;
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
@@ -288,6 +289,7 @@ function SegmentEditControls(
   i18n: I18n,
   segment: Segment,
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void,
+  onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void,
   onCancelSegmentEdit?: () => void
 ): HTMLElement {
   const controls: Array<{ label: string; delta: number }> = [
@@ -297,7 +299,38 @@ function SegmentEditControls(
     { label: '+1s', delta: 1 },
   ];
 
-  const row = (label: string, edge: SegmentEditEdge) =>
+  const inputStyle: Style = {
+    width: '86px',
+    height: '24px',
+    padding: '0 7px',
+    border: '1px solid var(--hairline2)',
+    background: 'var(--surface3)',
+    color: 'var(--text)',
+    borderRadius: '6px',
+    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    fontSize: '10px',
+  };
+  const timeInput = (label: string, edge: SegmentEditEdge, value: string) =>
+    el('input', {
+      type: 'text',
+      value,
+      ariaLabel: i18n.capture.segmentTimeInput(segment.title, label),
+      dataset: { persistKey: `segment-time:${segment.id}:${edge}` },
+      onChange: (event) => onSetSegmentTimecode?.(segment.id, edge, (event.target as HTMLInputElement).value),
+      onKeyDown: (event) => {
+        const input = event.target as HTMLInputElement;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          onSetSegmentTimecode?.(segment.id, edge, input.value);
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          input.value = value;
+        }
+      },
+      style: inputStyle,
+    });
+  const row = (label: string, edge: SegmentEditEdge, value: string) =>
     el(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
@@ -310,6 +343,7 @@ function SegmentEditControls(
           fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
         },
       }),
+      timeInput(label, edge, value),
       ...controls.map((control) =>
         el('button', {
           text: control.label,
@@ -353,8 +387,8 @@ function SegmentEditControls(
         },
       })
     ),
-    row(i18n.capture.start, 'start'),
-    row(i18n.capture.end, 'end')
+    row(i18n.capture.start, 'start', formatEditableTimecode(segment.startSeconds)),
+    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : '')
   );
 }
 
@@ -643,6 +677,7 @@ export function Capture(props: Props): HTMLElement {
     onBeginSegmentEdit,
     onCancelSegmentEdit,
     onNudgeSegment,
+    onSetSegmentTimecode,
     onDeleteSegment,
     onCopySegmentToMixtape,
     onMoveSegmentToMixtape,
@@ -1037,7 +1072,7 @@ export function Capture(props: Props): HTMLElement {
               },
             })
           ),
-          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onCancelSegmentEdit) : null
+          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onCancelSegmentEdit) : null
         )
           );
         }
