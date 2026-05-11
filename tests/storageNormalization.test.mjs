@@ -112,6 +112,32 @@ test('normalizeSequence filters out invalid segments', async () => {
   assert.equal(sequence.segments[0].id, 'valid-seg');
 });
 
+test('normalizeSequence preserves last played metadata only for existing segments', async () => {
+  const { normalizeSequence } = await import('../.tmp-tests/src/shared/storage.js');
+  const clipA = makeSegment({ id: 'clip-a' });
+  const clipB = makeSegment({ id: 'clip-b' });
+
+  const valid = normalizeSequence({
+    id: 'seq-last-played',
+    name: 'Last Played Tape',
+    segments: [clipA, clipB],
+    lastPlayedSegmentId: 'clip-b',
+    lastPlayedAt: 1700000000500
+  });
+  const stale = normalizeSequence({
+    id: 'seq-stale-last-played',
+    name: 'Stale Last Played Tape',
+    segments: [clipA],
+    lastPlayedSegmentId: 'clip-b',
+    lastPlayedAt: 1700000000500
+  });
+
+  assert.equal(valid.lastPlayedSegmentId, 'clip-b');
+  assert.equal(valid.lastPlayedAt, 1700000000500);
+  assert.equal(stale.lastPlayedSegmentId, undefined);
+  assert.equal(stale.lastPlayedAt, undefined);
+});
+
 test('normalizeImportedStore returns null for non-object inputs', async () => {
   const { normalizeImportedStore } = await import('../.tmp-tests/src/shared/storage.js');
 

@@ -118,6 +118,27 @@ function existingUniqueSegmentIds(sequence: Sequence, segmentIds: string[]): str
   return nextIds;
 }
 
+function storeWithLastPlayed(store: SnackTapeStore, sequenceId: string, segmentId: string, timestamp: number, refreshTimestamp = false): SnackTapeStore {
+  let changed = false;
+  const sequences = store.sequences.map((sequence) => {
+    if (sequence.id !== sequenceId || !sequence.segments.some((segment) => segment.id === segmentId)) {
+      return sequence;
+    }
+    if (sequence.lastPlayedSegmentId === segmentId && !refreshTimestamp) {
+      return sequence;
+    }
+
+    changed = true;
+    return {
+      ...sequence,
+      lastPlayedSegmentId: segmentId,
+      lastPlayedAt: timestamp,
+    };
+  });
+
+  return changed ? { ...store, sequences } : store;
+}
+
 function playbackQueueIds(sequence: Sequence, playbackState: PlaybackState | null): string[] {
   const baseIds = sequenceSegmentIds(sequence);
   if (playbackState?.sequenceId !== sequence.id || !playbackState.orderSegmentIds?.length) {
@@ -1220,8 +1241,20 @@ export class SnackTapeAppStore {
 
   async refreshPlayback(): Promise<void> {
     const playbackState = await loadPlaybackState();
-    const playbackDisplay = this.state.store ? describePlaybackState(this.state.store, playbackState) : null;
-    this.setState({ playbackState, playbackDisplay });
+    let store = this.state.store;
+    if (store && playbackState?.currentSegmentId) {
+      const nextStore = storeWithLastPlayed(store, playbackState.sequenceId, playbackState.currentSegmentId, Date.now());
+      if (nextStore !== store) {
+        store = nextStore;
+        try {
+          await saveStore(nextStore);
+        } catch {
+          // Last-played metadata is opportunistic and should not interrupt playback UI refresh.
+        }
+      }
+    }
+    const playbackDisplay = store ? describePlaybackState(store, playbackState) : null;
+    this.setState({ store, playbackState, playbackDisplay });
   }
 
   async syncPlaybackProgress(): Promise<void> {
@@ -1656,6 +1689,18 @@ export class SnackTapeAppStore {
       return;
     }
     await this.refreshPlayback();
+  }
+
+  async resumeMixtape(sequenceId: string): Promise<void> {
+    const sequence = this.state.store?.sequences.find((item) => item.id === sequenceId);
+    if (!sequence) {
+      return;
+    }
+
+    const startIndex = sequence.lastPlayedSegmentId
+      ? sequence.segments.findIndex((segment) => segment.id === sequence.lastPlayedSegmentId)
+      : -1;
+    await this.startSequence(startIndex >= 0 ? startIndex : 0, sequenceId);
   }
 
   async startQueueFrom(sequenceId: string, segmentId: string, queueSegmentIds: string[]): Promise<void> {

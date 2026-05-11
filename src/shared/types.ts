@@ -17,6 +17,8 @@ export type Sequence = {
   id: string;
   name: string;
   segments: Segment[];
+  lastPlayedSegmentId?: string;
+  lastPlayedAt?: number;
   createdAt: number;
   updatedAt: number;
 };

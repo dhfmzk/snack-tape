@@ -210,6 +210,30 @@ test('background startSequence uses an explicit session queue order when provide
   assert.equal(data[PLAYBACK_STATE_KEY].orderPosition, 0);
 });
 
+test('background startSequence records last played segment metadata on the mixtape', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-last-played',
+    segments: [
+      makeSegment({ id: 'clip-1', videoId: 'video-1' }),
+      makeSegment({ id: 'clip-2', videoId: 'video-1' })
+    ]
+  });
+  const data = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js?record-last-played');
+
+  await startSequence(sequence.id, 1, 'sequence', 9);
+
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-2');
+  assert.equal(data[STORAGE_KEY].sequences[0].lastPlayedSegmentId, 'clip-2');
+  assert.equal(typeof data[STORAGE_KEY].sequences[0].lastPlayedAt, 'number');
+});
+
 test('background repeats the current clip when a repeat-mode segment ends', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');

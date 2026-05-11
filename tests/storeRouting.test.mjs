@@ -1095,6 +1095,67 @@ test('startSequence uses shuffle mode when shuffleByDefault is enabled and no mo
   assert.equal(runtimeMessage.mode, 'shuffle');
 });
 
+test('resumeMixtape starts from the remembered last played segment', async () => {
+  const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-resume',
+    name: '이어보기 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1' }),
+      makeSegment({ id: 'clip-2' }),
+      makeSegment({ id: 'clip-3' })
+    ],
+    lastPlayedSegmentId: 'clip-2',
+    lastPlayedAt: 1700000000500
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  let runtimeMessage = null;
+  globalThis.chrome.runtime.sendMessage = (message, callback) => {
+    runtimeMessage = message;
+    storage[PLAYBACK_STATE_KEY] = {
+      sequenceId: sequence.id,
+      segmentIndex: message.startIndex,
+      currentSegmentId: 'clip-2',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: message.mode
+    };
+    callback({ ok: true });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.resumeMixtape(sequence.id);
+
+  assert.equal(runtimeMessage.startIndex, 1);
+  assert.equal(store.getState().playbackState.currentSegmentId, 'clip-2');
+});
+
 test('saveQueueEdit preserves active shuffle playback mode', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

@@ -280,6 +280,35 @@ test('Home exposes direct mixtape card actions', async () => {
   ]);
 });
 
+test('Home exposes a resume action for tapes with last played metadata', async () => {
+  installDomShim();
+  const { Home } = await import('../.tmp-tests/src/screens/Home.js');
+  const calls = [];
+  const sequence = makeSequence({
+    id: 'sequence-resume',
+    name: 'ASMR 조각 모음',
+    segments: [
+      makeSegment({ id: 'clip-1' }),
+      makeSegment({ id: 'clip-2', title: '이어볼 구간' })
+    ],
+    lastPlayedSegmentId: 'clip-2',
+    lastPlayedAt: 1700000000500
+  });
+
+  const page = Home({
+    state: homeState([sequence]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: (sequenceId) => calls.push(['play', sequenceId]),
+    onResumeSequence: (sequenceId) => calls.push(['resume', sequenceId])
+  });
+
+  findAllByAriaLabel(page, 'ASMR 조각 모음 이어보기')[0].click();
+
+  assert.match(textOf(page), /이어보기/);
+  assert.deepEqual(calls, [['resume', 'sequence-resume']]);
+});
+
 test('Home search and sort controls are wired to state callbacks', async () => {
   installDomShim();
   const { Home } = await import('../.tmp-tests/src/screens/Home.js');

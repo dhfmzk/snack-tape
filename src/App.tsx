@@ -133,6 +133,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
     onCreate: () => void store.createMixtape(),
     onOpenSequence: (sequenceId) => void store.openMixtape(sequenceId),
     onPlaySequence: (sequenceId) => void store.startSequence(0, sequenceId),
+    onResumeSequence: (sequenceId) => void store.resumeMixtape(sequenceId),
     onEditSequence: (sequenceId) => void store.editMixtape(sequenceId),
     onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
     onDuplicateSequence: (sequenceId) => void store.duplicateMixtape(sequenceId),

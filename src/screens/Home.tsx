@@ -12,6 +12,7 @@ type Props = {
   onCreate: () => void;
   onOpenSequence: (sequenceId: string) => void;
   onPlaySequence: (sequenceId: string) => void;
+  onResumeSequence?: (sequenceId: string) => void;
   onEditSequence?: (sequenceId: string) => void;
   onRenameSequence?: (sequenceId: string) => void;
   onDuplicateSequence?: (sequenceId: string) => void;
@@ -293,6 +294,7 @@ function MixtapeCard(
   index: number,
   onOpenSequence: (sequenceId: string) => void,
   onPlaySequence: (sequenceId: string) => void,
+  onResumeSequence?: (sequenceId: string) => void,
   onEditSequence?: (sequenceId: string) => void,
   onRenameSequence?: (sequenceId: string) => void,
   onDuplicateSequence?: (sequenceId: string) => void,
@@ -301,6 +303,10 @@ function MixtapeCard(
 ): HTMLElement {
   const clipCount = sequence.segments.length;
   const duration = totalDuration(sequence);
+  const canResume = Boolean(
+    sequence.lastPlayedSegmentId
+    && sequence.segments.some((segment) => segment.id === sequence.lastPlayedSegmentId)
+  );
 
   return el(
     'div',
@@ -387,30 +393,66 @@ function MixtapeCard(
           el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() })
         ),
         el(
-          'button',
+          'div',
           {
-            disabled: clipCount === 0,
-            ariaLabel: i18n.home.playAria(sequence.name),
-            onClick: (event) => {
-              event.stopPropagation();
-              onPlaySequence(sequence.id);
-            },
             style: {
-              width: '40px',
-              height: '40px',
-              background: 'var(--surface3)',
-              color: 'var(--accent)',
-              borderRadius: '20px',
-              border: 'none',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              cursor: clipCount === 0 ? 'not-allowed' : 'pointer',
-              opacity: clipCount === 0 ? '0.35' : '1',
+              gap: '10px',
               flexShrink: '0',
             },
           },
-          Glyph('play', 13)
+          canResume && onResumeSequence
+            ? el(
+                'button',
+                {
+                  ariaLabel: i18n.home.resumeAria(sequence.name),
+                  onClick: (event) => {
+                    event.stopPropagation();
+                    onResumeSequence(sequence.id);
+                  },
+                  style: {
+                    height: '32px',
+                    padding: '0 12px',
+                    background: 'var(--surface2)',
+                    color: 'var(--accent)',
+                    borderRadius: '16px',
+                    border: '1px solid var(--hairline2)',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  },
+                },
+                i18n.home.resume
+              )
+            : null,
+          el(
+            'button',
+            {
+              disabled: clipCount === 0,
+              ariaLabel: i18n.home.playAria(sequence.name),
+              onClick: (event) => {
+                event.stopPropagation();
+                onPlaySequence(sequence.id);
+              },
+              style: {
+                width: '40px',
+                height: '40px',
+                background: 'var(--surface3)',
+                color: 'var(--accent)',
+                borderRadius: '20px',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: clipCount === 0 ? 'not-allowed' : 'pointer',
+                opacity: clipCount === 0 ? '0.35' : '1',
+                flexShrink: '0',
+              },
+            },
+            Glyph('play', 13)
+          )
         )
       )
     )
@@ -502,6 +544,7 @@ export function Home({
   onCreate,
   onOpenSequence,
   onPlaySequence,
+  onResumeSequence,
   onEditSequence,
   onRenameSequence,
   onDuplicateSequence,
@@ -546,6 +589,7 @@ export function Home({
           index,
           onOpenSequence,
           onPlaySequence,
+          onResumeSequence,
           onEditSequence,
           onRenameSequence,
           onDuplicateSequence,

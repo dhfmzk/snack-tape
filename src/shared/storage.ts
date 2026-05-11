@@ -47,6 +47,10 @@ function timestamp(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function optionalTimestamp(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 function preciseSeconds(value: number): number {
   return value;
 }
@@ -116,14 +120,28 @@ export function normalizeSequence(input: unknown, index = 0): Sequence | null {
   const segments = Array.isArray(input.segments)
     ? input.segments.map((segment, segmentIndex) => normalizeSegment(segment, segmentIndex)).filter((segment): segment is Segment => segment !== null)
     : [];
+  const lastPlayedSegmentId = typeof input.lastPlayedSegmentId === 'string'
+    && segments.some((segment) => segment.id === input.lastPlayedSegmentId)
+    ? input.lastPlayedSegmentId
+    : undefined;
 
-  return {
+  const sequence: Sequence = {
     id: text(input.id, createId('sequence')),
     name: text(input.name, index === 0 ? DEFAULT_SEQUENCE_NAME : generatedSequenceName(index)),
     segments,
     createdAt: timestamp(input.createdAt, timestampValue + index),
     updatedAt: timestamp(input.updatedAt, timestampValue + index)
   };
+
+  if (lastPlayedSegmentId) {
+    const lastPlayedAt = optionalTimestamp(input.lastPlayedAt);
+    sequence.lastPlayedSegmentId = lastPlayedSegmentId;
+    if (lastPlayedAt !== undefined) {
+      sequence.lastPlayedAt = lastPlayedAt;
+    }
+  }
+
+  return sequence;
 }
 
 export function normalizeStore(input: unknown): SnackTapeStore {

@@ -12,7 +12,7 @@ import {
   saveStore
 } from '../shared/storage.js';
 import { createI18n } from '../i18n.js';
-import type { PageInfo, PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
+import type { PageInfo, PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
 import { loadSettings } from '../state/storage.js';
@@ -109,6 +109,24 @@ function selectCaptureSequence(sequences: Sequence[], selectedSequenceId: string
   }
 
   return sequences.find((sequence) => sequence.id === selectedSequenceId) ?? sequences[0] ?? null;
+}
+
+function storeWithLastPlayed(store: SnackTapeStore, sequenceId: string, segmentId: string, timestamp: number): SnackTapeStore {
+  let changed = false;
+  const sequences = store.sequences.map((sequence) => {
+    if (sequence.id !== sequenceId || !sequence.segments.some((segment) => segment.id === segmentId)) {
+      return sequence;
+    }
+
+    changed = true;
+    return {
+      ...sequence,
+      lastPlayedSegmentId: segmentId,
+      lastPlayedAt: timestamp
+    };
+  });
+
+  return changed ? { ...store, sequences } : store;
 }
 
 function orderSegmentIds(sequence: Sequence, order: number[]): string[] {
@@ -521,6 +539,11 @@ export async function playSegment(
       currentTime: startedTime,
       startedAt: Date.now() - Math.round(elapsedFromSegmentStart * 1000)
     });
+    try {
+      await saveStore(storeWithLastPlayed(store, sequenceId, segment.id, Date.now()));
+    } catch {
+      // Last-played metadata should not make a successful playback handoff fail.
+    }
   } catch (error) {
     const currentState = await loadPlaybackState();
     if (currentState?.playbackToken === playbackToken) {
