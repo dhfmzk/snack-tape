@@ -83,7 +83,10 @@ export type I18n = {
     mark: string;
     now: string;
     inFirst: string;
+    previewOut: string;
+    previewOutAria: string;
     adjust: (label: string) => string;
+    adjustOut: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
@@ -288,7 +291,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      previewOut: 'OUT 미리보기',
+      previewOutAria: '현재 시간을 OUT 미리보기로 설정',
       adjust: (label) => `${label} 조정`,
+      adjustOut: (label) => `OUT ${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
@@ -491,7 +497,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      previewOut: 'OUTプレビュー',
+      previewOutAria: '現在時刻をOUTプレビューに設定',
       adjust: (label) => `${label}を調整`,
+      adjustOut: (label) => `OUT ${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
@@ -694,7 +703,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      previewOut: 'Preview OUT',
+      previewOutAria: 'Set current time as OUT preview',
       adjust: (label) => `Adjust ${label}`,
+      adjustOut: (label) => `Adjust OUT ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',

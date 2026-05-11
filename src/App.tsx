@@ -62,6 +62,8 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onIn: () => void store.captureIn(),
       onOut: () => void store.captureOutAndSave(),
       onNudgeDraft: (deltaSeconds) => void store.nudgeDraft(deltaSeconds),
+      onPreviewOut: () => void store.previewDraftOut(),
+      onNudgeDraftOut: (deltaSeconds) => void store.nudgeDraftOut(deltaSeconds),
       onTargetSequence: (sequenceId) => void store.selectCaptureTarget(sequenceId),
       onBeginSegmentEdit: (segmentId) => store.beginSegmentEdit(segmentId),
       onCancelSegmentEdit: () => store.cancelSegmentEdit(),

@@ -591,6 +591,34 @@ test('Capture edit tab wires draft nudge controls to frame and second deltas', a
   assert.deepEqual(calls, [-1, -1 / 30, 1 / 30, 1]);
 });
 
+test('Capture edit tab can preview and nudge OUT before saving', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({
+      draftIn: 42,
+      draftOut: 45
+    }),
+    onIn: () => {},
+    onOut: () => {},
+    onPreviewOut: () => calls.push(['preview']),
+    onNudgeDraftOut: (deltaSeconds) => calls.push(['nudgeOut', deltaSeconds])
+  });
+
+  findByAriaLabel(page, '현재 시간을 OUT 미리보기로 설정').click();
+  findByAriaLabel(page, 'OUT +1f 조정').click();
+
+  assert.match(textOf(page), /OUT 미리보기/);
+  assert.match(textOf(page), /00:42\.00/);
+  assert.match(textOf(page), /00:45\.00/);
+  assert.deepEqual(calls, [
+    ['preview'],
+    ['nudgeOut', 1 / 30]
+  ]);
+});
+
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

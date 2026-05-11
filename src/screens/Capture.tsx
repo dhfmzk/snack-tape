@@ -12,6 +12,8 @@ type Props = {
   onIn: () => void;
   onOut: () => void;
   onNudgeDraft?: (deltaSeconds: number) => void;
+  onPreviewOut?: () => void;
+  onNudgeDraftOut?: (deltaSeconds: number) => void;
   onTargetSequence?: (sequenceId: string) => void;
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
@@ -673,6 +675,8 @@ export function Capture(props: Props): HTMLElement {
     onIn,
     onOut,
     onNudgeDraft,
+    onPreviewOut,
+    onNudgeDraftOut,
     onTargetSequence,
     onBeginSegmentEdit,
     onCancelSegmentEdit,
@@ -699,7 +703,9 @@ export function Capture(props: Props): HTMLElement {
   const sequences = state.store?.sequences ?? [];
   const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
   const draftText = state.draftIn === null ? '—:—' : formatTimecode(state.draftIn);
+  const draftOutText = state.draftOut === null || state.draftOut === undefined ? '—:—' : formatTimecode(state.draftOut);
   const canNudgeDraft = state.draftIn !== null;
+  const canNudgeDraftOut = state.draftIn !== null && state.draftOut !== null && state.draftOut !== undefined;
   const hasDraftIn = state.draftIn !== null;
   const canCaptureOut = usable && hasDraftIn;
   const nudgeButtons = [
@@ -935,6 +941,25 @@ export function Capture(props: Props): HTMLElement {
     el(
       'div',
       { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px' } },
+      el('button', {
+        text: i18n.capture.previewOut,
+        disabled: !canCaptureOut,
+        onClick: () => onPreviewOut?.(),
+        ariaLabel: i18n.capture.previewOutAria,
+        style: {
+          minWidth: '88px',
+          height: '26px',
+          padding: '0 10px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface2)',
+          color: canCaptureOut ? 'var(--text2)' : 'var(--mute)',
+          borderRadius: '6px',
+          cursor: canCaptureOut ? 'pointer' : 'not-allowed',
+          opacity: canCaptureOut ? '1' : '0.45',
+          fontSize: '10.5px',
+          fontWeight: '600',
+        },
+      }),
       ...nudgeButtons.map(({ label, delta }) =>
         el('button', {
           text: label,
@@ -1085,9 +1110,10 @@ export function Capture(props: Props): HTMLElement {
                 border: '1.5px dashed var(--hairline2)',
                 borderRadius: '8px',
                 padding: '10px 12px',
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
+                gap: '8px 10px',
                 alignItems: 'center',
-                gap: '10px',
               },
             },
             el('div', {
@@ -1116,15 +1142,47 @@ export function Capture(props: Props): HTMLElement {
                 }),
                 el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
                 el('span', {
-                  text: '—:—',
+                  text: draftOutText,
                   style: {
-                    color: 'var(--mute2)',
+                    color: canNudgeDraftOut ? 'var(--accent)' : 'var(--mute2)',
                     fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                     fontSize: '10px',
                   },
                 })
               )
-            )
+            ),
+            canNudgeDraftOut
+              ? el(
+                  'div',
+                  {
+                    style: {
+                      gridColumn: '2',
+                      display: 'flex',
+                      gap: '5px',
+                      flexWrap: 'wrap',
+                    },
+                  },
+                  ...nudgeButtons.map(({ label, delta }) =>
+                    el('button', {
+                      text: label,
+                      onClick: () => onNudgeDraftOut?.(delta),
+                      ariaLabel: i18n.capture.adjustOut(label),
+                      style: {
+                        minWidth: '42px',
+                        height: '24px',
+                        padding: '0 8px',
+                        border: '1px solid var(--hairline2)',
+                        background: 'var(--surface2)',
+                        color: 'var(--text2)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                        fontSize: '10px',
+                      },
+                    })
+                  )
+                )
+              : null
           )
         : null
     ),
