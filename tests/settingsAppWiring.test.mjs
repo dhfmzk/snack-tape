@@ -277,8 +277,8 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   findButtonByText(page, /^CSV$/).click();
   await settle();
 
-  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{4}-current-tape\.json$/);
-  assert.match(dom.downloaded[1].download, /^snacktape-csv-\d{8}-\d{4}-current-tape\.csv$/);
+  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{6}-\d{3}-current-tape\.json$/);
+  assert.match(dom.downloaded[1].download, /^snacktape-csv-\d{8}-\d{6}-\d{3}-current-tape\.csv$/);
 
   findButtonByText(page, /가져오기/).click();
   assert.equal(dom.createdInputs.length, 1);
@@ -333,7 +333,7 @@ test('App Settings route leaves data intact when delete-all confirmation is canc
   assert.equal(storage[STORAGE_KEY].sequences[0].id, sequence.id);
 });
 
-test('App exports a JSON backup before deleting a mixtape when requested', async () => {
+test('App exports a JSON backup named after the target before deleting a non-selected mixtape', async () => {
   const dom = installDomShim();
   const confirmMessages = [];
   window.confirm = (message) => {
@@ -362,7 +362,11 @@ test('App exports a JSON backup before deleting a mixtape when requested', async
   const store = new SnackTapeAppStore();
   store.state = {
     ...baseState([first, second]),
-    route: 'home'
+    route: 'home',
+    store: {
+      sequences: [first, second],
+      selectedSequenceId: second.id
+    }
   };
 
   findByAriaLabel(App(store.getState(), store), 'Delete Tape 삭제').click();
@@ -370,8 +374,58 @@ test('App exports a JSON backup before deleting a mixtape when requested', async
 
   assert.match(confirmMessages[0], /JSON.*백업/);
   assert.match(confirmMessages[1], /Delete Tape/);
-  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{4}-delete-tape\.json$/);
+  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{6}-\d{3}-delete-tape\.json$/);
   assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [second.id]);
+});
+
+test('App exports a JSON backup named after the source before merging a non-selected mixtape', async () => {
+  const dom = installDomShim();
+  const confirmMessages = [];
+  window.confirm = (message) => {
+    confirmMessages.push(message);
+    return true;
+  };
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const source = makeSequence({
+    id: 'sequence-source',
+    name: 'Source Tape',
+    segments: [makeSegment({ id: 'clip-source' })]
+  });
+  const target = makeSequence({
+    id: 'sequence-target',
+    name: 'Target Tape',
+    segments: [makeSegment({ id: 'clip-target' })]
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [source, target],
+      selectedSequenceId: target.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([source, target]),
+    route: 'home',
+    store: {
+      sequences: [source, target],
+      selectedSequenceId: target.id
+    }
+  };
+  const page = App(store.getState(), store);
+
+  const targetSelect = findByAriaLabel(page, 'Source Tape 병합 대상');
+  targetSelect.value = target.id;
+  targetSelect.change();
+  findByAriaLabel(page, 'Source Tape 병합').click();
+  await settle();
+
+  assert.match(confirmMessages[0], /JSON.*백업/);
+  assert.match(confirmMessages[1], /Source Tape/);
+  assert.match(confirmMessages[1], /Target Tape/);
+  assert.match(dom.downloaded[0].download, /^snacktape-json-\d{8}-\d{6}-\d{3}-source-tape\.json$/);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [target.id]);
 });
 
 test('App asks before deleting a single saved segment', async () => {

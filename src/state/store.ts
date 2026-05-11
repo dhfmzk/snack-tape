@@ -1,6 +1,6 @@
 import { describePlaybackState, playbackStateAfterSequenceEdit, type PlaybackDisplayState } from '../shared/playback.js';
 import { moveItem, removeSegmentFromSequence } from '../shared/reorder.js';
-import { createExportFilename, parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFormat } from '../shared/dataTransfer.js';
+import { createExportFilename, parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFilenameContext, type ExportFormat } from '../shared/dataTransfer.js';
 import {
   clearPlaybackState,
   clearSegmentDraft,
@@ -89,6 +89,7 @@ export type AppState = {
 
 export type AppListener = (state: AppState) => void;
 type PersistenceNoticeTarget = 'capture' | 'settings';
+export type ExportDataOptions = ExportFilenameContext;
 
 function selectedSequenceFrom(store: SnackTapeStore | null): Sequence | null {
   if (!store) {
@@ -1306,7 +1307,7 @@ export class SnackTapeAppStore {
     await this.updateSettings({ defaultMixtapeId: sequenceId });
   }
 
-  async exportData(format: ExportFormat): Promise<void> {
+  async exportData(format: ExportFormat, options: ExportDataOptions = {}): Promise<void> {
     if (!this.state.store) {
       return;
     }
@@ -1314,7 +1315,7 @@ export class SnackTapeAppStore {
     const extension = format === 'json' ? 'json' : 'csv';
     const mimeType = format === 'json' ? 'application/json' : 'text/csv';
     const text = format === 'json' ? serializeStoreJson(this.state.store) : serializeStoreCsv(this.state.store);
-    this.downloadTextFile(createExportFilename(this.state.store, extension), mimeType, text);
+    this.downloadTextFile(createExportFilename(this.state.store, extension, new Date(), options), mimeType, text);
     this.setSettingsInfo(createI18n(this.state.settings.language).settings.exportReady(format));
   }
 

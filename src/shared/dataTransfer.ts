@@ -15,8 +15,8 @@ function csvCell(value: unknown): string {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
+function pad(value: number, width = 2): string {
+  return String(value).padStart(width, '0');
 }
 
 function localDateStamp(date: Date): string {
@@ -24,7 +24,7 @@ function localDateStamp(date: Date): string {
     date.getFullYear(),
     pad(date.getMonth() + 1),
     pad(date.getDate()),
-  ].join('') + `-${pad(date.getHours())}${pad(date.getMinutes())}`;
+  ].join('') + `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}`;
 }
 
 function slugifyFilePart(value: string): string {
@@ -58,9 +58,26 @@ export function createExportPayload(store: SnackTapeStore, exportedAt = new Date
   };
 }
 
-export function createExportFilename(store: SnackTapeStore, format: ExportFormat, exportedAt = new Date()): string {
-  const selectedSequence = store.sequences.find((sequence) => sequence.id === store.selectedSequenceId) ?? store.sequences[0] ?? null;
-  const tapeSlug = slugifyFilePart(selectedSequence?.name ?? 'library');
+export type ExportFilenameContext = {
+  targetSequenceId?: string | null;
+  library?: boolean;
+};
+
+function exportFilenameSequence(store: SnackTapeStore, context: ExportFilenameContext): SnackTapeStore['sequences'][number] | null {
+  if (context.library) {
+    return null;
+  }
+
+  if (context.targetSequenceId !== undefined) {
+    return store.sequences.find((sequence) => sequence.id === context.targetSequenceId) ?? null;
+  }
+
+  return store.sequences.find((sequence) => sequence.id === store.selectedSequenceId) ?? store.sequences[0] ?? null;
+}
+
+export function createExportFilename(store: SnackTapeStore, format: ExportFormat, exportedAt = new Date(), context: ExportFilenameContext = {}): string {
+  const sequence = exportFilenameSequence(store, context);
+  const tapeSlug = slugifyFilePart(sequence?.name ?? 'library');
   return `snacktape-${format}-${localDateStamp(exportedAt)}-${tapeSlug}.${format}`;
 }
 
