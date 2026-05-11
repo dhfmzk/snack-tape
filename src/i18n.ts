@@ -138,6 +138,8 @@ export type I18n = {
     repeatSegment: (title: string) => string;
     cancelQueueEdit: string;
     saveQueueEdit: string;
+    saveQueueAsTape: string;
+    queueCopyName: (name: string) => string;
     cancel: string;
     done: string;
     reconnect: string;
@@ -343,6 +345,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       repeatSegment: (title) => `${title}만 반복 재생`,
       cancelQueueEdit: '큐 편집 취소',
       saveQueueEdit: '큐 편집 완료',
+      saveQueueAsTape: '새 테이프로 저장',
+      queueCopyName: (name) => `${name} 큐`,
       cancel: '취소',
       done: '완료',
       reconnect: '다시 연결',
@@ -546,6 +550,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       repeatSegment: (title) => `${title}だけをリピート再生`,
       cancelQueueEdit: 'キュー編集をキャンセル',
       saveQueueEdit: 'キュー編集を完了',
+      saveQueueAsTape: '新規テープとして保存',
+      queueCopyName: (name) => `${name}キュー`,
       cancel: 'キャンセル',
       done: '完了',
       reconnect: '再接続',
@@ -749,6 +755,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       repeatSegment: (title) => `Repeat ${title} only`,
       cancelQueueEdit: 'Cancel queue edit',
       saveQueueEdit: 'Save queue edit',
+      saveQueueAsTape: 'Save as tape',
+      queueCopyName: (name) => `${name} Queue`,
       cancel: 'Cancel',
       done: 'Done',
       reconnect: 'Reconnect',

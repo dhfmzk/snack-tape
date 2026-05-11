@@ -23,6 +23,7 @@ type Props = {
   onBeginQueueEdit: (sequenceId: string) => void;
   onRenameSequence?: (sequenceId: string) => void;
   onCancelQueueEdit: () => void;
+  onSaveQueueAsMixtape?: () => void;
   onSaveQueueEdit: () => void;
   onMoveQueueSegment: (fromIndex: number, toIndex: number) => void;
   onRemoveQueueSegment: (segmentId: string) => void;
@@ -334,6 +335,7 @@ export function Playback(props: Props): HTMLElement {
     onBeginQueueEdit,
     onRenameSequence,
     onCancelQueueEdit,
+    onSaveQueueAsMixtape,
     onSaveQueueEdit,
     onMoveQueueSegment,
     onRemoveQueueSegment,
@@ -947,10 +949,16 @@ export function Playback(props: Props): HTMLElement {
               justifyContent: 'flex-end',
               gap: '8px',
             },
-          },
-          el('button', { text: i18n.playback.cancel, ariaLabel: i18n.playback.cancelQueueEdit, onClick: onCancelQueueEdit, style: editTextButtonStyle() }),
-          el('button', { text: i18n.playback.done, ariaLabel: i18n.playback.saveQueueEdit, onClick: onSaveQueueEdit, style: editTextButtonStyle(true) })
-        )
+	          },
+	          el('button', { text: i18n.playback.cancel, ariaLabel: i18n.playback.cancelQueueEdit, onClick: onCancelQueueEdit, style: editTextButtonStyle() }),
+	          el('button', {
+	            text: i18n.playback.saveQueueAsTape,
+	            ariaLabel: i18n.playback.saveQueueAsTape,
+	            onClick: () => onSaveQueueAsMixtape?.(),
+	            style: editTextButtonStyle(),
+	          }),
+	          el('button', { text: i18n.playback.done, ariaLabel: i18n.playback.saveQueueEdit, onClick: onSaveQueueEdit, style: editTextButtonStyle(true) })
+	        )
       : null
   );
 }

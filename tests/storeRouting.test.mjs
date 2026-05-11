@@ -1224,6 +1224,72 @@ test('saveQueueEdit updates only the active playback queue without reordering th
   assert.equal(store.getState().queueEdit, null);
 });
 
+test('saveQueueAsMixtape creates a new mixtape from the active edited queue', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-session-save-as',
+    name: '세션 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '첫 클립' }),
+      makeSegment({ id: 'clip-b', title: '둘째 클립' }),
+      makeSegment({ id: 'clip-c', title: '셋째 클립' })
+    ]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 1,
+      currentSegmentId: 'clip-b',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence',
+      orderSegmentIds: ['clip-a', 'clip-b', 'clip-c'],
+      orderPosition: 1
+    },
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: {
+      sequenceId: sequence.id,
+      segmentIds: ['clip-c', 'clip-b', 'clip-a'],
+      baseSegmentIds: ['clip-a', 'clip-b', 'clip-c']
+    },
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.saveQueueAsMixtape();
+
+  const state = store.getState();
+  const [source, saved] = state.store.sequences;
+  assert.deepEqual(source.segments.map((segment) => segment.id), ['clip-a', 'clip-b', 'clip-c']);
+  assert.equal(saved.name, '세션 큐 믹스테이프 큐');
+  assert.deepEqual(saved.segments.map((segment) => segment.title), ['셋째 클립', '둘째 클립', '첫 클립']);
+  assert.notEqual(saved.segments[0].id, 'clip-c');
+  assert.equal(state.store.selectedSequenceId, saved.id);
+  assert.equal(state.queueEdit, null);
+  assert.equal(storage[STORAGE_KEY].sequences.length, 2);
+  assert.deepEqual(storage[STORAGE_KEY].sequences[1].segments.map((segment) => segment.title), ['셋째 클립', '둘째 클립', '첫 클립']);
+});
+
 test('beginQueueEdit starts from the active playback queue instead of the saved mixtape order', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

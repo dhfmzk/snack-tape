@@ -1898,6 +1898,7 @@ test('Playback queue edit mode exposes reorder, remove, cancel, and save callbac
     onNext: () => {},
     onEditSequence: () => {},
     onCancelQueueEdit: () => calls.push(['cancel']),
+    onSaveQueueAsMixtape: () => calls.push(['saveAs']),
     onSaveQueueEdit: () => calls.push(['save']),
     onMoveQueueSegment: (fromIndex, toIndex) => calls.push(['move', fromIndex, toIndex]),
     onRemoveQueueSegment: (segmentId) => calls.push(['remove', segmentId])
@@ -1916,6 +1917,7 @@ test('Playback queue edit mode exposes reorder, remove, cancel, and save callbac
 
   findByAriaLabel(editPage, '첫 클립 위로 이동').click();
   findByAriaLabel(editPage, '다음 클립 큐에서 제거').click();
+  findByAriaLabel(editPage, '새 테이프로 저장').click();
   findByAriaLabel(editPage, '큐 편집 취소').click();
   findByAriaLabel(editPage, '큐 편집 완료').click();
 
@@ -1923,6 +1925,7 @@ test('Playback queue edit mode exposes reorder, remove, cancel, and save callbac
   assert.deepEqual(calls, [
     ['move', 1, 0],
     ['remove', 'clip-3'],
+    ['saveAs'],
     ['cancel'],
     ['save']
   ]);

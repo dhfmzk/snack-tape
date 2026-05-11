@@ -7,8 +7,8 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
-- Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
+- Open product and release work: 53 items.
+- Severity split: P1 High 10, P2 Medium 26, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
@@ -57,7 +57,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-067 | Merge preview | Mixtape merge is available, but users do not get a preview of clip counts, duplicate-looking ranges, or resulting name/order before confirming. | `src/screens/Home.tsx`, `src/state/store.ts` | Add a merge preview confirmation with source/target summary. |
 | ST-GAP-068 | Playback mode per tape | Shuffle default is global only. Some tapes naturally want sequence, shuffle, or repeat behavior. | `src/shared/types.ts`, `src/state/store.ts`, `src/screens/Home.tsx`, `src/screens/Playback.tsx` | Add optional per-mixtape playback preference with global fallback. |
 | ST-GAP-069 | Last played position | A tape does not remember which clip was last played once playback stops. | `src/shared/types.ts`, `src/shared/storage.ts`, `src/screens/Home.tsx` | Store lightweight last-played metadata and expose a resume action. |
-| ST-GAP-070 | Queue save-as | Edited session queues are temporary unless the user manually applies queue edit back to the current tape. | `src/screens/Playback.tsx`, `src/state/store.ts` | Add "save queue as new tape" so experimental playback order can become a tape without overwriting the original. |
 | ST-GAP-071 | Edit totals | Edit does not summarize selected tape duration, clip count after filters, or average clip duration. | `src/screens/Capture.tsx`, `src/shared/time.ts` | Add small metadata line near save target once search/filter exists. |
 | ST-GAP-072 | Source actions | Saved clips do not expose copy/open source URL actions directly from Edit. | `src/screens/Capture.tsx`, `src/shared/youtube.ts` | Add copy URL and open source actions to segment menu. |
 | ST-GAP-073 | Empty states | Empty states exist, but copy is generic and not tailored per route, import state, or selected language nuance. | `src/screens/Home.tsx`, `src/screens/Capture.tsx`, `src/screens/Playback.tsx`, `src/i18n.ts` | Add route-specific empty states that point to the next real action. |

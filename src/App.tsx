@@ -97,6 +97,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
       onBeginQueueEdit: (sequenceId) => store.beginQueueEdit(sequenceId),
       onCancelQueueEdit: () => store.cancelQueueEdit(),
+      onSaveQueueAsMixtape: () => void store.saveQueueAsMixtape(),
       onSaveQueueEdit: () => void store.saveQueueEdit(),
       onMoveQueueSegment: (fromIndex, toIndex) => store.moveQueueEditSegment(fromIndex, toIndex),
       onRemoveQueueSegment: (segmentId) => store.removeQueueEditSegment(segmentId),

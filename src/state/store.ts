@@ -1190,6 +1190,57 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async saveQueueAsMixtape(): Promise<void> {
+    const queueEdit = this.state.queueEdit;
+    const currentStore = this.state.store;
+    if (!queueEdit || !currentStore) {
+      return;
+    }
+
+    const source = currentStore.sequences.find((item) => item.id === queueEdit.sequenceId);
+    if (!source) {
+      this.setState({ queueEdit: null });
+      return;
+    }
+
+    const segmentIds = existingUniqueSegmentIds(source, queueEdit.segmentIds);
+    if (segmentIds.length === 0) {
+      this.setState({ queueEdit: null });
+      return;
+    }
+
+    const previousState = this.state;
+    const timestamp = Date.now();
+    const segments = segmentIds
+      .map((segmentId) => source.segments.find((segment) => segment.id === segmentId) ?? null)
+      .filter((segment): segment is Segment => segment !== null)
+      .map((segment) => cloneSegment(segment, timestamp));
+    const i18n = createI18n(this.state.settings.language);
+    const sequence: Sequence = {
+      id: createId('sequence'),
+      name: uniqueName(i18n.playback.queueCopyName(source.name), currentStore.sequences),
+      segments,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      sequences: [...currentStore.sequences, sequence],
+      selectedSequenceId: sequence.id,
+    };
+
+    this.setState({
+      store,
+      queueEdit: null,
+      playbackDisplay: describePlaybackState(store, this.state.playbackState),
+    });
+
+    const persisted = await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async refreshVideo(): Promise<ActiveVideoResult> {
     const result = await getActiveVideoState();
     if (!samePageInfo(this.state.pageInfo, result.info) || !sameVideoState(this.state.videoState, result.videoState)) {
