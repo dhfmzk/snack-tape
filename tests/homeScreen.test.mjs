@@ -322,6 +322,55 @@ test('Home search and sort controls are wired to state callbacks', async () => {
   ]);
 });
 
+test('Home manual sort exposes mixtape order controls only in manual mode', async () => {
+  installDomShim();
+  const { Home } = await import('../.tmp-tests/src/screens/Home.js');
+  const calls = [];
+  const first = makeSequence({ id: 'first', name: '첫 테이프', segments: [makeSegment({ id: 'first-clip' })] });
+  const second = makeSequence({ id: 'second', name: '둘째 테이프', segments: [makeSegment({ id: 'second-clip' })] });
+
+  const manualPage = Home({
+    state: {
+      ...homeState([first, second]),
+      homeSort: 'manual'
+    },
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {},
+    onMoveMixtape: (sequenceId, direction) => calls.push([sequenceId, direction])
+  });
+  const firstUp = findAllByAriaLabel(manualPage, '첫 테이프 위로 이동')[0];
+  const firstDown = findAllByAriaLabel(manualPage, '첫 테이프 아래로 이동')[0];
+  const secondUp = findAllByAriaLabel(manualPage, '둘째 테이프 위로 이동')[0];
+  const secondDown = findAllByAriaLabel(manualPage, '둘째 테이프 아래로 이동')[0];
+
+  assert.equal(firstUp.disabled, true);
+  assert.equal(firstDown.disabled, false);
+  assert.equal(secondUp.disabled, false);
+  assert.equal(secondDown.disabled, true);
+
+  firstDown.click();
+  secondUp.click();
+
+  assert.deepEqual(calls, [
+    ['first', 'down'],
+    ['second', 'up']
+  ]);
+
+  const sortedPage = Home({
+    state: {
+      ...homeState([first, second]),
+      homeSort: 'name'
+    },
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {},
+    onMoveMixtape: () => {}
+  });
+
+  assert.equal(findAllByAriaLabel(sortedPage, '첫 테이프 아래로 이동').length, 0);
+});
+
 test('Home merge control targets another mixtape', async () => {
   installDomShim();
   const { Home } = await import('../.tmp-tests/src/screens/Home.js');

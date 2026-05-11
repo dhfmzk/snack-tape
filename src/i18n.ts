@@ -43,6 +43,8 @@ export type I18n = {
     duplicateAction: string;
     deleteAction: string;
     mergeAction: string;
+    moveUp: (name: string) => string;
+    moveDown: (name: string) => string;
     edit: (name: string) => string;
     rename: (name: string) => string;
     duplicate: (name: string) => string;
@@ -248,6 +250,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '복제',
       deleteAction: '삭제',
       mergeAction: '병합',
+      moveUp: (name) => `${name} 위로 이동`,
+      moveDown: (name) => `${name} 아래로 이동`,
       edit: (name) => `${name} 편집`,
       rename: (name) => `${name} 이름 변경`,
       duplicate: (name) => `${name} 복제`,
@@ -451,6 +455,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '複製',
       deleteAction: '削除',
       mergeAction: '結合',
+      moveUp: (name) => `${name}を上へ移動`,
+      moveDown: (name) => `${name}を下へ移動`,
       edit: (name) => `${name}を編集`,
       rename: (name) => `${name}の名前を変更`,
       duplicate: (name) => `${name}を複製`,
@@ -654,6 +660,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: 'Duplicate',
       deleteAction: 'Delete',
       mergeAction: 'Merge',
+      moveUp: (name) => `Move ${name} up`,
+      moveDown: (name) => `Move ${name} down`,
       edit: (name) => `Edit ${name}`,
       rename: (name) => `Rename ${name}`,
       duplicate: (name) => `Duplicate ${name}`,
