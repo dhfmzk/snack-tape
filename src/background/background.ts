@@ -75,6 +75,7 @@ type PlaybackRequest = {
   order: number[];
   orderSegmentIds: string[];
   orderPosition: number;
+  queueEdited?: boolean;
 };
 
 const FADE_OUT_SECONDS = 0.3;
@@ -384,7 +385,8 @@ export async function playSegment(
     orderSegmentIds: playbackRequest?.orderSegmentIds
       ?? previousState?.orderSegmentIds
       ?? orderSegmentIds(sequence, createPlaybackOrder(sequence.segments.length, segmentIndex)),
-    orderPosition: playbackRequest?.orderPosition ?? previousState?.orderPosition ?? segmentIndex
+    orderPosition: playbackRequest?.orderPosition ?? previousState?.orderPosition ?? segmentIndex,
+    queueEdited: playbackRequest ? playbackRequest.queueEdited : previousState?.queueEdited
   };
 
   const activeVideoId = tab?.url ? parseYouTubeVideoId(tab.url) : null;
@@ -461,7 +463,8 @@ export async function nextSegment(playbackToken?: string): Promise<void> {
     mode: state.mode ?? 'sequence',
     order: state.order ?? createPlaybackOrder(sequence.segments.length, state.segmentIndex),
     orderSegmentIds: state.orderSegmentIds ?? orderSegmentIds(sequence, state.order ?? createPlaybackOrder(sequence.segments.length, state.segmentIndex)),
-    orderPosition: nextStep.orderPosition
+    orderPosition: nextStep.orderPosition,
+    queueEdited: state.queueEdited
   });
   await notifyPlaybackStateChanged();
 }

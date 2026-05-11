@@ -6,7 +6,9 @@ export type I18n = {
   language: Language;
   app: {
     loading: string;
+    backupBeforeDeleteConfirm: (clipCount: number) => string;
     deleteMixtapeConfirm: (name: string, clipCount: number) => string;
+    deleteSegmentConfirm: (title: string) => string;
     mergeMixtapeConfirm: (sourceName: string, targetName: string, clipCount: number) => string;
   };
   common: {
@@ -91,6 +93,10 @@ export type I18n = {
     noticeInvalidSegment: string;
     createSaveTarget: string;
     refreshVideoTime: string;
+    videoStatusReady: string;
+    videoStatusOpenYoutube: string;
+    videoStatusNotYoutube: string;
+    videoStatusTimeUnavailable: string;
   };
   playback: {
     emptyTitle: string;
@@ -122,6 +128,13 @@ export type I18n = {
     saveQueueEdit: string;
     cancel: string;
     done: string;
+    reconnect: string;
+    reconnectAria: string;
+    stopRecoveryAria: string;
+    connectionLost: string;
+    startFailed: (message: string) => string;
+    nextFailed: (message: string) => string;
+    stopFailed: (message: string) => string;
   };
   settings: {
     title: string;
@@ -180,7 +193,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
   ko: {
     app: {
       loading: '불러오는 중...',
+      backupBeforeDeleteConfirm: (clipCount) => `삭제 전에 JSON 백업을 먼저 받을까요? 저장된 클립 ${clipCount}개가 포함됩니다.`,
       deleteMixtapeConfirm: (name, clipCount) => `"${name}" 믹스테이프를 삭제할까요? 저장된 구간 ${clipCount}개도 함께 삭제됩니다.`,
+      deleteSegmentConfirm: (title) => `"${title}" 구간을 삭제할까요?`,
       mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `"${sourceName}"의 구간 ${clipCount}개를 "${targetName}"에 병합할까요? 원본 테이프는 삭제됩니다.`,
     },
     common: {
@@ -265,6 +280,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeInvalidSegment: '구간을 저장할 수 없습니다.',
       createSaveTarget: '새 테이프 만들기',
       refreshVideoTime: '영상 시간 새로고침',
+      videoStatusReady: '캡처 준비됨',
+      videoStatusOpenYoutube: 'YouTube 영상을 열어주세요.',
+      videoStatusNotYoutube: '현재 탭은 YouTube 영상이 아닙니다.',
+      videoStatusTimeUnavailable: '영상 시간을 읽을 수 없습니다.',
     },
     playback: {
       emptyTitle: '재생할 클립이 없습니다',
@@ -296,6 +315,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveQueueEdit: '큐 편집 완료',
       cancel: '취소',
       done: '완료',
+      reconnect: '다시 연결',
+      reconnectAria: '재생 다시 연결',
+      stopRecoveryAria: '재생 정지',
+      connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
+      startFailed: (message) => `재생을 시작할 수 없습니다. ${message}`,
+      nextFailed: (message) => `다음 클립으로 이동할 수 없습니다. ${message}`,
+      stopFailed: (message) => `재생을 정지할 수 없습니다. ${message}`,
     },
     settings: {
       title: '설정',
@@ -352,7 +378,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
   ja: {
     app: {
       loading: '読み込み中...',
+      backupBeforeDeleteConfirm: (clipCount) => `削除前にJSONバックアップを書き出しますか？保存済みクリップ${clipCount}件が含まれます。`,
       deleteMixtapeConfirm: (name, clipCount) => `「${name}」を削除しますか？保存済みクリップ${clipCount}件も削除されます。`,
+      deleteSegmentConfirm: (title) => `「${title}」の範囲を削除しますか？`,
       mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `「${sourceName}」のクリップ${clipCount}件を「${targetName}」に結合しますか？元のテープは削除されます。`,
     },
     common: {
@@ -437,6 +465,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeInvalidSegment: 'この範囲は保存できません。',
       createSaveTarget: '新規テープを作成',
       refreshVideoTime: '動画時間を更新',
+      videoStatusReady: 'キャプチャ準備完了',
+      videoStatusOpenYoutube: 'YouTube動画を開いてください。',
+      videoStatusNotYoutube: '現在のタブはYouTube動画ではありません。',
+      videoStatusTimeUnavailable: '動画の時間を読み取れません。',
     },
     playback: {
       emptyTitle: '再生するクリップがありません',
@@ -468,6 +500,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveQueueEdit: 'キュー編集を完了',
       cancel: 'キャンセル',
       done: '完了',
+      reconnect: '再接続',
+      reconnectAria: '再生を再接続',
+      stopRecoveryAria: '再生を停止',
+      connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
+      startFailed: (message) => `再生を開始できません。 ${message}`,
+      nextFailed: (message) => `次のクリップへ移動できません。 ${message}`,
+      stopFailed: (message) => `再生を停止できません。 ${message}`,
     },
     settings: {
       title: '設定',
@@ -524,7 +563,9 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
   en: {
     app: {
       loading: 'Loading...',
+      backupBeforeDeleteConfirm: (clipCount) => `Export a JSON backup before deleting? It will include ${clipCount} saved clip${clipCount === 1 ? '' : 's'}.`,
       deleteMixtapeConfirm: (name, clipCount) => `Delete "${name}"? ${clipCount} saved clip${clipCount === 1 ? '' : 's'} will be deleted too.`,
+      deleteSegmentConfirm: (title) => `Delete the "${title}" range?`,
       mergeMixtapeConfirm: (sourceName, targetName, clipCount) => `Merge ${clipCount} clip${clipCount === 1 ? '' : 's'} from "${sourceName}" into "${targetName}"? The source tape will be deleted.`,
     },
     common: {
@@ -609,6 +650,10 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       noticeInvalidSegment: 'Cannot save this range.',
       createSaveTarget: 'Create new tape',
       refreshVideoTime: 'Refresh video time',
+      videoStatusReady: 'Ready to capture',
+      videoStatusOpenYoutube: 'Open a YouTube video.',
+      videoStatusNotYoutube: 'The active tab is not a YouTube video.',
+      videoStatusTimeUnavailable: 'Cannot read the video time.',
     },
     playback: {
       emptyTitle: 'No clips to play',
@@ -640,6 +685,13 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       saveQueueEdit: 'Save queue edit',
       cancel: 'Cancel',
       done: 'Done',
+      reconnect: 'Reconnect',
+      reconnectAria: 'Reconnect playback',
+      stopRecoveryAria: 'Stop playback',
+      connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
+      startFailed: (message) => `Cannot start playback. ${message}`,
+      nextFailed: (message) => `Cannot move to the next clip. ${message}`,
+      stopFailed: (message) => `Cannot stop playback. ${message}`,
     },
     settings: {
       title: 'Settings',

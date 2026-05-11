@@ -185,7 +185,8 @@ function storageGet(area: chrome.storage.StorageArea, key: string): Promise<unkn
   });
 }
 
-function storageSet(area: chrome.storage.StorageArea, value: Record<string, unknown>): Promise<void> {
+async function storageSet(area: chrome.storage.StorageArea, value: Record<string, unknown>): Promise<void> {
+  await assertStorageBudget(area, value);
   return new Promise((resolve, reject) => {
     area.set(value, () => {
       const error = chrome.runtime.lastError;
@@ -197,6 +198,58 @@ function storageSet(area: chrome.storage.StorageArea, value: Record<string, unkn
       resolve();
     });
   });
+}
+
+function storageGetBytesInUse(area: chrome.storage.StorageArea, keys: string[] | null): Promise<number | null> {
+  const maybeArea = area as chrome.storage.StorageArea & {
+    getBytesInUse?: (keys: string[] | null, callback: (bytesInUse: number) => void) => void;
+  };
+  if (typeof maybeArea.getBytesInUse !== 'function') {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    maybeArea.getBytesInUse(keys, (bytesInUse) => {
+      const error = chrome.runtime.lastError;
+      if (error || !Number.isFinite(bytesInUse)) {
+        resolve(null);
+        return;
+      }
+
+      resolve(bytesInUse);
+    });
+  });
+}
+
+function storageQuotaBytes(area: chrome.storage.StorageArea): number | null {
+  const quota = (area as chrome.storage.StorageArea & { QUOTA_BYTES?: number }).QUOTA_BYTES;
+  return typeof quota === 'number' && Number.isFinite(quota) && quota > 0 ? quota : null;
+}
+
+function estimatedStorageBytes(value: Record<string, unknown>): number {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+async function assertStorageBudget(area: chrome.storage.StorageArea, value: Record<string, unknown>): Promise<void> {
+  const quotaBytes = storageQuotaBytes(area);
+  if (!quotaBytes) {
+    return;
+  }
+
+  const keys = Object.keys(value);
+  const [totalBytes, currentBytes] = await Promise.all([
+    storageGetBytesInUse(area, null),
+    storageGetBytesInUse(area, keys),
+  ]);
+  if (totalBytes === null || currentBytes === null) {
+    return;
+  }
+
+  const nextBytes = estimatedStorageBytes(value);
+  const projectedBytes = Math.max(0, totalBytes - currentBytes) + nextBytes;
+  if (projectedBytes > quotaBytes) {
+    throw new Error(`storage quota exceeded: ${projectedBytes} bytes would exceed ${quotaBytes} bytes`);
+  }
 }
 
 function storageRemove(area: chrome.storage.StorageArea, key: string): Promise<void> {

@@ -557,3 +557,117 @@ test('background capture command saves OUT into the selected mixtape when the si
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].endSeconds, 15);
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
 });
+
+test('background play-pause command starts the selected mixtape when the side panel is closed', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-command-play',
+    segments: [makeSegment({ id: 'clip-command-play', videoId: 'video-1' })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings()
+    },
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.'
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-play-pause-start');
+
+  data.commandListeners[0]('play-pause');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data.runtimeMessages[0].type, 'COMMAND_EVENT');
+  assert.equal(data[PLAYBACK_STATE_KEY].sequenceId, sequence.id);
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-command-play');
+  assert.equal(data.messages.some((message) => message.type === 'PLAY_SEGMENT'), true);
+});
+
+test('background play-pause command stops playback when the side panel is closed', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-command-stop',
+    segments: [makeSegment({ id: 'clip-command-stop', videoId: 'video-1' })]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-command-stop',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-command-stop',
+        mode: 'sequence',
+        order: [0],
+        orderSegmentIds: ['clip-command-stop'],
+        orderPosition: 0
+      }
+    },
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.'
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-play-pause-stop');
+
+  data.commandListeners[0]('play-pause');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data[PLAYBACK_STATE_KEY], undefined);
+  assert.equal(data.messages.some((message) => message.type === 'STOP_PLAYBACK'), true);
+});
+
+test('background next-clip command advances playback when the side panel is closed', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-command-next',
+    segments: [
+      makeSegment({ id: 'clip-command-current', videoId: 'video-1', startSeconds: 10, endSeconds: 20 }),
+      makeSegment({ id: 'clip-command-next', videoId: 'video-1', startSeconds: 30, endSeconds: 40 })
+    ]
+  });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings({ autoNext: true }),
+      [PLAYBACK_STATE_KEY]: {
+        sequenceId: sequence.id,
+        segmentIndex: 0,
+        currentSegmentId: 'clip-command-current',
+        tabId: 9,
+        status: 'playing',
+        startedAt: 1,
+        playbackToken: 'token-command-next',
+        mode: 'sequence',
+        order: [0, 1],
+        orderSegmentIds: ['clip-command-current', 'clip-command-next'],
+        orderPosition: 0
+      }
+    },
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.'
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-next-clip');
+
+  data.commandListeners[0]('next-clip');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data[PLAYBACK_STATE_KEY].currentSegmentId, 'clip-command-next');
+  assert.equal(data[PLAYBACK_STATE_KEY].segmentIndex, 1);
+  assert.equal(data.messages.filter((message) => message.type === 'PLAY_SEGMENT').length, 1);
+});

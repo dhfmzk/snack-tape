@@ -13,6 +13,7 @@ type Props = {
   onPlay: (index: number, sequenceId?: string, mode?: PlaybackMode) => void;
   onStop: () => void;
   onNext: () => void;
+  onRetryPlayback?: () => void;
   onEditSequence: (sequenceId: string) => void;
   onBeginQueueEdit: (sequenceId: string) => void;
   onRenameSequence?: (sequenceId: string) => void;
@@ -184,7 +185,30 @@ function playbackOrderCount(state: AppState, sequence: Sequence): number {
   return sequence.segments.length;
 }
 
-function playbackQueueSegments(sequence: Sequence): Segment[] {
+function orderedSegmentsFromIds(sequence: Sequence, segmentIds: string[]): Segment[] {
+  const used = new Set<string>();
+  const ordered = segmentIds
+    .map((segmentId) => {
+      if (used.has(segmentId)) {
+        return null;
+      }
+      const segment = sequence.segments.find((item) => item.id === segmentId) ?? null;
+      if (segment) {
+        used.add(segment.id);
+      }
+      return segment;
+    })
+    .filter((segment): segment is Segment => segment !== null);
+  const missing = sequence.segments.filter((segment) => !used.has(segment.id));
+  return [...ordered, ...missing];
+}
+
+function playbackQueueSegments(state: AppState, sequence: Sequence): Segment[] {
+  const playbackState = state.playbackState;
+  if (playbackState?.sequenceId === sequence.id && playbackState.queueEdited && playbackState.orderSegmentIds?.length) {
+    return orderedSegmentsFromIds(sequence, playbackState.orderSegmentIds);
+  }
+
   return sequence.segments;
 }
 
@@ -243,6 +267,7 @@ export function Playback(props: Props): HTMLElement {
     onPlay,
     onStop,
     onNext,
+    onRetryPlayback,
     onEditSequence,
     onBeginQueueEdit,
     onRenameSequence,
@@ -281,20 +306,32 @@ export function Playback(props: Props): HTMLElement {
   }
 
   const currentMode = modeFromState(state);
-  const nextIndex = Math.min(index + 1, sequence.segments.length - 1);
-  const previousIndex = Math.max(0, index - 1);
   const orderPosition = playbackOrderPosition(state, sequence, index);
   const orderCount = playbackOrderCount(state, sequence);
   const upNextCount = Math.max(0, orderCount - orderPosition - 1);
-  const hasPrevious = index > 0;
-  const hasNext = upNextCount > 0 || index < sequence.segments.length - 1;
+  const activeOrderIds = state.playbackState?.sequenceId === sequence.id ? state.playbackState.orderSegmentIds ?? [] : [];
+  const hasActiveOrder = activeOrderIds.length > 0;
+  const previousQueuedIndex = hasActiveOrder
+    ? sequence.segments.findIndex((item) => item.id === activeOrderIds[orderPosition - 1])
+    : -1;
+  const nextQueuedIndex = hasActiveOrder
+    ? sequence.segments.findIndex((item) => item.id === activeOrderIds[orderPosition + 1])
+    : -1;
+  const previousIndex = hasActiveOrder ? previousQueuedIndex : Math.max(0, index - 1);
+  const nextIndex = hasActiveOrder ? nextQueuedIndex : Math.min(index + 1, sequence.segments.length - 1);
+  const hasPrevious = hasActiveOrder ? previousQueuedIndex >= 0 : index > 0;
+  const hasNext = hasActiveOrder ? nextQueuedIndex >= 0 : index < sequence.segments.length - 1;
   const queueEdit = state.queueEdit?.sequenceId === sequence.id ? state.queueEdit : null;
   const isEditingQueue = Boolean(queueEdit);
+  const canEditQueue = Boolean(
+    state.playbackState?.sequenceId === sequence.id
+    && (state.playbackState.status === 'playing' || state.playbackState.status === 'waiting' || state.playbackState.status === 'pending')
+  );
   const queueSegments = queueEdit
     ? queueEdit.segmentIds
         .map((segmentId) => sequence.segments.find((item) => item.id === segmentId) ?? null)
         .filter((item): item is Segment => item !== null)
-    : playbackQueueSegments(sequence);
+    : playbackQueueSegments(state, sequence);
 
   return el(
     'div',
@@ -362,6 +399,66 @@ export function Playback(props: Props): HTMLElement {
           )
         )
       ),
+      state.playbackNotice
+        ? el(
+            'div',
+            {
+              role: 'status',
+              style: {
+                margin: '-4px 0 12px',
+                padding: '8px 10px',
+                border: `1px solid ${state.playbackNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent)'}`,
+                background: 'var(--surface2)',
+                color: state.playbackNotice.kind === 'error' ? 'var(--rec)' : 'var(--accent2)',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: '600',
+                lineHeight: '1.35',
+                display: 'grid',
+                gap: '8px',
+              },
+            },
+            el('div', { text: state.playbackNotice.message }),
+            el(
+              'div',
+              { style: { display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' } },
+              state.playbackNotice.recovery
+                ? el('button', {
+                    text: i18n.playback.reconnect,
+                    ariaLabel: i18n.playback.reconnectAria,
+                    onClick: () => onRetryPlayback?.(),
+                    style: {
+                      height: '26px',
+                      padding: '0 10px',
+                      border: '1px solid var(--accent)',
+                      background: 'var(--accent)',
+                      color: 'var(--accent-ink)',
+                      borderRadius: '6px',
+                      fontSize: '10.5px',
+                      fontWeight: '700',
+                      cursor: onRetryPlayback ? 'pointer' : 'default',
+                    },
+                  })
+                : null,
+              el('button', {
+                text: i18n.playback.stop,
+                ariaLabel: i18n.playback.stopRecoveryAria,
+                onClick: onStop,
+                style: {
+                  height: '26px',
+                  padding: '0 10px',
+                  border: '1px solid var(--hairline2)',
+                  background: 'var(--surface)',
+                  color: 'var(--text2)',
+                  borderRadius: '6px',
+                  fontSize: '10.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                },
+              })
+            )
+          )
+        : null,
       el(
         'div',
         { style: { display: 'flex', gap: '12px', alignItems: 'center' } },
@@ -513,17 +610,20 @@ export function Playback(props: Props): HTMLElement {
             el('button', {
               text: i18n.playback.editQueue,
               ariaLabel: i18n.playback.editQueue,
-              onClick: () => onBeginQueueEdit(sequence.id),
+              disabled: !canEditQueue,
+              ariaDisabled: canEditQueue ? 'false' : 'true',
+              onClick: () => canEditQueue && onBeginQueueEdit(sequence.id),
               style: {
                 border: '1px solid var(--hairline2)',
                 background: 'var(--surface2)',
                 color: 'var(--text2)',
+                opacity: canEditQueue ? '1' : '0.4',
                 height: '26px',
                 padding: '0 10px',
                 borderRadius: '6px',
                 fontSize: '10.5px',
                 fontWeight: '600',
-                cursor: 'pointer',
+                cursor: canEditQueue ? 'pointer' : 'not-allowed',
               },
             }),
             el('button', {

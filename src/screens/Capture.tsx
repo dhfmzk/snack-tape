@@ -3,7 +3,7 @@ import { el } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatTimecode } from '../shared/time.js';
-import type { Segment, Sequence } from '../shared/types.js';
+import type { PageInfo, Segment, Sequence } from '../shared/types.js';
 import type { AppState, SegmentEditEdge } from '../state/store.js';
 
 type Props = {
@@ -69,6 +69,27 @@ function btnIconStyle(): Style {
     justifyContent: 'center',
     borderRadius: '6px',
   };
+}
+
+type CaptureVideoStatus = {
+  text: string;
+  kind: 'ready' | 'warning' | 'error';
+};
+
+function captureVideoStatus(pageInfo: PageInfo | null | undefined, usable: boolean, i18n: I18n): CaptureVideoStatus {
+  if (usable) {
+    return { text: i18n.capture.videoStatusReady, kind: 'ready' };
+  }
+
+  if (!pageInfo?.url) {
+    return { text: i18n.capture.videoStatusOpenYoutube, kind: 'warning' };
+  }
+
+  if (!pageInfo.isYouTubeVideoPage || !pageInfo.videoId) {
+    return { text: i18n.capture.videoStatusNotYoutube, kind: 'warning' };
+  }
+
+  return { text: i18n.capture.videoStatusTimeUnavailable, kind: 'error' };
 }
 
 function menuButtonStyle(danger = false): Style {
@@ -635,6 +656,7 @@ export function Capture(props: Props): HTMLElement {
   const i18n = props.i18n ?? createI18n(state.settings.language);
   const pageInfo = state.pageInfo;
   const usable = Boolean(pageInfo?.isYouTubeVideoPage && pageInfo.videoId && pageInfo.currentTime !== null && pageInfo.currentTime !== undefined);
+  const videoStatus = captureVideoStatus(pageInfo, usable, i18n);
   const currentTime = pageInfo?.currentTime ?? 0;
   const sequence = selectedSequence(state);
   const segments = editableSegments(sequence);
@@ -692,7 +714,7 @@ export function Capture(props: Props): HTMLElement {
         'div',
         { style: { flex: '1', minWidth: '0' } },
         el('div', {
-          text: usable ? pageInfo?.title || i18n.common.readingTitle : i18n.common.openYoutubeVideo,
+          text: pageInfo?.title?.trim() || (usable ? i18n.common.readingTitle : i18n.common.openYoutubeVideo),
           style: {
             color: 'var(--text)',
             fontSize: '11.5px',
@@ -753,7 +775,27 @@ export function Capture(props: Props): HTMLElement {
             },
             Glyph('repeat', 10)
           )
-        )
+        ),
+        el('div', {
+          role: 'status',
+          text: videoStatus.text,
+          style: {
+            display: 'inline-flex',
+            maxWidth: '100%',
+            marginTop: '4px',
+            padding: '2px 6px',
+            border: `1px solid ${videoStatus.kind === 'ready' ? 'var(--accent)' : videoStatus.kind === 'error' ? 'var(--rec)' : 'var(--hairline2)'}`,
+            background: videoStatus.kind === 'ready' ? 'var(--accent-soft)' : 'var(--surface2)',
+            color: videoStatus.kind === 'ready' ? 'var(--accent2)' : videoStatus.kind === 'error' ? 'var(--rec)' : 'var(--text2)',
+            borderRadius: '999px',
+            fontSize: '9px',
+            fontWeight: '700',
+            lineHeight: '1.25',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          },
+        })
       )
     ),
     el(

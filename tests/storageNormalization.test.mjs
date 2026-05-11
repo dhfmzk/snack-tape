@@ -2,6 +2,40 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSegment, makeSequence } from './helpers.mjs';
 
+function installQuotaStorage({ quotaBytes, existingBytes = 0 } = {}) {
+  let setCalls = 0;
+  const area = {
+    QUOTA_BYTES: quotaBytes,
+    get(key, callback) {
+      callback({ [key]: undefined });
+    },
+    getBytesInUse(_keys, callback) {
+      callback(existingBytes);
+    },
+    set(_value, callback) {
+      setCalls += 1;
+      callback?.();
+    },
+    remove(_key, callback) {
+      callback?.();
+    }
+  };
+
+  globalThis.chrome = {
+    runtime: { lastError: null },
+    storage: {
+      local: area,
+      session: area
+    }
+  };
+
+  return {
+    get setCalls() {
+      return setCalls;
+    }
+  };
+}
+
 test('storage fallback names are language-neutral generated values', async () => {
   const { createDefaultSequence, normalizeSegment, normalizeSequence, normalizeStore } = await import('../.tmp-tests/src/shared/storage.js');
 
@@ -101,4 +135,26 @@ test('normalizeImportedStore accepts a legacy single-sequence object with segmen
   assert.ok(result !== null);
   assert.equal(result.sequences.length, 1);
   assert.equal(result.sequences[0].segments[0].id, 'legacy-seg');
+});
+
+test('saveStore checks local storage quota before writing large stores', async () => {
+  const { saveStore } = await import('../.tmp-tests/src/shared/storage.js');
+  const storage = installQuotaStorage({ quotaBytes: 240, existingBytes: 0 });
+  const oversizedName = 'x'.repeat(512);
+
+  await assert.rejects(
+    () => saveStore({
+      selectedSequenceId: 'sequence-big',
+      sequences: [{
+        id: 'sequence-big',
+        name: oversizedName,
+        segments: [],
+        createdAt: 1,
+        updatedAt: 1
+      }]
+    }),
+    /storage quota/i
+  );
+
+  assert.equal(storage.setCalls, 0);
 });

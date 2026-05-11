@@ -810,6 +810,27 @@ test('refreshVideo converts active tab detection failures into an edit-tab notic
   assert.match(store.getState().captureNotice.message, /Cannot query active tab/);
 });
 
+test('refreshVideo publishes fallback YouTube tab info when video time cannot be read', async () => {
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-refresh-fallback', segments: [] });
+  installChromeForCapture({ videoError: 'content unavailable' });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence),
+    route: 'capture'
+  };
+
+  const result = await store.refreshVideo();
+
+  assert.equal(result.info.videoId, 'video_12345');
+  assert.equal(store.getState().pageInfo.videoId, 'video_12345');
+  assert.equal(store.getState().pageInfo.title, '테스트 영상');
+  assert.equal(store.getState().pageInfo.currentTime, null);
+  assert.equal(store.getState().videoState, null);
+  assert.equal(store.getState().captureNotice.kind, 'error');
+  assert.match(store.getState().captureNotice.message, /영상 정보를 갱신할 수 없습니다/);
+});
+
 test('syncActiveVideoForCapture ignores active tab changes outside the edit tab', async () => {
   const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

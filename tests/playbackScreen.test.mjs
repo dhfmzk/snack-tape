@@ -391,7 +391,7 @@ test('Playback renders zero-second OUT values as saved times, not END', async ()
     state,
     onBack: () => {},
     onPlay: () => {},
-    onStop: () => {},
+    onStop: () => calls.push('stop'),
     onNext: () => {},
     onEditSequence: () => {},
     onCancelQueueEdit: () => {},
@@ -465,7 +465,7 @@ test('Playback progress and mode controls expose semantic state', async () => {
     state,
     onBack: () => {},
     onPlay: () => {},
-    onStop: () => {},
+    onStop: () => calls.push('stop'),
     onNext: () => {},
     onEditSequence: () => {},
     onCancelQueueEdit: () => {},
@@ -841,6 +841,62 @@ test('Playback queue header exposes up-next count and explicit queue edit action
   ]);
 });
 
+test('Playback queue edit is disabled until a playback session is active', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-queue-inactive',
+    name: '비활성 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-1', title: '첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-2', title: '둘째 클립', videoId: 'video2' })
+    ]
+  });
+  const calls = [];
+
+  const page = Playback({
+    state: {
+      route: 'playback',
+      store: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      settings: {
+        accentKey: 'peach',
+        autoNext: true,
+        fadeOut: true,
+        shuffleByDefault: false,
+        shortcutIn: 'I',
+        shortcutOut: 'O',
+        autoTitleFromCaptions: true
+      },
+      pageInfo: null,
+      videoState: null,
+      playbackState: null,
+      playbackDisplay: null,
+      draftIn: null,
+      capturePulseId: null,
+      queueEdit: null,
+      loading: false
+    },
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: (sequenceId) => calls.push(sequenceId),
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const queueEditButton = findByAriaLabel(page, '큐 편집');
+
+  assert.equal(queueEditButton.disabled, true);
+  queueEditButton.click();
+  assert.deepEqual(calls, []);
+});
+
 test('Playback list keeps mixtape order during shuffle without dimming earlier entries', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
@@ -924,6 +980,79 @@ test('Playback list keeps mixtape order during shuffle without dimming earlier e
   assert.notEqual(currentButton.style.opacity, '0.4');
 });
 
+test('Playback list shows manually applied session queue order', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-manual-session-queue',
+    name: '세션 큐 믹스테이프',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '원본 첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-b', title: '원본 둘째 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-c', title: '앞으로 보낸 클립', videoId: 'video3' })
+    ]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: {
+      sequenceId: sequence.id,
+      segmentIndex: 2,
+      currentSegmentId: 'clip-c',
+      status: 'playing',
+      startedAt: 1700000000000,
+      mode: 'sequence',
+      orderSegmentIds: ['clip-c', 'clip-a', 'clip-b'],
+      orderPosition: 0,
+      queueEdited: true
+    },
+    playbackDisplay: {
+      sequenceName: sequence.name,
+      segmentTitle: '앞으로 보낸 클립',
+      positionText: '1 / 3',
+      modeLabel: '순서대로 재생',
+      canStop: true
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+  const queue = findAll(page, (node) => node.dataset?.scrollKey === `playback-queue:${sequence.id}`)[0];
+  const queueText = textOf(queue);
+
+  assert.equal(queueText.indexOf('앞으로 보낸 클립') < queueText.indexOf('원본 첫 클립'), true);
+  assert.equal(queueText.indexOf('원본 첫 클립') < queueText.indexOf('원본 둘째 클립'), true);
+});
+
 test('Playback previous and next controls are disabled at queue boundaries', async () => {
   installDomShim();
   const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
@@ -1005,6 +1134,158 @@ test('Playback previous and next controls are disabled at queue boundaries', asy
   assert.equal(findByAriaLabel(firstPage, '이전 클립').disabled, true);
   assert.equal(findByAriaLabel(finalPage, '다음 클립').disabled, true);
   assert.deepEqual(calls, []);
+});
+
+test('Playback previous and next controls use edited session queue boundaries', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-edited-boundaries',
+    name: '세션 큐 경계',
+    segments: [
+      makeSegment({ id: 'clip-a', title: '원본 첫 클립', videoId: 'video1' }),
+      makeSegment({ id: 'clip-b', title: '세션 마지막 클립', videoId: 'video2' }),
+      makeSegment({ id: 'clip-c', title: '세션 첫 클립', videoId: 'video3' })
+    ]
+  });
+  const baseState = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const handlers = {
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => {},
+    onNext: () => {},
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  };
+
+  const firstSessionPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        sequenceId: sequence.id,
+        segmentIndex: 2,
+        currentSegmentId: 'clip-c',
+        status: 'playing',
+        startedAt: 1700000000000,
+        orderSegmentIds: ['clip-c', 'clip-a', 'clip-b'],
+        orderPosition: 0,
+        queueEdited: true
+      }
+    },
+    ...handlers
+  });
+
+  const finalSessionPage = Playback({
+    state: {
+      ...baseState,
+      playbackState: {
+        sequenceId: sequence.id,
+        segmentIndex: 1,
+        currentSegmentId: 'clip-b',
+        status: 'playing',
+        startedAt: 1700000000000,
+        orderSegmentIds: ['clip-c', 'clip-a', 'clip-b'],
+        orderPosition: 2,
+        queueEdited: true
+      }
+    },
+    ...handlers
+  });
+
+  assert.equal(findByAriaLabel(firstSessionPage, '이전 클립').disabled, true);
+  assert.equal(findByAriaLabel(finalSessionPage, '다음 클립').disabled, true);
+});
+
+test('Playback renders runtime playback errors in the Now Playing header', async () => {
+  installDomShim();
+  const { Playback } = await import('../.tmp-tests/src/screens/Playback.js');
+  const sequence = makeSequence({
+    id: 'sequence-runtime-error',
+    name: '오류 믹스테이프',
+    segments: [makeSegment({ id: 'clip-runtime-error', title: '오류 클립' })]
+  });
+  const state = {
+    route: 'playback',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: {
+      accentKey: 'peach',
+      autoNext: true,
+      fadeOut: true,
+      shuffleByDefault: false,
+      shortcutIn: 'I',
+      shortcutOut: 'O',
+      autoTitleFromCaptions: true
+    },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    playbackNotice: {
+      kind: 'error',
+      message: '재생을 시작할 수 없습니다. runtime failed',
+      recovery: {
+        type: 'start',
+        sequenceId: sequence.id,
+        startIndex: 0,
+        mode: 'sequence'
+      }
+    },
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    loading: false
+  };
+  const calls = [];
+
+  const page = Playback({
+    state,
+    onBack: () => {},
+    onPlay: () => {},
+    onStop: () => calls.push('stop'),
+    onNext: () => {},
+    onRetryPlayback: () => calls.push('retry'),
+    onEditSequence: () => {},
+    onBeginQueueEdit: () => {},
+    onCancelQueueEdit: () => {},
+    onSaveQueueEdit: () => {},
+    onMoveQueueSegment: () => {},
+    onRemoveQueueSegment: () => {}
+  });
+
+  assert.match(textOf(page), /재생을 시작할 수 없습니다\. runtime failed/);
+  findByAriaLabel(page, '재생 다시 연결').click();
+  findByAriaLabel(page, '재생 정지').click();
+
+  assert.deepEqual(calls, ['retry', 'stop']);
 });
 
 test('Playback title rename button opens the current mixtape rename flow', async () => {
