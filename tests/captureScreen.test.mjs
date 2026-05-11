@@ -481,6 +481,40 @@ test('Capture edit tab commits exact segment timecode inputs and resets them wit
   ]);
 });
 
+test('Capture edit tab shows and edits saved clip notes', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+  const calls = [];
+  const notedSegment = makeSegment({
+    id: 'clip-note',
+    title: '메모 클립',
+    note: 'soft intro'
+  });
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [makeSequence({ id: 'note-sequence', name: '메모 테이프', segments: [notedSegment] })],
+        selectedSequenceId: 'note-sequence'
+      },
+      segmentEdit: { segmentId: notedSegment.id }
+    },
+    onIn: () => {},
+    onOut: () => {},
+    onSetSegmentNote: (segmentId, note) => calls.push([segmentId, note])
+  });
+
+  assert.match(textOf(page), /soft intro/);
+
+  const input = findByAriaLabel(page, '메모 클립 메모');
+  assert.equal(input.value, 'soft intro');
+  input.value = 'updated note';
+  input.change();
+
+  assert.deepEqual(calls, [['clip-note', 'updated note']]);
+});
+
 test('Capture exact segment timecode inputs preserve hour-long hundredths', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');

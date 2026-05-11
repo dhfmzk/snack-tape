@@ -17,6 +17,7 @@ type Props = {
   onCancelSegmentEdit?: () => void;
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void;
   onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void;
+  onSetSegmentNote?: (segmentId: string, note: string) => void;
   onDeleteSegment?: (segmentId: string) => void;
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
@@ -290,6 +291,7 @@ function SegmentEditControls(
   segment: Segment,
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void,
   onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void,
+  onSetSegmentNote?: (segmentId: string, note: string) => void,
   onCancelSegmentEdit?: () => void
 ): HTMLElement {
   const controls: Array<{ label: string; delta: number }> = [
@@ -353,6 +355,46 @@ function SegmentEditControls(
         })
       )
     );
+  const noteInput = () =>
+    el(
+      'label',
+      { style: { display: 'grid', gap: '5px' } },
+      el('span', {
+        text: i18n.capture.segmentNote,
+        style: {
+          color: 'var(--mute)',
+          fontSize: '10px',
+          fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+        },
+      }),
+      el('input', {
+        type: 'text',
+        value: segment.note ?? '',
+        ariaLabel: i18n.capture.segmentNoteInput(segment.title),
+        dataset: { persistKey: `segment-note:${segment.id}` },
+        onChange: (event) => onSetSegmentNote?.(segment.id, (event.target as HTMLInputElement).value),
+        onKeyDown: (event) => {
+          const input = event.target as HTMLInputElement;
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onSetSegmentNote?.(segment.id, input.value);
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            input.value = segment.note ?? '';
+          }
+        },
+        style: {
+          height: '28px',
+          padding: '0 8px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface3)',
+          color: 'var(--text)',
+          borderRadius: '6px',
+          fontSize: '11px',
+        },
+      })
+    );
 
   return el(
     'div',
@@ -388,7 +430,8 @@ function SegmentEditControls(
       })
     ),
     row(i18n.capture.start, 'start', formatEditableTimecode(segment.startSeconds)),
-    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : '')
+    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : ''),
+    noteInput()
   );
 }
 
@@ -678,6 +721,7 @@ export function Capture(props: Props): HTMLElement {
     onCancelSegmentEdit,
     onNudgeSegment,
     onSetSegmentTimecode,
+    onSetSegmentNote,
     onDeleteSegment,
     onCopySegmentToMixtape,
     onMoveSegmentToMixtape,
@@ -1072,7 +1116,21 @@ export function Capture(props: Props): HTMLElement {
               },
             })
           ),
-          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onCancelSegmentEdit) : null
+          segment.note?.trim()
+            ? el('p', {
+                text: segment.note.trim(),
+                style: {
+                  margin: '7px 0 0',
+                  color: 'var(--text2)',
+                  fontSize: '11px',
+                  lineHeight: '1.35',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                },
+              })
+            : null,
+          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onSetSegmentNote, onCancelSegmentEdit) : null
         )
           );
         }

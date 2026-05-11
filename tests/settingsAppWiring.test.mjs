@@ -400,3 +400,34 @@ test('App asks before deleting a single saved segment', async () => {
   assert.match(confirmMessages[0], /Clip To Keep/);
   assert.equal(store.getState().store.sequences[0].segments.length, 1);
 });
+
+test('App wires clip note editing from the capture route', async () => {
+  installDomShim();
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { App } = await import('../.tmp-tests/src/App.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'sequence-note',
+    name: 'Note Tape',
+    segments: [makeSegment({ id: 'clip-note', title: 'Clip Note', note: 'old note' })]
+  });
+  const storage = installChrome({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState([sequence]),
+    route: 'capture',
+    segmentEdit: { segmentId: 'clip-note' }
+  };
+
+  const note = findByAriaLabel(App(store.getState(), store), 'Clip Note 메모');
+  note.value = 'new note';
+  note.change();
+  await settle();
+
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].note, 'new note');
+});

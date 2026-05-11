@@ -1764,6 +1764,50 @@ test('copySegmentToMixtape and moveSegmentToMixtape transfer clips between mixta
   assert.equal(nextTarget.segments[1].id, 'clip-b');
 });
 
+test('setSegmentNote saves and clears notes on the selected clip', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({
+    id: 'note-sequence',
+    name: 'Notes',
+    segments: [makeSegment({ id: 'clip-note', title: 'Note clip', note: 'old note' })]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.setSegmentNote('clip-note', '  new note  ');
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].note, 'new note');
+
+  await store.setSegmentNote('clip-note', '   ');
+  assert.equal(storage[STORAGE_KEY].sequences[0].segments[0].note, undefined);
+});
+
 test('updateSettings normalizes settings before publishing visible state', async () => {
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');

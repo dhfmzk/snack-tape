@@ -925,6 +925,52 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async setSegmentNote(segmentId: string, note: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = this.selectedSequence();
+    if (!currentStore || !sequence) {
+      return;
+    }
+
+    const trimmedNote = note.trim();
+    const previousState = this.state;
+    const timestamp = Date.now();
+    let changed = false;
+    const segments = sequence.segments.map((segment) => {
+      if (segment.id !== segmentId) {
+        return segment;
+      }
+
+      const nextNote = trimmedNote || undefined;
+      if ((segment.note ?? undefined) === nextNote) {
+        return segment;
+      }
+      changed = true;
+      return { ...segment, note: nextNote, updatedAt: timestamp };
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments,
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+
+    this.setState({ store, captureNotice: null });
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async deleteSegmentFromSelected(segmentId: string): Promise<void> {
     const currentStore = this.state.store;
     const sequence = this.selectedSequence();

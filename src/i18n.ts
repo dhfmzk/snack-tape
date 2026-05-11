@@ -72,6 +72,8 @@ export type I18n = {
     moveSegmentAria: (title: string) => string;
     segmentEditDone: (title: string) => string;
     segmentTimeInput: (title: string, label: string) => string;
+    segmentNote: string;
+    segmentNoteInput: (title: string) => string;
     segmentEdit: string;
     done: string;
     start: string;
@@ -277,6 +279,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegmentAria: (title) => `${title} 이동`,
       segmentEditDone: (title) => `${title} 편집 완료`,
       segmentTimeInput: (title, label) => `${title} ${label} 시간`,
+      segmentNote: '메모',
+      segmentNoteInput: (title) => `${title} 메모`,
       segmentEdit: '구간 편집',
       done: '완료',
       start: '시작',
@@ -480,6 +484,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegmentAria: (title) => `${title}を移動`,
       segmentEditDone: (title) => `${title}の編集を完了`,
       segmentTimeInput: (title, label) => `${title}の${label}時間`,
+      segmentNote: 'メモ',
+      segmentNoteInput: (title) => `${title}のメモ`,
       segmentEdit: '範囲を編集',
       done: '完了',
       start: '開始',
@@ -683,6 +689,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       moveSegmentAria: (title) => `Move ${title}`,
       segmentEditDone: (title) => `Finish editing ${title}`,
       segmentTimeInput: (title, label) => `${title} ${label} time`,
+      segmentNote: 'Note',
+      segmentNoteInput: (title) => `Note for ${title}`,
       segmentEdit: 'Edit range',
       done: 'Done',
       start: 'Start',
