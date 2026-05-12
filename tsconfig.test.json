@@ -10,7 +10,6 @@
     "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
     "skipLibCheck": true
   },
   "include": [
