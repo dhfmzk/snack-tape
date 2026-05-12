@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSequence } from './helpers.mjs';
 
-function installChromeForCapture({ storage = {}, videoState, videoError = null, tabsQueryError = null, deferSet = false, failSetKeys = [], failMessage = 'storage write failed' }) {
+function installChromeForCapture({ storage = {}, videoState, videoError = null, tabsQueryError = null, deferSet = false, failSetKeys = [], failMessage = 'storage write failed', commands = null }) {
   const data = { ...storage };
   let releaseSet = null;
   const failingKeys = new Set(failSetKeys);
@@ -62,6 +62,14 @@ function installChromeForCapture({ storage = {}, videoState, videoError = null, 
       }
     }
   };
+
+  if (commands) {
+    globalThis.chrome.commands = {
+      getAll(callback) {
+        callback(commands);
+      }
+    };
+  }
 
   data.releaseSet = () => {
     releaseSet?.();
@@ -155,6 +163,10 @@ function baseState(sequence) {
       shortcutOut: 'O',
       autoTitleFromCaptions: true
     },
+    commandShortcuts: {
+      captureIn: 'I',
+      captureOut: 'O'
+    },
     pageInfo: null,
     videoState: null,
     playbackState: null,
@@ -166,6 +178,43 @@ function baseState(sequence) {
     loading: false
   };
 }
+
+test('init reads capture shortcut labels from Chrome commands runtime state', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-shortcuts', segments: [] });
+  installChromeForCapture({
+    storage: {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: {
+        accentKey: 'peach',
+        language: 'ko',
+        autoNext: true,
+        fadeOut: true,
+        shuffleByDefault: false,
+        shortcutIn: 'Alt+I',
+        shortcutOut: 'Alt+O',
+        autoTitleFromCaptions: true
+      }
+    },
+    commands: [
+      { name: 'capture-in', shortcut: '' },
+      { name: 'capture-out', shortcut: 'Alt+Shift+O' }
+    ]
+  });
+
+  const store = new SnackTapeAppStore();
+  await store.init();
+
+  assert.equal(store.getState().commandShortcuts.captureIn, null);
+  assert.equal(store.getState().commandShortcuts.captureOut, 'Alt+Shift+O');
+  assert.equal(store.getState().settings.shortcutIn, 'Alt+I');
+  assert.equal(store.getState().settings.shortcutOut, 'Alt+O');
+});
 
 test('captureIn stores the current YouTube time as the visible draft marker', async () => {
   const { SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');

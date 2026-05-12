@@ -419,6 +419,8 @@ export function Settings({
   onDeleteAll,
 }: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
+  const shortcutIn = state.commandShortcuts ? state.commandShortcuts.captureIn ?? '—' : state.settings.shortcutIn;
+  const shortcutOut = state.commandShortcuts ? state.commandShortcuts.captureOut ?? '—' : state.settings.shortcutOut;
 
   return el(
     'div',
@@ -579,8 +581,8 @@ export function Settings({
     ),
     Section(
       i18n.settings.capture,
-      SettingsRow(i18n, { label: i18n.settings.shortcutIn, sub: i18n.settings.shortcutHelp, right: state.settings.shortcutIn, mono: true }),
-      SettingsRow(i18n, { label: i18n.settings.shortcutOut, sub: i18n.settings.shortcutHelp, right: state.settings.shortcutOut, mono: true }),
+      SettingsRow(i18n, { label: i18n.settings.shortcutIn, sub: i18n.settings.shortcutHelp, right: shortcutIn, mono: true }),
+      SettingsRow(i18n, { label: i18n.settings.shortcutOut, sub: i18n.settings.shortcutHelp, right: shortcutOut, mono: true }),
       DefaultSaveLocationRow(state, i18n, onDefaultSaveTarget),
       SettingsRow(i18n, {
         label: i18n.settings.autoTitle,

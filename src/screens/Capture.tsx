@@ -751,6 +751,8 @@ export function Capture(props: Props): HTMLElement {
   const canNudgeDraft = hasDraftIn;
   const canCaptureOut = usable && hasDraftIn;
   const canSaveDraft = hasDraftIn && hasDraftOut;
+  const shortcutIn = state.commandShortcuts?.captureIn ?? '';
+  const shortcutOut = state.commandShortcuts?.captureOut ?? '';
   const nudgeButtons = [
     { label: '-1s', delta: -1 },
     { label: '-1f', delta: -1 / 30 },
@@ -921,7 +923,7 @@ export function Capture(props: Props): HTMLElement {
               letterSpacing: '1px',
             },
           }),
-          ShortcutHint(state.settings.shortcutIn)
+          ShortcutHint(shortcutIn)
         ),
         el('span', {
           text: draftIn === null ? i18n.capture.mark : formatTimecode(draftIn),
@@ -932,17 +934,19 @@ export function Capture(props: Props): HTMLElement {
             fontWeight: '500',
           },
         }),
-        el('span', {
-          text: state.settings.shortcutIn,
-          style: {
-            position: 'absolute',
-            bottom: '7px',
-            left: '10px',
-            color: 'var(--mute)',
-            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-            fontSize: '9px',
-          },
-        }),
+        shortcutIn
+          ? el('span', {
+              text: shortcutIn,
+              style: {
+                position: 'absolute',
+                bottom: '7px',
+                left: '10px',
+                color: 'var(--mute)',
+                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                fontSize: '9px',
+              },
+            })
+          : null,
         draftIn !== null
           ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent2)' } }, Glyph('check', 11))
           : null
@@ -983,7 +987,7 @@ export function Capture(props: Props): HTMLElement {
               letterSpacing: '1px',
             },
           }),
-          ShortcutHint(state.settings.shortcutOut)
+          ShortcutHint(shortcutOut)
         ),
         el('span', {
           text: usable ? (hasDraftOut && draftOut !== null ? formatTimecode(draftOut) : hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
@@ -993,17 +997,19 @@ export function Capture(props: Props): HTMLElement {
             fontWeight: '700',
           },
         }),
-        el('span', {
-          text: state.settings.shortcutOut,
-          style: {
-            position: 'absolute',
-            bottom: '7px',
-            left: '10px',
-            color: canCaptureOut ? 'color-mix(in srgb, var(--accent-ink) 72%, transparent)' : 'var(--mute)',
-            fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-            fontSize: '9px',
-          },
-        }),
+        shortcutOut
+          ? el('span', {
+              text: shortcutOut,
+              style: {
+                position: 'absolute',
+                bottom: '7px',
+                left: '10px',
+                color: canCaptureOut ? 'color-mix(in srgb, var(--accent-ink) 72%, transparent)' : 'var(--mute)',
+                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                fontSize: '9px',
+              },
+            })
+          : null,
         hasDraftOut ? el('span', { style: { position: 'absolute', top: '8px', right: '10px', color: 'var(--accent-ink)' } }, Glyph('check', 11)) : null
       )
     ),

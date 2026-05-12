@@ -22,7 +22,7 @@ import {
   saveStore,
   saveSegmentDraft,
 } from '../shared/storage.js';
-import type { PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeErrorCode, SnackTapeMessage, SnackTapeResponse, SnackTapeStore, VideoState } from '../shared/types.js';
+import type { CommandShortcutSnapshot, PageInfo, PlaybackMode, PlaybackState, Segment, Sequence, SnackTapeErrorCode, SnackTapeMessage, SnackTapeResponse, SnackTapeStore, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseTimecodeToSeconds } from '../shared/time.js';
 import { createI18n, type I18n } from '../i18n.js';
@@ -85,6 +85,7 @@ export type AppState = {
   route: AppRoute;
   store: SnackTapeStore | null;
   settings: Settings;
+  commandShortcuts: CommandShortcutSnapshot;
   pageInfo: PageInfo | null;
   videoState: VideoState | null;
   playbackState: PlaybackState | null;
@@ -264,6 +265,51 @@ function captureSaveMetadataPageInfo(pageInfo: PageInfo | null | undefined): Cap
 
 const MIN_CAPTURE_DURATION_SECONDS = 1 / 30;
 
+function commandShortcutFromSettings(settings: Settings): CommandShortcutSnapshot {
+  return {
+    captureIn: settings.shortcutIn,
+    captureOut: settings.shortcutOut,
+  };
+}
+
+function commandShortcutLabel(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const text = value.trim();
+  return text ? text : null;
+}
+
+function chromeCommandGetter(): ((callback: (commands: chrome.commands.Command[]) => void) => void) | null {
+  if (typeof chrome === 'undefined' || !chrome.commands?.getAll) {
+    return null;
+  }
+
+  return chrome.commands.getAll.bind(chrome.commands);
+}
+
+async function loadCommandShortcuts(settings: Settings): Promise<CommandShortcutSnapshot> {
+  const getAll = chromeCommandGetter();
+  if (!getAll) {
+    return commandShortcutFromSettings(settings);
+  }
+
+  return new Promise((resolve) => {
+    try {
+      getAll((commands) => {
+        const byName = new Map(commands.map((command) => [command.name, command]));
+        resolve({
+          captureIn: commandShortcutLabel(byName.get('capture-in')?.shortcut),
+          captureOut: commandShortcutLabel(byName.get('capture-out')?.shortcut),
+        });
+      });
+    } catch {
+      resolve(commandShortcutFromSettings(settings));
+    }
+  });
+}
+
 function samePageInfo(left: PageInfo | null, right: PageInfo | null): boolean {
   return left?.isYouTubeVideoPage === right?.isYouTubeVideoPage
     && left?.videoId === right?.videoId
@@ -291,6 +337,7 @@ export class SnackTapeAppStore {
       route: 'home',
       store: null,
       settings: { ...DEFAULT_SETTINGS },
+      commandShortcuts: commandShortcutFromSettings(DEFAULT_SETTINGS),
       pageInfo: null,
       videoState: null,
       playbackState: null,
@@ -463,7 +510,8 @@ export class SnackTapeAppStore {
 
   async init(): Promise<void> {
     const [store, settings] = await Promise.all([loadStore(), loadSettings()]);
-    this.setState({ store, settings, loading: false });
+    const commandShortcuts = await loadCommandShortcuts(settings);
+    this.setState({ store, settings, commandShortcuts, loading: false });
     await this.refreshVideo();
     await this.restoreDraft();
     await this.refreshPlayback();

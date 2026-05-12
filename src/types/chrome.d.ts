@@ -86,9 +86,16 @@ declare namespace chrome {
   }
 
   namespace commands {
+    type Command = {
+      name?: string;
+      description?: string;
+      shortcut?: string;
+    };
+
     const onCommand: {
       addListener(callback: (command: string) => void): void;
     };
+    function getAll(callback: (commands: Command[]) => void): void;
   }
 
   namespace windows {

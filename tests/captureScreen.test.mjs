@@ -163,6 +163,10 @@ function baseState() {
       shortcutOut: 'O',
       autoTitleFromCaptions: true
     },
+    commandShortcuts: {
+      captureIn: 'I',
+      captureOut: 'O'
+    },
     pageInfo: null,
     videoState: null,
     playbackState: null,
@@ -616,7 +620,7 @@ test('Capture edit tab can clear the current IN marker', async () => {
   assert.match(textOf(page), /취소/);
 });
 
-test('Capture buttons render the effective shortcut labels from settings', async () => {
+test('Capture buttons render the effective shortcut labels from Chrome commands state', async () => {
   installDomShim();
   const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
 
@@ -624,8 +628,12 @@ test('Capture buttons render the effective shortcut labels from settings', async
     state: usableState({
       settings: {
         ...usableState().settings,
-        shortcutIn: 'Alt+Shift+I',
-        shortcutOut: 'Alt+Shift+O'
+        shortcutIn: 'Alt+I',
+        shortcutOut: 'Alt+O'
+      },
+      commandShortcuts: {
+        captureIn: 'Alt+Shift+I',
+        captureOut: 'Alt+Shift+O'
       }
     }),
     onIn: () => {},
@@ -634,6 +642,30 @@ test('Capture buttons render the effective shortcut labels from settings', async
 
   assert.match(textOf(findByAriaLabel(page, 'IN 마커 찍기')), /Alt\+Shift\+I/);
   assert.match(textOf(findByAriaLabel(page, 'OUT 마커 찍고 추가')), /Alt\+Shift\+O/);
+});
+
+test('Capture buttons omit shortcut labels when Chrome commands are unassigned', async () => {
+  installDomShim();
+  const { Capture } = await import('../.tmp-tests/src/screens/Capture.js');
+
+  const page = Capture({
+    state: usableState({
+      settings: {
+        ...usableState().settings,
+        shortcutIn: 'Alt+I',
+        shortcutOut: 'Alt+O'
+      },
+      commandShortcuts: {
+        captureIn: null,
+        captureOut: null
+      }
+    }),
+    onIn: () => {},
+    onOut: () => {}
+  });
+
+  assert.doesNotMatch(textOf(findByAriaLabel(page, 'IN 마커 찍기')), /Alt\+I/);
+  assert.doesNotMatch(textOf(findByAriaLabel(page, 'OUT 마커 찍고 추가')), /Alt\+O/);
 });
 
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {

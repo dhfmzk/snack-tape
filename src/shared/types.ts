@@ -62,6 +62,11 @@ export type VideoState = {
   paused: boolean;
 };
 
+export type CommandShortcutSnapshot = {
+  captureIn: string | null;
+  captureOut: string | null;
+};
+
 export type SegmentDraft = {
   videoId: string;
   startSeconds: number | null;

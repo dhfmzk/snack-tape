@@ -75,6 +75,10 @@ function baseState(accentKey = 'coral') {
       defaultMixtapeId: 'sequence-1',
       autoTitleFromCaptions: true
     },
+    commandShortcuts: {
+      captureIn: 'I',
+      captureOut: 'O'
+    },
     pageInfo: null,
     videoState: null,
     playbackState: null,
@@ -140,6 +144,27 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /SNACKTAPE v0\.1\.0 · MV3 SIDE PANEL/);
   assert.match(text, /BY dhfmzk · 2026/);
   assert.deepEqual(swatchGrid.children.map((swatch) => swatch.children[1].textContent), ['peach', 'coral', 'butter', 'seafoam', 'sky']);
+});
+
+test('Settings renders shortcut rows from Chrome commands state', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+
+  const state = baseState();
+  state.settings.shortcutIn = 'Alt+I';
+  state.settings.shortcutOut = 'Alt+O';
+  state.commandShortcuts = {
+    captureIn: null,
+    captureOut: 'Alt+Shift+O'
+  };
+
+  const page = Settings({ state, onAccent: () => {}, onSettingChange: () => {} });
+  const text = textOf(page);
+
+  assert.match(text, /단축키 — IN/);
+  assert.match(text, /—/);
+  assert.match(text, /Alt\+Shift\+O/);
+  assert.doesNotMatch(text, /Alt\+I/);
 });
 
 test('Settings wires handoff toggles to persisted setting patches', async () => {

@@ -59,6 +59,10 @@ export function makeAppState(overrides = {}) {
     route: 'home',
     store: resolvedStore,
     settings: makeSettings(settings),
+    commandShortcuts: {
+      captureIn: 'Alt+I',
+      captureOut: 'Alt+O'
+    },
     pageInfo: null,
     videoState: null,
     playbackState: null,
