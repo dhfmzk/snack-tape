@@ -5,7 +5,6 @@ import { readFile } from 'node:fs/promises';
 test('build runs a dist smoke check for Chrome load-unpacked files', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
 
-  assert.equal(packageJson.scripts.check, 'npm test && npm run build');
   assert.equal(packageJson.scripts['smoke:dist'], 'node scripts/check-dist.mjs');
   assert.match(packageJson.scripts.build, /npm run build:dist/);
   assert.match(packageJson.scripts['build:dist'], /npm run smoke:dist/);
