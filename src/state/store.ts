@@ -29,6 +29,7 @@ import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type Acti
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
 export type HomeSort = 'manual' | 'updated' | 'name' | 'clipCount';
+export type HomeSourceFilter = string;
 
 export type QueueEditState = {
   sequenceId: string;
@@ -98,6 +99,7 @@ export type AppState = {
   settingsNotice: SettingsNotice | null;
   pendingImport: PendingImport | null;
   homeSearch: string;
+  homeSourceFilter: HomeSourceFilter;
   homeSort: HomeSort;
   loading: boolean;
 };
@@ -286,6 +288,7 @@ export class SnackTapeAppStore {
       settingsNotice: null,
       pendingImport: null,
       homeSearch: '',
+      homeSourceFilter: '__all_sources__',
       homeSort: 'manual',
       loading: true,
     };
@@ -451,6 +454,10 @@ export class SnackTapeAppStore {
 
   setHomeSearch(query: string): void {
     this.setState({ homeSearch: query });
+  }
+
+  setHomeSourceFilter(sourceFilter: HomeSourceFilter): void {
+    this.setState({ homeSourceFilter: sourceFilter });
   }
 
   setHomeSort(sort: HomeSort): void {

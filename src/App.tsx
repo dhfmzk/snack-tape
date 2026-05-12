@@ -161,6 +161,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       }
     },
     onHomeSearch: (query) => store.setHomeSearch(query),
+    onHomeSourceFilter: (sourceFilter) => store.setHomeSourceFilter(sourceFilter),
     onHomeSort: (sort) => store.setHomeSort(sort),
   });
 }
