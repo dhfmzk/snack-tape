@@ -1337,7 +1337,10 @@ export class SnackTapeAppStore {
     const i18n = createI18n(this.state.settings.language).settings;
     const store = parseImportedStoreJson(await file.text());
     if (!store) {
-      this.setSettingsError(i18n.importFailed);
+      this.setState({
+        pendingImport: null,
+        settingsNotice: { kind: 'error', message: i18n.importFailed },
+      });
       return;
     }
 

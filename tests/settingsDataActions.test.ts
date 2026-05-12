@@ -393,16 +393,23 @@ test('copyDiagnostics copies a summarized support snapshot without clip source d
   assert.doesNotMatch(writes[0], /watch\?v=secret-video/);
 });
 
-test('importDataFile reports invalid JSON without changing the current store', async () => {
+test('importDataFile reports invalid JSON and clears a stale pending preview', async () => {
   const { SnackTapeAppStore } = await import('../src/state/store.js');
   const sequence = makeSequence({ id: 'sequence-invalid-import', segments: [] });
+  const imported = makeSequence({ id: 'sequence-stale-preview', name: 'Stale Preview', segments: [] });
   installChrome();
   const store = new SnackTapeAppStore();
   store.state = baseState(sequence);
 
+  await store.importDataFile({
+    text: async () => JSON.stringify({ app: 'SnackTape', version: 1, exportedAt: '2026-05-12T00:00:00.000Z', store: { sequences: [imported], selectedSequenceId: imported.id } })
+  });
+  assert.equal(store.getState().pendingImport.store.sequences[0].id, imported.id);
+
   await store.importDataFile({ text: async () => '{ nope' });
 
   assert.equal(store.getState().store.sequences[0].id, sequence.id);
+  assert.equal(store.getState().pendingImport, null);
   assert.equal(store.getState().settingsNotice.kind, 'error');
 });
 
