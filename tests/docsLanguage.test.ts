@@ -1,0 +1,16 @@
+// @ts-nocheck
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+const DOC_PATHS = [
+  'README.md',
+  'docs/snacktape-goal.md'
+];
+
+test('Markdown documentation is written in English', async () => {
+  for (const path of DOC_PATHS) {
+    const text = await readFile(path, 'utf8');
+    assert.doesNotMatch(text, /[가-힣]/, `${path} still contains Korean copy`);
+  }
+});
