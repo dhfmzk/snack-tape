@@ -15,6 +15,9 @@ type Props = {
   onDefaultSaveTarget?: (sequenceId: string) => void;
   onExport?: (format: ExportFormat) => void;
   onImport?: () => void;
+  onReplaceImport?: () => void;
+  onMergeImport?: () => void;
+  onCancelImport?: () => void;
   onResetSettings?: () => void;
   onDeleteAll?: () => void;
 };
@@ -242,6 +245,65 @@ function SettingsNotice(state: AppState): HTMLElement | null {
   });
 }
 
+function ImportPreview(
+  state: AppState,
+  i18n: I18n,
+  onReplaceImport?: () => void,
+  onMergeImport?: () => void,
+  onCancelImport?: () => void
+): HTMLElement | null {
+  const pendingImport = state.pendingImport;
+  if (!pendingImport) {
+    return null;
+  }
+
+  const { summary } = pendingImport;
+  return el(
+    'div',
+    {
+      style: {
+        margin: '0 0 22px',
+        padding: '12px',
+        border: '1px solid var(--hairline2)',
+        background: 'var(--surface)',
+        borderRadius: '10px',
+      },
+    },
+    el('div', {
+      text: i18n.settings.importPreviewTitle,
+      style: {
+        fontSize: '12.5px',
+        fontWeight: '700',
+        color: 'var(--text)',
+        marginBottom: '5px',
+      },
+    }),
+    el('div', {
+      text: i18n.settings.importPreviewSummary(summary.tapeCount, summary.clipCount),
+      style: {
+        fontSize: '11px',
+        color: 'var(--text2)',
+        marginBottom: '3px',
+      },
+    }),
+    el('div', {
+      text: i18n.settings.importPreviewConflicts(summary.duplicateNameCount, summary.duplicateRangeCount),
+      style: {
+        fontSize: '10.5px',
+        color: 'var(--mute)',
+        marginBottom: '10px',
+      },
+    }),
+    el(
+      'div',
+      { style: { display: 'flex', gap: '8px' } },
+      PillButton(i18n.settings.replaceImport, onReplaceImport),
+      PillButton(i18n.settings.mergeImport, onMergeImport),
+      PillButton(i18n.settings.cancelImport, onCancelImport)
+    )
+  );
+}
+
 function Section(title: string, ...children: HTMLElement[]): HTMLElement {
   return el(
     'div',
@@ -350,6 +412,9 @@ export function Settings({
   onDefaultSaveTarget,
   onExport,
   onImport,
+  onReplaceImport,
+  onMergeImport,
+  onCancelImport,
   onResetSettings,
   onDeleteAll,
 }: Props): HTMLElement {
@@ -379,6 +444,7 @@ export function Settings({
     }),
     SettingsNotice(state),
     LanguageSection(state, i18n, onSettingChange),
+    ImportPreview(state, i18n, onReplaceImport, onMergeImport, onCancelImport),
     el(
       'div',
       { style: { marginBottom: '22px' } },

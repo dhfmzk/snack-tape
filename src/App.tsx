@@ -115,6 +115,9 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onDefaultSaveTarget: (sequenceId) => void store.setDefaultMixtape(sequenceId),
       onExport: (format) => void store.exportData(format),
       onImport: () => requestImportFile((file) => void store.importDataFile(file)),
+      onReplaceImport: () => void store.replaceWithPendingImport(),
+      onMergeImport: () => void store.mergePendingImport(),
+      onCancelImport: () => store.cancelImportPreview(),
       onResetSettings: () => {
         if (window.confirm(i18n.settings.resetSettingsConfirm)) {
           void store.resetSettings();

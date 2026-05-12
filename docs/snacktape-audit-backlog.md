@@ -7,7 +7,7 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 54 items.
+- Open product and release work: 53 items.
 - Severity split: P1 High 10, P2 Medium 27, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
@@ -15,7 +15,7 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 
 1. Stabilize capture usability: `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-062`.
 2. Harden user-visible failures: `ST-GAP-044`, `ST-GAP-054`, `ST-GAP-056`.
-3. Add data-safety guardrails: `ST-GAP-052`, `ST-GAP-055`, `ST-GAP-059`.
+3. Add data-safety guardrails: `ST-GAP-055`, `ST-GAP-059`.
 4. Add real extension/browser confidence: `ST-GAP-046`, `ST-GAP-045`, `ST-GAP-079`.
 5. Prepare release assets and package flow: `ST-GAP-051`, `ST-GAP-058`, `ST-GAP-053`.
 6. Use remaining time for edit-library productivity: `ST-GAP-063` through `ST-GAP-068`.
@@ -29,7 +29,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-044 | Localization | Several background/content/validation/storage errors are still hard-coded Korean or technical English instead of routed through i18n. | `src/background/background.ts`, `src/content/contentScript.ts`, `src/shared/validation.ts`, `src/shared/storage.ts` | Centralize user-visible error keys and keep internal-only errors out of UI. |
 | ST-GAP-046 | Browser QA | Tests still use lightweight DOM shims, not a real browser or loaded Chrome extension environment. | `tests/*Screen.test.mjs`, `scripts/check-dist.mjs` | Add Playwright or Chrome load-unpacked smoke coverage for the side panel. |
 | ST-GAP-051 | Extension icon | The icon draft was intentionally stashed and the manifest still has no finalized extension icons. | `manifest.json`, `public/icons` | Create a simpler approved icon set and wire `icons` plus action icons into the manifest. |
-| ST-GAP-052 | Import safety | JSON import works, but it is still a direct replace flow without preview, conflict summary, merge option, or automatic pre-import backup. | `src/state/store.ts`, `src/shared/dataTransfer.ts`, `src/screens/Settings.tsx` | Add import preview with replace/merge decision and a JSON backup before replace. |
 | ST-GAP-054 | Runtime errors | Runtime message failures are transported as display strings, which makes localization and recovery behavior harder to keep consistent. | `src/background/background.ts`, `src/state/store.ts`, `src/shared/types.ts` | Return stable error codes from background/content and map them to localized UI copy in the store layer. |
 | ST-GAP-055 | Storage migrations | Storage normalization repairs current data, but there is no explicit schema version, migration path, or migration test fixture. | `src/shared/storage.ts`, `src/state/storage.ts`, `tests/storage.test.mjs` | Add schema version metadata, migration helpers, and legacy fixture tests. |
 | ST-GAP-056 | Playback reconnect UX | Recovery can restart playback, but the UI does not clearly explain whether it will preserve current session queue order, mode, and edited queue state. | `src/screens/Playback.tsx`, `src/state/store.ts` | Show reconnect copy that names the target tape and mode, and preserve edited queue recovery explicitly. |

@@ -227,6 +227,46 @@ test('Settings wires data actions to export, import, reset, and delete callbacks
   ]);
 });
 
+test('Settings renders import preview actions when a pending import exists', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const calls = [];
+  const state = baseState();
+  state.pendingImport = {
+    store: {
+      sequences: [{ id: 'imported', name: 'Imported Tape', segments: [] }],
+      selectedSequenceId: 'imported'
+    },
+    summary: {
+      tapeCount: 2,
+      clipCount: 9,
+      duplicateNameCount: 1,
+      duplicateRangeCount: 3
+    }
+  };
+
+  const page = Settings({
+    state,
+    onAccent: () => {},
+    onReplaceImport: () => calls.push('replace'),
+    onMergeImport: () => calls.push('merge'),
+    onCancelImport: () => calls.push('cancel')
+  });
+  const text = textOf(page);
+
+  assert.match(text, /가져오기 미리보기/);
+  assert.match(text, /2개 믹스테이프 · 9개 클립/);
+  assert.match(text, /이름 중복 1개 · 구간 중복 의심 3개/);
+
+  const preview = page.children[2];
+  const actions = preview.children[3].children;
+  actions[0].click();
+  actions[1].click();
+  actions[2].click();
+
+  assert.deepEqual(calls, ['replace', 'merge', 'cancel']);
+});
+
 test('Settings wires language dropdown to persisted setting patches', async () => {
   installDomShim();
   const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
