@@ -196,7 +196,7 @@ test('Settings wires default save target selection to persisted setting patches'
   assert.deepEqual(selected, ['sequence-2']);
 });
 
-test('Settings wires data actions to export, import, and delete callbacks', async () => {
+test('Settings wires data actions to export, import, reset, and delete callbacks', async () => {
   installDomShim();
   const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
   const calls = [];
@@ -206,6 +206,7 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
     onAccent: () => {},
     onExport: (format) => calls.push(['export', format]),
     onImport: () => calls.push(['import']),
+    onResetSettings: () => calls.push(['reset']),
     onDeleteAll: () => calls.push(['delete'])
   });
   const dataSection = page.children[5];
@@ -215,13 +216,55 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
   exportButtons[1].click();
   dataSection.children[2].click();
   dataSection.children[3].click();
+  dataSection.children[4].click();
 
   assert.deepEqual(calls, [
     ['export', 'json'],
     ['export', 'csv'],
     ['import'],
+    ['reset'],
     ['delete']
   ]);
+});
+
+test('Settings renders import preview actions when a pending import exists', async () => {
+  installDomShim();
+  const { Settings } = await import('../.tmp-tests/src/screens/Settings.js');
+  const calls = [];
+  const state = baseState();
+  state.pendingImport = {
+    store: {
+      sequences: [{ id: 'imported', name: 'Imported Tape', segments: [] }],
+      selectedSequenceId: 'imported'
+    },
+    summary: {
+      tapeCount: 2,
+      clipCount: 9,
+      duplicateNameCount: 1,
+      duplicateRangeCount: 3
+    }
+  };
+
+  const page = Settings({
+    state,
+    onAccent: () => {},
+    onReplaceImport: () => calls.push('replace'),
+    onMergeImport: () => calls.push('merge'),
+    onCancelImport: () => calls.push('cancel')
+  });
+  const text = textOf(page);
+
+  assert.match(text, /가져오기 미리보기/);
+  assert.match(text, /2개 믹스테이프 · 9개 클립/);
+  assert.match(text, /이름 중복 1개 · 구간 중복 의심 3개/);
+
+  const preview = page.children[2];
+  const actions = preview.children[3].children;
+  actions[0].click();
+  actions[1].click();
+  actions[2].click();
+
+  assert.deepEqual(calls, ['replace', 'merge', 'cancel']);
 });
 
 test('Settings wires language dropdown to persisted setting patches', async () => {
@@ -288,6 +331,7 @@ test('Settings renders English app copy when language is English', async () => {
   assert.match(text, /Playback/);
   assert.match(text, /Capture/);
   assert.match(text, /Default save location/);
+  assert.match(text, /Reset settings/);
   assert.match(text, /Data/);
 });
 
@@ -309,6 +353,7 @@ test('Settings renders Japanese app copy when language is Japanese', async () =>
   assert.match(text, /再生/);
   assert.match(text, /編集/);
   assert.match(text, /既定の保存先/);
+  assert.match(text, /設定をリセット/);
   assert.match(text, /データ/);
 });
 

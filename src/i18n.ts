@@ -43,6 +43,8 @@ export type I18n = {
     duplicateAction: string;
     deleteAction: string;
     mergeAction: string;
+    moveUp: (name: string) => string;
+    moveDown: (name: string) => string;
     edit: (name: string) => string;
     rename: (name: string) => string;
     duplicate: (name: string) => string;
@@ -206,11 +208,23 @@ export type I18n = {
     exportCsv: string;
     import: string;
     importHelp: string;
+    importPreviewTitle: string;
+    importPreviewSummary: (mixtapeCount: number, clipCount: number) => string;
+    importPreviewConflicts: (nameCount: number, rangeCount: number) => string;
+    importPreviewReady: (mixtapeCount: number, clipCount: number) => string;
+    replaceImport: string;
+    mergeImport: string;
+    cancelImport: string;
+    resetSettings: string;
+    resetSettingsHelp: string;
+    resetSettingsConfirm: string;
+    resetSettingsDone: string;
     deleteAllClips: string;
     deleteAllClipsHelp: string;
     deleteAllClipsConfirm: (clipCount: number) => string;
     exportReady: (format: string) => string;
     importReady: (mixtapeCount: number) => string;
+    importMerged: (mixtapeCount: number) => string;
     importFailed: string;
     deleteAllDone: string;
   };
@@ -267,6 +281,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '복제',
       deleteAction: '삭제',
       mergeAction: '병합',
+      moveUp: (name) => `${name} 위로 이동`,
+      moveDown: (name) => `${name} 아래로 이동`,
       edit: (name) => `${name} 편집`,
       rename: (name) => `${name} 이름 변경`,
       duplicate: (name) => `${name} 복제`,
@@ -430,11 +446,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: '가져오기',
       importHelp: 'JSON 백업 파일로 교체',
+      importPreviewTitle: '가져오기 미리보기',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}개 믹스테이프 · ${clipCount}개 클립`,
+      importPreviewConflicts: (nameCount, rangeCount) => `이름 중복 ${nameCount}개 · 구간 중복 의심 ${rangeCount}개`,
+      importPreviewReady: (mixtapeCount, clipCount) => `${mixtapeCount}개 믹스테이프와 ${clipCount}개 클립을 확인했습니다.`,
+      replaceImport: '교체',
+      mergeImport: '병합',
+      cancelImport: '취소',
+      resetSettings: '설정 초기화',
+      resetSettingsHelp: '믹스테이프와 저장된 구간은 유지합니다.',
+      resetSettingsConfirm: '앱 설정만 기본값으로 되돌릴까요? 믹스테이프와 저장된 구간은 삭제되지 않습니다.',
+      resetSettingsDone: '설정을 기본값으로 초기화했습니다.',
       deleteAllClips: '모든 클립 삭제',
       deleteAllClipsHelp: '믹스테이프와 저장된 구간을 비웁니다.',
       deleteAllClipsConfirm: (clipCount) => `저장된 클립 ${clipCount}개와 모든 믹스테이프를 삭제할까요?`,
       exportReady: (format) => `${format.toUpperCase()} 내보내기를 준비했습니다.`,
       importReady: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 가져왔습니다.`,
+      importMerged: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 병합했습니다.`,
       importFailed: '가져올 수 없는 JSON 파일입니다.',
       deleteAllDone: '모든 클립을 삭제했습니다.',
     },
@@ -489,6 +517,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '複製',
       deleteAction: '削除',
       mergeAction: '結合',
+      moveUp: (name) => `${name}を上へ移動`,
+      moveDown: (name) => `${name}を下へ移動`,
       edit: (name) => `${name}を編集`,
       rename: (name) => `${name}の名前を変更`,
       duplicate: (name) => `${name}を複製`,
@@ -652,11 +682,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: 'インポート',
       importHelp: 'JSONバックアップで置き換え',
+      importPreviewTitle: 'インポートのプレビュー',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}件のミックステープ · ${clipCount}件のクリップ`,
+      importPreviewConflicts: (nameCount, rangeCount) => `名前の重複 ${nameCount}件 · 範囲の重複候補 ${rangeCount}件`,
+      importPreviewReady: (mixtapeCount, clipCount) => `${mixtapeCount}件のミックステープと${clipCount}件のクリップを確認しました。`,
+      replaceImport: '置き換え',
+      mergeImport: '結合',
+      cancelImport: 'キャンセル',
+      resetSettings: '設定をリセット',
+      resetSettingsHelp: 'ミックステープと保存済み範囲は残します。',
+      resetSettingsConfirm: 'アプリ設定だけを初期値に戻しますか？ミックステープと保存済み範囲は削除されません。',
+      resetSettingsDone: '設定を初期値に戻しました。',
       deleteAllClips: 'すべてのクリップを削除',
       deleteAllClipsHelp: 'ミックステープと保存済み範囲を空にします。',
       deleteAllClipsConfirm: (clipCount) => `保存済みクリップ${clipCount}件とすべてのミックステープを削除しますか？`,
       exportReady: (format) => `${format.toUpperCase()}のエクスポートを準備しました。`,
       importReady: (mixtapeCount) => `${mixtapeCount}件のミックステープをインポートしました。`,
+      importMerged: (mixtapeCount) => `${mixtapeCount}件のミックステープを結合しました。`,
       importFailed: 'インポートできないJSONファイルです。',
       deleteAllDone: 'すべてのクリップを削除しました。',
     },
@@ -711,6 +753,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: 'Duplicate',
       deleteAction: 'Delete',
       mergeAction: 'Merge',
+      moveUp: (name) => `Move ${name} up`,
+      moveDown: (name) => `Move ${name} down`,
       edit: (name) => `Edit ${name}`,
       rename: (name) => `Rename ${name}`,
       duplicate: (name) => `Duplicate ${name}`,
@@ -874,11 +918,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: 'Import',
       importHelp: 'Replace from a JSON backup',
+      importPreviewTitle: 'Import preview',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'} · ${clipCount} clip${clipCount === 1 ? '' : 's'}`,
+      importPreviewConflicts: (nameCount, rangeCount) => `${nameCount} duplicate name${nameCount === 1 ? '' : 's'} · ${rangeCount} possible duplicate range${rangeCount === 1 ? '' : 's'}`,
+      importPreviewReady: (mixtapeCount, clipCount) => `Reviewed ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'} and ${clipCount} clip${clipCount === 1 ? '' : 's'}.`,
+      replaceImport: 'Replace',
+      mergeImport: 'Merge',
+      cancelImport: 'Cancel',
+      resetSettings: 'Reset settings',
+      resetSettingsHelp: 'Keeps mixtapes and saved ranges.',
+      resetSettingsConfirm: 'Reset app settings to defaults? Mixtapes and saved ranges will not be deleted.',
+      resetSettingsDone: 'Reset settings to defaults.',
       deleteAllClips: 'Delete all clips',
       deleteAllClipsHelp: 'Clear mixtapes and saved ranges.',
       deleteAllClipsConfirm: (clipCount) => `Delete ${clipCount} saved clip${clipCount === 1 ? '' : 's'} and all mixtapes?`,
       exportReady: (format) => `${format.toUpperCase()} export is ready.`,
       importReady: (mixtapeCount) => `Imported ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importMerged: (mixtapeCount) => `Merged ${mixtapeCount} imported mixtape${mixtapeCount === 1 ? '' : 's'}.`,
       importFailed: 'This JSON file cannot be imported.',
       deleteAllDone: 'Deleted all clips.',
     },

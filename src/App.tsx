@@ -115,6 +115,14 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
       onDefaultSaveTarget: (sequenceId) => void store.setDefaultMixtape(sequenceId),
       onExport: (format) => void store.exportData(format),
       onImport: () => requestImportFile((file) => void store.importDataFile(file)),
+      onReplaceImport: () => void store.replaceWithPendingImport(),
+      onMergeImport: () => void store.mergePendingImport(),
+      onCancelImport: () => store.cancelImportPreview(),
+      onResetSettings: () => {
+        if (window.confirm(i18n.settings.resetSettingsConfirm)) {
+          void store.resetSettings();
+        }
+      },
       onDeleteAll: () => {
         const clipCount = state.store?.sequences.reduce((total, sequence) => total + sequence.segments.length, 0) ?? 0;
         offerJsonBackupBeforeDelete(store, i18n, clipCount, { library: true });
@@ -139,6 +147,7 @@ function screenFor(state: AppState, store: SnackTapeAppStore, i18n: I18n): HTMLE
     onRenameSequence: (sequenceId) => void store.beginRenameMixtape(sequenceId),
     onDuplicateSequence: (sequenceId) => void store.duplicateMixtape(sequenceId),
     onDeleteSequence: (sequenceId) => confirmDeleteMixtape(state, store, i18n, sequenceId),
+    onMoveMixtape: (sequenceId, direction) => void store.moveMixtape(sequenceId, direction),
     onMergeSequence: (sourceSequenceId, targetSequenceId) => {
       const source = state.store?.sequences.find((item) => item.id === sourceSequenceId);
       const target = state.store?.sequences.find((item) => item.id === targetSequenceId);
