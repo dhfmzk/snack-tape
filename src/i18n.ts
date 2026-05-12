@@ -43,6 +43,8 @@ export type I18n = {
     duplicateAction: string;
     deleteAction: string;
     mergeAction: string;
+    moveUp: (name: string) => string;
+    moveDown: (name: string) => string;
     edit: (name: string) => string;
     rename: (name: string) => string;
     duplicate: (name: string) => string;
@@ -78,14 +80,19 @@ export type I18n = {
     end: string;
     captureInAria: string;
     captureOutAria: string;
+    captureOutPreviewAria: string;
     inButton: string;
     outButton: string;
     mark: string;
     now: string;
     inFirst: string;
+    adjustInMarker: string;
+    adjustOutMarker: string;
+    adjust: (label: string) => string;
     clearDraft: string;
     clearDraftAria: string;
-    adjust: (label: string) => string;
+    saveDraftClip: string;
+    saveDraftClipAria: string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
     noticeOpenYoutubeVideo: string;
@@ -144,11 +151,23 @@ export type I18n = {
     done: string;
     reconnect: string;
     reconnectAria: string;
+    sequenceMode: string;
+    repeatMode: string;
+    recoveryStartSummary: (tapeName: string, mode: string, queue: string) => string;
+    recoveryEditedQueue: (count: number) => string;
+    recoverySessionQueue: (count: number) => string;
+    recoveryShuffleQueue: string;
+    recoverySavedQueue: string;
+    recoveryNextSummary: string;
+    recoveryStopSummary: string;
     stopRecoveryAria: string;
     connectionLost: string;
     noPlaybackTab: string;
     currentSegmentMissing: string;
     contentRequestFailed: string;
+    runtimeUnavailable: string;
+    unsupportedRequest: string;
+    unknownError: string;
     startFailed: (message: string) => string;
     nextFailed: (message: string) => string;
     seekFailed: (message: string) => string;
@@ -189,11 +208,23 @@ export type I18n = {
     exportCsv: string;
     import: string;
     importHelp: string;
+    importPreviewTitle: string;
+    importPreviewSummary: (mixtapeCount: number, clipCount: number) => string;
+    importPreviewConflicts: (nameCount: number, rangeCount: number) => string;
+    importPreviewReady: (mixtapeCount: number, clipCount: number) => string;
+    replaceImport: string;
+    mergeImport: string;
+    cancelImport: string;
+    resetSettings: string;
+    resetSettingsHelp: string;
+    resetSettingsConfirm: string;
+    resetSettingsDone: string;
     deleteAllClips: string;
     deleteAllClipsHelp: string;
     deleteAllClipsConfirm: (clipCount: number) => string;
     exportReady: (format: string) => string;
     importReady: (mixtapeCount: number) => string;
+    importMerged: (mixtapeCount: number) => string;
     importFailed: string;
     deleteAllDone: string;
   };
@@ -250,6 +281,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '복제',
       deleteAction: '삭제',
       mergeAction: '병합',
+      moveUp: (name) => `${name} 위로 이동`,
+      moveDown: (name) => `${name} 아래로 이동`,
       edit: (name) => `${name} 편집`,
       rename: (name) => `${name} 이름 변경`,
       duplicate: (name) => `${name} 복제`,
@@ -285,14 +318,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '끝',
       captureInAria: 'IN 마커 찍기',
       captureOutAria: 'OUT 마커 찍고 추가',
+      captureOutPreviewAria: 'OUT 마커 미리보기',
       inButton: 'IN · I',
       outButton: 'OUT + 추가 · O',
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
-      clearDraft: 'IN 지우기',
-      clearDraftAria: '현재 IN 마커 지우기',
+      adjustInMarker: 'IN 조정',
+      adjustOutMarker: 'OUT 조정',
       adjust: (label) => `${label} 조정`,
+      clearDraft: '취소',
+      clearDraftAria: '캡처 드래프트 취소',
+      saveDraftClip: '저장',
+      saveDraftClipAria: '현재 구간 저장',
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
@@ -351,11 +389,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '완료',
       reconnect: '다시 연결',
       reconnectAria: '재생 다시 연결',
+      sequenceMode: '순서 재생',
+      repeatMode: '반복 재생',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `편집된 큐 ${count}개 유지`,
+      recoverySessionQueue: (count) => `세션 순서 ${count}개 유지`,
+      recoveryShuffleQueue: '새 셔플 순서',
+      recoverySavedQueue: '저장된 목록 순서',
+      recoveryNextSummary: '현재 재생 세션에서 다음 클립으로 다시 시도합니다.',
+      recoveryStopSummary: '현재 재생 세션을 정지 상태로 정리합니다.',
       stopRecoveryAria: '재생 정지',
       connectionLost: 'YouTube 탭과 연결할 수 없습니다. 다시 연결하거나 재생을 정지해주세요.',
       noPlaybackTab: '재생 중인 YouTube 탭을 찾을 수 없습니다.',
       currentSegmentMissing: '재생 중인 구간을 찾을 수 없습니다.',
       contentRequestFailed: 'YouTube 페이지와 연결할 수 없습니다. 새로고침 후 다시 시도해주세요.',
+      runtimeUnavailable: '확장 프로그램 백그라운드와 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+      unsupportedRequest: '지원하지 않는 재생 요청입니다.',
+      unknownError: '알 수 없는 재생 오류가 발생했습니다.',
       startFailed: (message) => `재생을 시작할 수 없습니다. ${message}`,
       nextFailed: (message) => `다음 클립으로 이동할 수 없습니다. ${message}`,
       seekFailed: (message) => `재생 위치를 이동할 수 없습니다. ${message}`,
@@ -396,11 +446,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: '가져오기',
       importHelp: 'JSON 백업 파일로 교체',
+      importPreviewTitle: '가져오기 미리보기',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}개 믹스테이프 · ${clipCount}개 클립`,
+      importPreviewConflicts: (nameCount, rangeCount) => `이름 중복 ${nameCount}개 · 구간 중복 의심 ${rangeCount}개`,
+      importPreviewReady: (mixtapeCount, clipCount) => `${mixtapeCount}개 믹스테이프와 ${clipCount}개 클립을 확인했습니다.`,
+      replaceImport: '교체',
+      mergeImport: '병합',
+      cancelImport: '취소',
+      resetSettings: '설정 초기화',
+      resetSettingsHelp: '믹스테이프와 저장된 구간은 유지합니다.',
+      resetSettingsConfirm: '앱 설정만 기본값으로 되돌릴까요? 믹스테이프와 저장된 구간은 삭제되지 않습니다.',
+      resetSettingsDone: '설정을 기본값으로 초기화했습니다.',
       deleteAllClips: '모든 클립 삭제',
       deleteAllClipsHelp: '믹스테이프와 저장된 구간을 비웁니다.',
       deleteAllClipsConfirm: (clipCount) => `저장된 클립 ${clipCount}개와 모든 믹스테이프를 삭제할까요?`,
       exportReady: (format) => `${format.toUpperCase()} 내보내기를 준비했습니다.`,
       importReady: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 가져왔습니다.`,
+      importMerged: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 병합했습니다.`,
       importFailed: '가져올 수 없는 JSON 파일입니다.',
       deleteAllDone: '모든 클립을 삭제했습니다.',
     },
@@ -455,6 +517,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: '複製',
       deleteAction: '削除',
       mergeAction: '結合',
+      moveUp: (name) => `${name}を上へ移動`,
+      moveDown: (name) => `${name}を下へ移動`,
       edit: (name) => `${name}を編集`,
       rename: (name) => `${name}の名前を変更`,
       duplicate: (name) => `${name}を複製`,
@@ -490,14 +554,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: '終了',
       captureInAria: 'INマーカーを設定',
       captureOutAria: 'OUTマーカーを設定して追加',
+      captureOutPreviewAria: 'OUTマーカーをプレビュー',
       inButton: 'IN · I',
       outButton: 'OUT + 追加 · O',
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
-      clearDraft: 'INを消去',
-      clearDraftAria: '現在のINマーカーを消去',
+      adjustInMarker: 'INを調整',
+      adjustOutMarker: 'OUTを調整',
       adjust: (label) => `${label}を調整`,
+      clearDraft: '取消',
+      clearDraftAria: 'キャプチャ下書きを取り消す',
+      saveDraftClip: '保存',
+      saveDraftClipAria: '現在の範囲を保存',
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
@@ -556,11 +625,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: '完了',
       reconnect: '再接続',
       reconnectAria: '再生を再接続',
+      sequenceMode: '順番再生',
+      repeatMode: 'リピート再生',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `編集済みキュー${count}件を保持`,
+      recoverySessionQueue: (count) => `セッション順${count}件を保持`,
+      recoveryShuffleQueue: '新しいシャッフル順',
+      recoverySavedQueue: '保存済みリスト順',
+      recoveryNextSummary: '現在の再生セッションで次のクリップを再試行します。',
+      recoveryStopSummary: '現在の再生セッションを停止状態に戻します。',
       stopRecoveryAria: '再生を停止',
       connectionLost: 'YouTubeタブに接続できません。再接続するか再生を停止してください。',
       noPlaybackTab: '再生中のYouTubeタブが見つかりません。',
       currentSegmentMissing: '再生中の範囲が見つかりません。',
       contentRequestFailed: 'YouTubeページに接続できません。再読み込みしてからもう一度お試しください。',
+      runtimeUnavailable: '拡張機能のバックグラウンドに接続できません。しばらくしてからもう一度お試しください。',
+      unsupportedRequest: '対応していない再生リクエストです。',
+      unknownError: '不明な再生エラーが発生しました。',
       startFailed: (message) => `再生を開始できません。 ${message}`,
       nextFailed: (message) => `次のクリップへ移動できません。 ${message}`,
       seekFailed: (message) => `再生位置を移動できません。 ${message}`,
@@ -601,11 +682,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: 'インポート',
       importHelp: 'JSONバックアップで置き換え',
+      importPreviewTitle: 'インポートのプレビュー',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}件のミックステープ · ${clipCount}件のクリップ`,
+      importPreviewConflicts: (nameCount, rangeCount) => `名前の重複 ${nameCount}件 · 範囲の重複候補 ${rangeCount}件`,
+      importPreviewReady: (mixtapeCount, clipCount) => `${mixtapeCount}件のミックステープと${clipCount}件のクリップを確認しました。`,
+      replaceImport: '置き換え',
+      mergeImport: '結合',
+      cancelImport: 'キャンセル',
+      resetSettings: '設定をリセット',
+      resetSettingsHelp: 'ミックステープと保存済み範囲は残します。',
+      resetSettingsConfirm: 'アプリ設定だけを初期値に戻しますか？ミックステープと保存済み範囲は削除されません。',
+      resetSettingsDone: '設定を初期値に戻しました。',
       deleteAllClips: 'すべてのクリップを削除',
       deleteAllClipsHelp: 'ミックステープと保存済み範囲を空にします。',
       deleteAllClipsConfirm: (clipCount) => `保存済みクリップ${clipCount}件とすべてのミックステープを削除しますか？`,
       exportReady: (format) => `${format.toUpperCase()}のエクスポートを準備しました。`,
       importReady: (mixtapeCount) => `${mixtapeCount}件のミックステープをインポートしました。`,
+      importMerged: (mixtapeCount) => `${mixtapeCount}件のミックステープを結合しました。`,
       importFailed: 'インポートできないJSONファイルです。',
       deleteAllDone: 'すべてのクリップを削除しました。',
     },
@@ -660,6 +753,8 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       duplicateAction: 'Duplicate',
       deleteAction: 'Delete',
       mergeAction: 'Merge',
+      moveUp: (name) => `Move ${name} up`,
+      moveDown: (name) => `Move ${name} down`,
       edit: (name) => `Edit ${name}`,
       rename: (name) => `Rename ${name}`,
       duplicate: (name) => `Duplicate ${name}`,
@@ -695,14 +790,19 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       end: 'End',
       captureInAria: 'Mark IN',
       captureOutAria: 'Mark OUT and add',
+      captureOutPreviewAria: 'Preview OUT marker',
       inButton: 'IN · I',
       outButton: 'OUT + Add · O',
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
-      clearDraft: 'Clear IN',
-      clearDraftAria: 'Clear current IN marker',
+      adjustInMarker: 'Adjust IN',
+      adjustOutMarker: 'Adjust OUT',
       adjust: (label) => `Adjust ${label}`,
+      clearDraft: 'Clear',
+      clearDraftAria: 'Clear capture draft',
+      saveDraftClip: 'Save',
+      saveDraftClipAria: 'Save current range',
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
@@ -761,11 +861,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       done: 'Done',
       reconnect: 'Reconnect',
       reconnectAria: 'Reconnect playback',
+      sequenceMode: 'Sequence play',
+      repeatMode: 'Repeat play',
+      recoveryStartSummary: (tapeName, mode, queue) => `${tapeName} · ${mode} · ${queue}`,
+      recoveryEditedQueue: (count) => `keep edited queue of ${count}`,
+      recoverySessionQueue: (count) => `keep session order of ${count}`,
+      recoveryShuffleQueue: 'new shuffle order',
+      recoverySavedQueue: 'saved list order',
+      recoveryNextSummary: 'Retry the next clip in the current playback session.',
+      recoveryStopSummary: 'Stop and clear the current playback session.',
       stopRecoveryAria: 'Stop playback',
       connectionLost: 'Cannot connect to the YouTube tab. Reconnect or stop playback.',
       noPlaybackTab: 'Cannot find the active YouTube playback tab.',
       currentSegmentMissing: 'Cannot find the current playback range.',
       contentRequestFailed: 'Cannot connect to the YouTube page. Refresh it and try again.',
+      runtimeUnavailable: 'Cannot connect to the extension background. Try again in a moment.',
+      unsupportedRequest: 'Unsupported playback request.',
+      unknownError: 'An unknown playback error occurred.',
       startFailed: (message) => `Cannot start playback. ${message}`,
       nextFailed: (message) => `Cannot move to the next clip. ${message}`,
       seekFailed: (message) => `Cannot seek playback. ${message}`,
@@ -806,11 +918,23 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportCsv: 'CSV',
       import: 'Import',
       importHelp: 'Replace from a JSON backup',
+      importPreviewTitle: 'Import preview',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'} · ${clipCount} clip${clipCount === 1 ? '' : 's'}`,
+      importPreviewConflicts: (nameCount, rangeCount) => `${nameCount} duplicate name${nameCount === 1 ? '' : 's'} · ${rangeCount} possible duplicate range${rangeCount === 1 ? '' : 's'}`,
+      importPreviewReady: (mixtapeCount, clipCount) => `Reviewed ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'} and ${clipCount} clip${clipCount === 1 ? '' : 's'}.`,
+      replaceImport: 'Replace',
+      mergeImport: 'Merge',
+      cancelImport: 'Cancel',
+      resetSettings: 'Reset settings',
+      resetSettingsHelp: 'Keeps mixtapes and saved ranges.',
+      resetSettingsConfirm: 'Reset app settings to defaults? Mixtapes and saved ranges will not be deleted.',
+      resetSettingsDone: 'Reset settings to defaults.',
       deleteAllClips: 'Delete all clips',
       deleteAllClipsHelp: 'Clear mixtapes and saved ranges.',
       deleteAllClipsConfirm: (clipCount) => `Delete ${clipCount} saved clip${clipCount === 1 ? '' : 's'} and all mixtapes?`,
       exportReady: (format) => `${format.toUpperCase()} export is ready.`,
       importReady: (mixtapeCount) => `Imported ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importMerged: (mixtapeCount) => `Merged ${mixtapeCount} imported mixtape${mixtapeCount === 1 ? '' : 's'}.`,
       importFailed: 'This JSON file cannot be imported.',
       deleteAllDone: 'Deleted all clips.',
     },

@@ -7,15 +7,15 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 ## Status
 
 - Open defects: 0 confirmed open defects.
-- Open product and release work: 53 items.
+- Open product and release work: 52 items.
 - Severity split: P1 High 9, P2 Medium 27, P3 Low 17.
 - Suggested workload: enough for an overnight implementation pass if split into capture, QA, data safety, release, and polish tracks.
 
 ## Overnight Work Order
 
-1. Stabilize capture usability: `ST-GAP-026`, `ST-GAP-027`, `ST-GAP-062`.
+1. Stabilize capture usability: `ST-GAP-026`, `ST-GAP-062`.
 2. Harden user-visible failures: `ST-GAP-044`, `ST-GAP-054`, `ST-GAP-056`.
-3. Add data-safety guardrails: `ST-GAP-052`, `ST-GAP-055`, `ST-GAP-059`.
+3. Add data-safety guardrails: `ST-GAP-055`, `ST-GAP-059`.
 4. Add real extension/browser confidence: `ST-GAP-046`, `ST-GAP-045`, `ST-GAP-079`.
 5. Prepare release assets and package flow: `ST-GAP-051`, `ST-GAP-058`, `ST-GAP-053`.
 6. Use remaining time for edit-library productivity: `ST-GAP-063` through `ST-GAP-068`.
@@ -28,7 +28,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-044 | Localization | Several background/content/validation/storage errors are still hard-coded Korean or technical English instead of routed through i18n. | `src/background/background.ts`, `src/content/contentScript.ts`, `src/shared/validation.ts`, `src/shared/storage.ts` | Centralize user-visible error keys and keep internal-only errors out of UI. |
 | ST-GAP-046 | Browser QA | Tests still use lightweight DOM shims, not a real browser or loaded Chrome extension environment. | `tests/*Screen.test.mjs`, `scripts/check-dist.mjs` | Add Playwright or Chrome load-unpacked smoke coverage for the side panel. |
 | ST-GAP-051 | Extension icon | The icon draft was intentionally stashed and the manifest still has no finalized extension icons. | `manifest.json`, `public/icons` | Create a simpler approved icon set and wire `icons` plus action icons into the manifest. |
-| ST-GAP-052 | Import safety | JSON import works, but it is still a direct replace flow without preview, conflict summary, merge option, or automatic pre-import backup. | `src/state/store.ts`, `src/shared/dataTransfer.ts`, `src/screens/Settings.tsx` | Add import preview with replace/merge decision and a JSON backup before replace. |
 | ST-GAP-054 | Runtime errors | Runtime message failures are transported as display strings, which makes localization and recovery behavior harder to keep consistent. | `src/background/background.ts`, `src/state/store.ts`, `src/shared/types.ts` | Return stable error codes from background/content and map them to localized UI copy in the store layer. |
 | ST-GAP-055 | Storage migrations | Storage normalization repairs current data, but there is no explicit schema version, migration path, or migration test fixture. | `src/shared/storage.ts`, `src/state/storage.ts`, `tests/storage.test.mjs` | Add schema version metadata, migration helpers, and legacy fixture tests. |
 | ST-GAP-056 | Playback reconnect UX | Recovery can restart playback, but the UI does not clearly explain whether it will preserve current session queue order, mode, and edited queue state. | `src/screens/Playback.tsx`, `src/state/store.ts` | Show reconnect copy that names the target tape and mode, and preserve edited queue recovery explicitly. |
@@ -52,7 +51,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-063 | Edit search | The Edit tab can become long, but there is no search/filter field for clips inside one tape. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add per-tape clip search by title, source, note, and time range. |
 | ST-GAP-064 | Batch clip actions | Copy, move, and delete are per-row only. Bulk cleanup requires repeated menu interactions. | `src/screens/Capture.tsx`, `src/state/store.ts`, `src/shared/reorder.ts` | Add multi-select mode with batch copy, move, and delete. |
 | ST-GAP-065 | Duplicate clip action | Users can duplicate entire tapes, but not a single useful clip/range. | `src/screens/Capture.tsx`, `src/state/store.ts` | Add duplicate segment action that creates a new id and preserves range/title/note. |
-| ST-GAP-066 | Home manual reorder | Home sort supports manual order, but there is no drag/reorder interaction for mixtapes. | `src/screens/Home.tsx`, `src/state/store.ts`, `src/shared/reorder.ts` | Add drag or up/down controls for tape order when manual sort is active. |
 | ST-GAP-067 | Merge preview | Mixtape merge is available, but users do not get a preview of clip counts, duplicate-looking ranges, or resulting name/order before confirming. | `src/screens/Home.tsx`, `src/state/store.ts` | Add a merge preview confirmation with source/target summary. |
 | ST-GAP-068 | Playback mode per tape | Shuffle default is global only. Some tapes naturally want sequence, shuffle, or repeat behavior. | `src/shared/types.ts`, `src/state/store.ts`, `src/screens/Home.tsx`, `src/screens/Playback.tsx` | Add optional per-mixtape playback preference with global fallback. |
 | ST-GAP-069 | Last played position | A tape does not remember which clip was last played once playback stops. | `src/shared/types.ts`, `src/shared/storage.ts`, `src/screens/Home.tsx` | Store lightweight last-played metadata and expose a resume action. |
@@ -82,7 +80,6 @@ Scope: current open work only. Completed bug fixes and finished feature work hav
 | ST-GAP-087 | CSV import | CSV export exists, but CSV import is not supported. | `src/shared/dataTransfer.ts`, `src/state/store.ts` | Defer unless the user starts editing data outside the extension. |
 | ST-GAP-088 | Drag-and-drop import | Import requires file picker flow only. | `src/screens/Settings.tsx` | Add drag-and-drop import zone after import preview is safe. |
 | ST-GAP-089 | Large library performance | Lists render directly and may get heavy with many tapes/clips. | `src/screens/Home.tsx`, `src/screens/Capture.tsx`, `src/screens/Playback.tsx` | Add performance tests before considering virtualization. |
-| ST-GAP-090 | Thumbnail fallback polish | Thumbnail fallback is functional but not branded enough for missing/private/deleted videos. | `src/components/Thumb.tsx`, `src/theme/tokens.ts` | Add route-consistent placeholder states. |
 | ST-GAP-091 | Focus ring polish | Focus states exist through native behavior and inline styles, but there is no visual audit across themes. | `src/screens/*.tsx`, `src/sidepanel/styles.css` | Run focus-ring visual pass after keyboard QA tests. |
 | ST-GAP-092 | Narrow-width sweep | Side panel layouts are tested mostly by DOM expectations, not visual width sweeps. | `src/screens/*.tsx`, `tests/*Screen.test.mjs` | Add narrow-width screenshot checks when browser QA exists. |
 | ST-GAP-093 | Architecture notes | README is intentionally concise, but there is no short developer architecture note for future work. | `README.md`, `src/` | Add a separate `docs/architecture.md` if onboarding becomes slow. |

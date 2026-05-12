@@ -328,6 +328,33 @@ test('background does not save playback state when content playback handoff fail
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
 });
 
+test('background preserves no-code content response failures as unknown raw failures', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
+  const sequence = makeSequence({
+    id: 'sequence-content-unknown',
+    segments: [makeSegment({ id: 'clip-unknown', videoId: 'video-1' })]
+  });
+  installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SETTINGS_KEY]: settings()
+    },
+    {
+      sendMessageResponse: { ok: false, error: 'content failed without code' }
+    }
+  );
+  const { startSequence } = await import('../.tmp-tests/src/background/background.js');
+
+  await assert.rejects(
+    () => startSequence(sequence.id, 0, 'sequence', 9),
+    (error) => error?.code === 'unknown' && error?.message === 'content failed without code'
+  );
+});
+
 test('background records waiting playback without promoting it to playing', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
@@ -812,6 +839,53 @@ test('background capture command saves OUT into the selected mixtape when the si
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].title, 'Command Video');
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].startSeconds, 12);
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].endSeconds, 15);
+  assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
+});
+
+test('background capture command prefers a persisted preview OUT marker when saving', async () => {
+  const { STORAGE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const sequence = makeSequence({ id: 'sequence-command-preview-out', segments: [] });
+  const data = installChrome(
+    {
+      [STORAGE_KEY]: {
+        sequences: [sequence],
+        selectedSequenceId: sequence.id
+      },
+      [SEGMENT_DRAFT_KEY]: {
+        videoId: 'video-1',
+        startSeconds: 12,
+        endSeconds: 14,
+        updatedAt: 1
+      }
+    },
+    {
+      runtimeSendMessageError: 'Could not establish connection. Receiving end does not exist.',
+      sendMessageResponse(message) {
+        if (message.type === 'getVideoState') {
+          return {
+            ok: true,
+            data: {
+              videoId: 'video-1',
+              title: 'Command Video',
+              channel: 'Channel',
+              currentTime: 18,
+              duration: 90,
+              paused: false
+            }
+          };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  await import('../.tmp-tests/src/background/background.js?command-capture-preview-out');
+
+  data.commandListeners[0]('capture-out');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data[STORAGE_KEY].sequences[0].segments.length, 1);
+  assert.equal(data[STORAGE_KEY].sequences[0].segments[0].startSeconds, 12);
+  assert.equal(data[STORAGE_KEY].sequences[0].segments[0].endSeconds, 14);
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
 });
 

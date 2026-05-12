@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeSegment, makeSequence } from './helpers.mjs';
+import { makeAppState, makeSegment, makeSequence, makeSettings } from './helpers.mjs';
 
 function installChrome(initial = {}, options = {}) {
   const data = { ...initial };
@@ -70,40 +70,18 @@ function installDownloadDom() {
 }
 
 function baseSettings(overrides = {}) {
-  return {
-    accentKey: 'peach',
-    language: 'ko',
-    autoNext: true,
-    fadeOut: true,
-    shuffleByDefault: false,
-    shortcutIn: 'Alt+I',
-    shortcutOut: 'Alt+O',
-    autoTitleFromCaptions: true,
-    ...overrides
-  };
+  return makeSettings(overrides);
 }
 
 function baseState(sequence, settings = baseSettings()) {
-  return {
+  return makeAppState({
     route: 'settings',
     store: {
       sequences: [sequence],
       selectedSequenceId: sequence.id
     },
-    settings,
-    pageInfo: null,
-    videoState: null,
-    playbackState: null,
-    playbackDisplay: null,
-    draftIn: null,
-    capturePulseId: null,
-    queueEdit: null,
-    segmentEdit: null,
-    renameEdit: null,
-    captureNotice: null,
-    settingsNotice: null,
-    loading: false
-  };
+    settings
+  });
 }
 
 test('setDefaultMixtape persists an existing mixtape as the default save target', async () => {
@@ -161,12 +139,12 @@ test('exportData downloads JSON and CSV backups from the current store', async (
   await store.exportData('json');
   await store.exportData('csv');
 
-  assert.match(dom.clicks[0].download, /^snacktape-export-.*\.json$/);
-  assert.match(dom.clicks[1].download, /^snacktape-export-.*\.csv$/);
+  assert.match(dom.clicks[0].download, /^snacktape-json-\d{8}-\d{6}-\d{3}-export-tape\.json$/);
+  assert.match(dom.clicks[1].download, /^snacktape-csv-\d{8}-\d{6}-\d{3}-export-tape\.csv$/);
   assert.equal(store.getState().settingsNotice.kind, 'info');
 });
 
-test('importDataFile replaces the store and clears stale default save targets', async () => {
+test('importDataFile previews before replace and clears stale default save targets on apply', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
   const { serializeStoreJson } = await import('../.tmp-tests/src/shared/dataTransfer.js');
@@ -182,6 +160,7 @@ test('importDataFile replaces the store and clears stale default save targets', 
     [SEGMENT_DRAFT_KEY]: { videoId: 'video-1', startSeconds: 1, endSeconds: null, updatedAt: 1 },
     [SETTINGS_KEY]: baseSettings({ defaultMixtapeId: oldSequence.id })
   });
+  const dom = installDownloadDom();
   const store = new SnackTapeAppStore();
   store.state = baseState(oldSequence, baseSettings({ defaultMixtapeId: oldSequence.id }));
 
@@ -192,8 +171,18 @@ test('importDataFile replaces the store and clears stale default save targets', 
     })
   });
 
+  assert.equal(store.getState().store.sequences[0].id, oldSequence.id);
+  assert.equal(data[STORAGE_KEY].sequences[0].id, oldSequence.id);
+  assert.equal(store.getState().pendingImport.store.sequences[0].id, newSequence.id);
+  assert.equal(store.getState().settingsNotice.kind, 'info');
+
+  await store.replaceWithPendingImport();
+
+  assert.equal(dom.clicks.length, 1);
+  assert.match(dom.clicks[0].download, /^snacktape-pre-import-backup-.*\.json$/);
   assert.equal(store.getState().store.sequences[0].id, newSequence.id);
   assert.equal(store.getState().settings.defaultMixtapeId, undefined);
+  assert.equal(store.getState().pendingImport, null);
   assert.equal(data[STORAGE_KEY].sequences[0].id, newSequence.id);
   assert.equal(data[PLAYBACK_STATE_KEY], undefined);
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);

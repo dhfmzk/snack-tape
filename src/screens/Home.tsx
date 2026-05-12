@@ -17,6 +17,7 @@ type Props = {
   onDuplicateSequence?: (sequenceId: string) => void;
   onDeleteSequence?: (sequenceId: string) => void;
   onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void;
+  onMoveMixtape?: (sequenceId: string, direction: 'up' | 'down') => void;
   onHomeSearch?: (query: string) => void;
   onHomeSort?: (sort: HomeSort) => void;
 };
@@ -123,6 +124,24 @@ function actionButtonStyle(danger = false): Style {
   };
 }
 
+function orderButtonStyle(disabled: boolean): Style {
+  return {
+    width: '28px',
+    height: '28px',
+    border: '1px solid var(--hairline2)',
+    background: 'var(--surface2)',
+    color: disabled ? 'var(--mute2)' : 'var(--text2)',
+    borderRadius: '8px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? '0.42' : '1',
+    padding: '0',
+    flexShrink: '0',
+  };
+}
+
 function controlShellStyle(): Style {
   return {
     height: '38px',
@@ -134,6 +153,56 @@ function controlShellStyle(): Style {
     outline: '0',
     fontSize: '12px',
   };
+}
+
+function MixtapeOrderControls(
+  i18n: I18n,
+  sequence: Sequence,
+  index: number,
+  total: number,
+  onMoveMixtape?: (sequenceId: string, direction: 'up' | 'down') => void
+): HTMLElement {
+  const isFirst = index <= 0;
+  const isLast = index >= total - 1;
+  const move = (event: MouseEvent, direction: 'up' | 'down', disabled: boolean) => {
+    event.stopPropagation();
+    if (!disabled) {
+      onMoveMixtape?.(sequence.id, direction);
+    }
+  };
+
+  return el(
+    'div',
+    {
+      style: {
+        display: 'inline-flex',
+        gap: '6px',
+        flexShrink: '0',
+      },
+    },
+    el(
+      'button',
+      {
+        type: 'button',
+        ariaLabel: i18n.home.moveUp(sequence.name),
+        disabled: isFirst,
+        onClick: (event) => move(event, 'up', isFirst),
+        style: orderButtonStyle(isFirst),
+      },
+      Glyph('up', 12)
+    ),
+    el(
+      'button',
+      {
+        type: 'button',
+        ariaLabel: i18n.home.moveDown(sequence.name),
+        disabled: isLast,
+        onClick: (event) => move(event, 'down', isLast),
+        style: orderButtonStyle(isLast),
+      },
+      Glyph('down', 12)
+    )
+  );
 }
 
 function MixtapeControls(
@@ -291,13 +360,16 @@ function MixtapeCard(
   sequence: Sequence,
   sequences: Sequence[],
   index: number,
+  canReorder: boolean,
+  orderIndex: number,
   onOpenSequence: (sequenceId: string) => void,
   onPlaySequence: (sequenceId: string) => void,
   onEditSequence?: (sequenceId: string) => void,
   onRenameSequence?: (sequenceId: string) => void,
   onDuplicateSequence?: (sequenceId: string) => void,
   onDeleteSequence?: (sequenceId: string) => void,
-  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void
+  onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void,
+  onMoveMixtape?: (sequenceId: string, direction: 'up' | 'down') => void
 ): HTMLElement {
   const clipCount = sequence.segments.length;
   const duration = totalDuration(sequence);
@@ -361,6 +433,7 @@ function MixtapeCard(
               color: 'var(--mute)',
             },
           }),
+          canReorder ? MixtapeOrderControls(i18n, sequence, orderIndex, sequences.length, onMoveMixtape) : null,
           MixtapeActionMenu(i18n, sequence, sequences, onEditSequence, onRenameSequence, onDuplicateSequence, onDeleteSequence, onMergeSequence)
         )
       ),
@@ -507,6 +580,7 @@ export function Home({
   onDuplicateSequence,
   onDeleteSequence,
   onMergeSequence,
+  onMoveMixtape,
   onHomeSearch,
   onHomeSort,
 }: Props): HTMLElement {
@@ -514,6 +588,7 @@ export function Home({
   const homeSearch = state.homeSearch ?? '';
   const homeSort = state.homeSort ?? 'manual';
   const filteredSequences = visibleSequences(sequences, homeSearch, homeSort);
+  const canReorder = Boolean(onMoveMixtape) && homeSort === 'manual' && homeSearch.trim().length === 0;
 
   return el(
     'div',
@@ -544,13 +619,16 @@ export function Home({
           sequence,
           sequences,
           index,
+          canReorder,
+          index,
           onOpenSequence,
           onPlaySequence,
           onEditSequence,
           onRenameSequence,
           onDuplicateSequence,
           onDeleteSequence,
-          onMergeSequence
+          onMergeSequence,
+          onMoveMixtape
         ))),
     newTapeButton(i18n, onCreate)
   );

@@ -1,6 +1,7 @@
 import { formatSeconds } from '../shared/time.js';
 import { T_THUMBS_BY_KEY, type ThemeKey } from '../theme/tokens.js';
 import { el } from './dom.js';
+import { Glyph } from './Glyph.js';
 
 type ThumbProps = {
   themeKey: ThemeKey;
@@ -20,6 +21,16 @@ export function Thumb({ themeKey, videoId, variant = 0, duration = null, classNa
   thumb.style.background = backgrounds[variant % backgrounds.length];
 
   const imageUrl = youtubeThumbUrl(videoId);
+  thumb.dataset.thumbState = imageUrl ? 'remote' : 'placeholder';
+  const placeholder = el(
+    'span',
+    { className: 'thumb-placeholder', role: 'presentation' },
+    Glyph('tape', 18),
+    el('span', { className: 'thumb-placeholder-mark', text: 'ST' })
+  );
+  placeholder.setAttribute('aria-hidden', 'true');
+  thumb.append(placeholder);
+
   if (imageUrl) {
     let image: HTMLImageElement;
     image = el('img', {
@@ -28,6 +39,7 @@ export function Thumb({ themeKey, videoId, variant = 0, duration = null, classNa
       loading: 'lazy',
       onError: () => {
         thumb.dataset.thumbFailed = 'true';
+        thumb.dataset.thumbState = 'fallback';
         image.remove();
       },
       style: {

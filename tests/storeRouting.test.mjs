@@ -402,6 +402,90 @@ test('startSequence clears pending playback and shows an error when runtime hand
   assert.match(store.getState().playbackNotice.message, /runtime failed/);
 });
 
+test('startSequence maps stable runtime error codes to localized playback copy', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-coded-fail', name: '코드 실패 믹스테이프', segments: [makeSegment({ id: 'clip-coded-fail' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, error: 'raw transport failure', errorCode: 'content_request_failed' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /YouTube 페이지와 연결할 수 없습니다/);
+  assert.doesNotMatch(store.getState().playbackNotice.message, /raw transport failure/);
+});
+
+test('startSequence localizes unknown runtime failures when no raw message is available', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-unknown-fail', name: '알 수 없는 실패 믹스테이프', segments: [makeSegment({ id: 'clip-unknown-fail' })] });
+  installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+
+  globalThis.chrome.runtime.sendMessage = (_message, callback) => {
+    callback({ ok: false, errorCode: 'unknown' });
+  };
+
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: { ...baseSettings(), language: 'ja' },
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.startSequence(0, sequence.id);
+
+  assert.equal(store.getState().playbackNotice.kind, 'error');
+  assert.match(store.getState().playbackNotice.message, /不明な再生エラー/);
+  assert.doesNotMatch(store.getState().playbackNotice.message, /Unknown playback error/);
+});
+
 test('retryPlaybackRecovery repeats a failed start handoff with the saved target', async () => {
   const { PLAYBACK_STATE_KEY, STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -1673,6 +1757,44 @@ test('duplicateMixtape creates an independent copied mixtape with fresh ids', as
   assert.equal(store.getState().store.selectedSequenceId, copy.id);
 });
 
+test('moveMixtape persists manual mixtape order without changing selection', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSequence({ id: 'sequence-first', name: 'First', segments: [] });
+  const second = makeSequence({ id: 'sequence-second', name: 'Second', segments: [] });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [first, second],
+      selectedSequenceId: second.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'home',
+    store: {
+      sequences: [first, second],
+      selectedSequenceId: second.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    loading: false
+  };
+
+  await store.moveMixtape(second.id, 'up');
+
+  assert.deepEqual(store.getState().store.sequences.map((sequence) => sequence.id), [second.id, first.id]);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((sequence) => sequence.id), [second.id, first.id]);
+  assert.equal(store.getState().store.selectedSequenceId, second.id);
+});
+
 test('mergeMixtapeInto appends copied clips to the target and removes the source', async () => {
   const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
@@ -1800,6 +1922,75 @@ test('updateSettings normalizes settings before publishing visible state', async
   assert.equal(storage[SETTINGS_KEY].language, 'ko');
   assert.equal(storage[SETTINGS_KEY].shortcutIn, 'Alt+I');
   assert.equal(storage[SETTINGS_KEY].shortcutOut, 'Alt+O');
+});
+
+test('resetSettings restores defaults without clearing user data', async () => {
+  const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SETTINGS_KEY, DEFAULT_SETTINGS } = await import('../.tmp-tests/src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const segment = makeSegment({ id: 'clip-reset-settings' });
+  const sequence = makeSequence({ id: 'sequence-reset-settings', name: '설정 보존', segments: [segment] });
+  const playbackState = {
+    sequenceId: sequence.id,
+    segmentIndex: 0,
+    currentSegmentId: segment.id,
+    tabId: 12,
+    status: 'playing',
+    startedAt: 10
+  };
+  const draft = { videoId: segment.videoId, startSeconds: 1, endSeconds: null, updatedAt: 2 };
+  const dirtySettings = {
+    ...baseSettings(),
+    accentKey: 'sky',
+    language: 'ja',
+    autoNext: false,
+    fadeOut: false,
+    shuffleByDefault: true,
+    defaultMixtapeId: sequence.id,
+    autoTitleFromCaptions: false
+  };
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    [SETTINGS_KEY]: dirtySettings,
+    [PLAYBACK_STATE_KEY]: playbackState,
+    [SEGMENT_DRAFT_KEY]: draft
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'settings',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: dirtySettings,
+    pageInfo: null,
+    videoState: null,
+    playbackState,
+    playbackDisplay: null,
+    draftIn: 1,
+    capturePulseId: 'pulse-1',
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    homeSearch: '',
+    homeSort: 'manual',
+    loading: false
+  };
+
+  await store.resetSettings();
+
+  assert.deepEqual(store.getState().settings, DEFAULT_SETTINGS);
+  assert.deepEqual(storage[SETTINGS_KEY], DEFAULT_SETTINGS);
+  assert.deepEqual(store.getState().store.sequences.map((item) => item.id), [sequence.id]);
+  assert.deepEqual(storage[STORAGE_KEY].sequences.map((item) => item.id), [sequence.id]);
+  assert.deepEqual(store.getState().playbackState, playbackState);
+  assert.deepEqual(storage[PLAYBACK_STATE_KEY], playbackState);
+  assert.deepEqual(storage[SEGMENT_DRAFT_KEY], draft);
 });
 
 test('store refreshes playback when background reports playback state changed', async () => {
