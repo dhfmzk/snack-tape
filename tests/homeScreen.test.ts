@@ -1,6 +1,7 @@
 // @ts-nocheck
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { HOME_SOURCE_FILTER_ALL, HOME_SOURCE_FILTER_UNKNOWN } from '../src/state/store.js';
 import { makeSegment, makeSequence } from './helpers.js';
 
 class FakeNode {
@@ -123,6 +124,7 @@ function homeState(sequences) {
     queueEdit: null,
     segmentEdit: null,
     renameEdit: null,
+    homeSourceFilter: HOME_SOURCE_FILTER_ALL,
     loading: false
   };
 }
@@ -321,6 +323,170 @@ test('Home search and sort controls are wired to state callbacks', async () => {
     ['search', 'z'],
     ['sort', 'clipCount']
   ]);
+});
+
+test('Home source filter narrows mixtapes by saved clip channel', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+  const calls = [];
+  const state = {
+    ...homeState([
+      makeSequence({
+        id: 'whisper',
+        name: 'Whisper Tape',
+        segments: [makeSegment({ id: 'whisper-clip', title: 'Soft intro', channel: 'Whisper Room' })]
+      }),
+      makeSequence({
+        id: 'piano',
+        name: 'Piano Tape',
+        segments: [makeSegment({ id: 'piano-clip', title: 'Keys', channel: 'Piano Desk' })]
+      }),
+      makeSequence({
+        id: 'unknown',
+        name: 'Unknown Tape',
+        segments: [makeSegment({ id: 'unknown-clip', title: 'No channel', channel: undefined })]
+      })
+    ]),
+    homeSourceFilter: 'channel:Whisper Room'
+  };
+
+  const page = Home({
+    state,
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {},
+    onHomeSourceFilter: (sourceFilter) => calls.push(sourceFilter)
+  });
+  const text = textOf(page);
+  const list = findByScrollKey(page, 'home-mixtapes');
+  const source = findAllByAriaLabel(page, '출처 필터')[0];
+
+  assert.equal(list.children.length, 1);
+  assert.match(text, /Whisper Tape/);
+  assert.match(text, /Whisper Room/);
+  assert.match(text, /출처 없음/);
+  assert.equal(source.value, 'channel:Whisper Room');
+
+  source.value = HOME_SOURCE_FILTER_UNKNOWN;
+  source.change();
+
+  assert.deepEqual(calls, [HOME_SOURCE_FILTER_UNKNOWN]);
+});
+
+test('Home falls back to all sources when the selected source no longer exists', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+  const state = {
+    ...homeState([
+      makeSequence({
+        id: 'alpha',
+        name: 'Alpha Tape',
+        segments: [makeSegment({ id: 'alpha-clip', channel: 'Alpha Channel' })]
+      })
+    ]),
+    homeSourceFilter: 'channel:Deleted Channel'
+  };
+
+  const page = Home({
+    state,
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+  const source = findAllByAriaLabel(page, '출처 필터')[0];
+
+  assert.match(textOf(page), /Alpha Tape/);
+  assert.equal(source.value, HOME_SOURCE_FILTER_ALL);
+});
+
+test('Home source filter persist key changes when available sources change', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+
+  const firstPage = Home({
+    state: homeState([
+      makeSequence({
+        id: 'whisper',
+        name: 'Whisper Tape',
+        segments: [makeSegment({ id: 'whisper-clip', channel: 'Whisper Room' })]
+      })
+    ]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+  const nextPage = Home({
+    state: homeState([
+      makeSequence({
+        id: 'piano',
+        name: 'Piano Tape',
+        segments: [makeSegment({ id: 'piano-clip', channel: 'Piano Desk' })]
+      })
+    ]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+
+  const firstSource = findAllByAriaLabel(firstPage, '출처 필터')[0];
+  const nextSource = findAllByAriaLabel(nextPage, '출처 필터')[0];
+
+  assert.match(firstSource.dataset.persistKey, /channel:Whisper Room/);
+  assert.match(nextSource.dataset.persistKey, /channel:Piano Desk/);
+  assert.notEqual(firstSource.dataset.persistKey, nextSource.dataset.persistKey);
+});
+
+test('Home search matches saved source channels as library metadata', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+  const state = {
+    ...homeState([
+      makeSequence({
+        id: 'source-match',
+        name: 'Late Night',
+        segments: [makeSegment({ id: 'source-clip', title: 'Intro', channel: 'Sleep Radio' })]
+      }),
+      makeSequence({
+        id: 'miss',
+        name: 'Morning',
+        segments: [makeSegment({ id: 'miss-clip', title: 'Coffee', channel: 'Cafe Desk' })]
+      })
+    ]),
+    homeSearch: 'sleep'
+  };
+
+  const page = Home({
+    state,
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+  const list = findByScrollKey(page, 'home-mixtapes');
+
+  assert.equal(list.children.length, 1);
+  assert.match(textOf(page), /Late Night/);
+});
+
+test('Home shows an empty filtered state instead of a blank library', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+  const state = {
+    ...homeState([
+      makeSequence({ id: 'alpha', name: 'Alpha Tape', segments: [makeSegment({ id: 'alpha-clip', channel: 'Alpha Channel' })] })
+    ]),
+    homeSearch: 'nothing matches'
+  };
+
+  const page = Home({
+    state,
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+  const list = findByScrollKey(page, 'home-mixtapes');
+
+  assert.equal(list.children.length, 1);
+  assert.match(textOf(page), /조건에 맞는 믹스테이프가 없습니다/);
 });
 
 test('Home merge control targets another mixtape', async () => {

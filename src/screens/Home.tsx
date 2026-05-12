@@ -4,7 +4,7 @@ import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
 import type { Sequence } from '../shared/types.js';
-import type { AppState, HomeSort } from '../state/store.js';
+import { HOME_SOURCE_FILTER_ALL, HOME_SOURCE_FILTER_UNKNOWN, type AppState, type HomeSort, type HomeSourceFilter } from '../state/store.js';
 
 type Props = {
   state: AppState;
@@ -18,10 +18,16 @@ type Props = {
   onDeleteSequence?: (sequenceId: string) => void;
   onMergeSequence?: (sourceSequenceId: string, targetSequenceId: string) => void;
   onHomeSearch?: (query: string) => void;
+  onHomeSourceFilter?: (sourceFilter: HomeSourceFilter) => void;
   onHomeSort?: (sort: HomeSort) => void;
 };
 
 type Style = Partial<CSSStyleDeclaration>;
+
+type SourceOption = {
+  value: HomeSourceFilter;
+  label: string;
+};
 
 function totalDuration(sequence: Sequence): number {
   return sequence.segments.reduce((sum, segment) => {
@@ -136,11 +142,80 @@ function controlShellStyle(): Style {
   };
 }
 
+function segmentSource(channel: string | undefined): string {
+  return channel?.trim() ?? '';
+}
+
+function sequenceSources(sequence: Sequence): string[] {
+  const sources = new Set<string>();
+  for (const segment of sequence.segments) {
+    const source = segmentSource(segment.channel);
+    if (source) {
+      sources.add(source);
+    }
+  }
+
+  return [...sources].sort((left, right) => left.localeCompare(right));
+}
+
+function sequenceHasUnknownSource(sequence: Sequence): boolean {
+  return sequence.segments.length === 0 || sequence.segments.some((segment) => !segmentSource(segment.channel));
+}
+
+function sourceValue(source: string): HomeSourceFilter {
+  return `channel:${source}`;
+}
+
+function sourceFromValue(value: HomeSourceFilter): string {
+  return value.startsWith('channel:') ? value.slice('channel:'.length) : '';
+}
+
+function sourceOptions(i18n: I18n, sequences: Sequence[]): SourceOption[] {
+  const sources = new Set<string>();
+  let hasUnknownSource = false;
+  for (const sequence of sequences) {
+    for (const source of sequenceSources(sequence)) {
+      sources.add(source);
+    }
+    hasUnknownSource ||= sequenceHasUnknownSource(sequence);
+  }
+
+  return [
+    { value: HOME_SOURCE_FILTER_ALL, label: i18n.home.allSources },
+    ...[...sources].sort((left, right) => left.localeCompare(right)).map((source) => ({ value: sourceValue(source), label: source })),
+    ...(hasUnknownSource ? [{ value: HOME_SOURCE_FILTER_UNKNOWN, label: i18n.home.unknownSource }] : []),
+  ];
+}
+
+function effectiveSourceFilter(sourceFilter: HomeSourceFilter, options: SourceOption[]): HomeSourceFilter {
+  return options.some((option) => option.value === sourceFilter) ? sourceFilter : HOME_SOURCE_FILTER_ALL;
+}
+
+function sourceFilterPersistKey(options: SourceOption[]): string {
+  return `home-source-filter:${JSON.stringify(options.map((option) => [option.value, option.label]))}`;
+}
+
+function sourceSummary(i18n: I18n, sequence: Sequence): string | null {
+  const sources = sequenceSources(sequence);
+  const sourceCount = sources.length + (sequenceHasUnknownSource(sequence) ? 1 : 0);
+  if (sourceCount === 0) {
+    return null;
+  }
+  if (sourceCount === 1) {
+    return sources[0] ?? i18n.home.unknownSource;
+  }
+
+  return i18n.home.sourceCount(sourceCount);
+}
+
 function MixtapeControls(
   i18n: I18n,
   search: string,
+  sourceFilter: HomeSourceFilter,
+  sourceOptions: SourceOption[],
   sort: HomeSort,
   onHomeSearch?: (query: string) => void,
+  onHomeSourceFilter?: (sourceFilter: HomeSourceFilter) => void,
   onHomeSort?: (sort: HomeSort) => void
 ): HTMLElement {
   const sortOptions: Array<{ value: HomeSort; label: string }> = [
@@ -167,10 +242,27 @@ function MixtapeControls(
       onInput: (event) => onHomeSearch?.((event.target as HTMLInputElement).value),
       style: {
         ...controlShellStyle(),
+        gridColumn: '1 / -1',
         minWidth: '0',
         padding: '0 13px',
       },
     }),
+    el(
+      'select',
+      {
+        ariaLabel: i18n.home.sourceFilter,
+        value: sourceFilter,
+        dataset: { persistKey: sourceFilterPersistKey(sourceOptions) },
+        onChange: (event) => onHomeSourceFilter?.((event.target as HTMLSelectElement).value),
+        style: {
+          ...controlShellStyle(),
+          padding: '0 10px',
+          cursor: 'pointer',
+          minWidth: '0',
+        },
+      },
+      ...sourceOptions.map((option) => el('option', { value: option.value, selected: option.value === sourceFilter, text: option.label }))
+    ),
     el(
       'select',
       {
@@ -301,6 +393,7 @@ function MixtapeCard(
 ): HTMLElement {
   const clipCount = sequence.segments.length;
   const duration = totalDuration(sequence);
+  const source = sourceSummary(i18n, sequence);
 
   return el(
     'div',
@@ -384,7 +477,8 @@ function MixtapeCard(
               flex: '1',
             },
           },
-          el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() })
+          el('span', { text: i18n.home.clipCount(clipCount), style: chipStyle() }),
+          source ? el('span', { text: source, style: chipStyle() }) : null
         ),
         el(
           'button',
@@ -468,6 +562,25 @@ function MixtapeList(children: HTMLElement[], topPadding = false): HTMLElement {
   );
 }
 
+function emptyLibrarySection(text: string): HTMLElement {
+  return el(
+    'section',
+    {
+      style: {
+        background: 'var(--surface)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        border: '1px solid var(--hairline)',
+        padding: '18px',
+      },
+    },
+    el('p', {
+      text,
+      style: { margin: '0', fontSize: '14px', fontWeight: '700', color: 'var(--text)' },
+    })
+  );
+}
+
 function sequenceMatches(sequence: Sequence, query: string): boolean {
   if (!query) {
     return true;
@@ -475,14 +588,26 @@ function sequenceMatches(sequence: Sequence, query: string): boolean {
 
   const haystack = [
     sequence.name,
-    ...sequence.segments.map((segment) => segment.title),
+    ...sequence.segments.flatMap((segment) => [segment.title, segment.channel ?? '']),
   ].join(' ').toLocaleLowerCase();
   return haystack.includes(query);
 }
 
-function visibleSequences(sequences: Sequence[], search: string, sort: HomeSort): Sequence[] {
+function sequenceMatchesSource(sequence: Sequence, sourceFilter: HomeSourceFilter): boolean {
+  if (sourceFilter === HOME_SOURCE_FILTER_ALL) {
+    return true;
+  }
+  if (sourceFilter === HOME_SOURCE_FILTER_UNKNOWN) {
+    return sequenceHasUnknownSource(sequence);
+  }
+
+  const source = sourceFromValue(sourceFilter);
+  return source ? sequence.segments.some((segment) => segmentSource(segment.channel) === source) : true;
+}
+
+function visibleSequences(sequences: Sequence[], search: string, sourceFilter: HomeSourceFilter, sort: HomeSort): Sequence[] {
   const query = search.trim().toLocaleLowerCase();
-  const visible = sequences.filter((sequence) => sequenceMatches(sequence, query));
+  const visible = sequences.filter((sequence) => sequenceMatches(sequence, query) && sequenceMatchesSource(sequence, sourceFilter));
   if (sort === 'updated') {
     return visible.slice().sort((left, right) => right.updatedAt - left.updatedAt);
   }
@@ -508,37 +633,20 @@ export function Home({
   onDeleteSequence,
   onMergeSequence,
   onHomeSearch,
+  onHomeSourceFilter,
   onHomeSort,
 }: Props): HTMLElement {
   const sequences = state.store?.sequences ?? [];
   const homeSearch = state.homeSearch ?? '';
+  const sourceFilterOptions = sourceOptions(i18n, sequences);
+  const homeSourceFilter = effectiveSourceFilter(state.homeSourceFilter ?? HOME_SOURCE_FILTER_ALL, sourceFilterOptions);
   const homeSort = state.homeSort ?? 'manual';
-  const filteredSequences = visibleSequences(sequences, homeSearch, homeSort);
-
-  return el(
-    'div',
-    { style: { flex: '1', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '0', position: 'relative' } },
-    sequences.length > 0 ? MixtapeControls(i18n, homeSearch, homeSort, onHomeSearch, onHomeSort) : null,
-    sequences.length === 0
-      ? MixtapeList([
-          el(
-            'section',
-            {
-              style: {
-                background: 'var(--surface)',
-                borderRadius: '10px',
-                overflow: 'hidden',
-                border: '1px solid var(--hairline)',
-                padding: '18px',
-              },
-            },
-            el('p', {
-              text: i18n.home.emptyTitle,
-              style: { margin: '0', fontSize: '14px', fontWeight: '700', color: 'var(--text)' },
-            })
-          ),
-        ], true)
-      : MixtapeList(filteredSequences.map((sequence, index) => MixtapeCard(
+  const filteredSequences = visibleSequences(sequences, homeSearch, homeSourceFilter, homeSort);
+  const listChildren = sequences.length === 0
+    ? [emptyLibrarySection(i18n.home.emptyTitle)]
+    : filteredSequences.length === 0
+      ? [emptyLibrarySection(i18n.home.noMatches)]
+      : filteredSequences.map((sequence, index) => MixtapeCard(
           state,
           i18n,
           sequence,
@@ -551,7 +659,13 @@ export function Home({
           onDuplicateSequence,
           onDeleteSequence,
           onMergeSequence
-        ))),
+        ));
+
+  return el(
+    'div',
+    { style: { flex: '1', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '0', position: 'relative' } },
+    sequences.length > 0 ? MixtapeControls(i18n, homeSearch, homeSourceFilter, sourceFilterOptions, homeSort, onHomeSearch, onHomeSourceFilter, onHomeSort) : null,
+    MixtapeList(listChildren, sequences.length === 0),
     newTapeButton(i18n, onCreate)
   );
 }

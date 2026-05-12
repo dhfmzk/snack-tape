@@ -31,7 +31,12 @@ export type I18n = {
     newTape: string;
     newTapeAria: string;
     emptyTitle: string;
+    noMatches: string;
     search: string;
+    sourceFilter: string;
+    allSources: string;
+    unknownSource: string;
+    sourceCount: (count: number) => string;
     sort: string;
     sortManual: string;
     sortUpdated: string;
@@ -261,7 +266,12 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '새 테이프',
       newTapeAria: '새 테이프 만들기',
       emptyTitle: '첫 믹스테이프를 만들어보세요',
+      noMatches: '조건에 맞는 믹스테이프가 없습니다',
       search: '믹스테이프 검색',
+      sourceFilter: '출처 필터',
+      allSources: '모든 출처',
+      unknownSource: '출처 없음',
+      sourceCount: (count) => `${count} SOURCES`,
       sort: '믹스테이프 정렬',
       sortManual: '직접 순서',
       sortUpdated: '최근 수정',
@@ -489,7 +499,12 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: '新規テープ',
       newTapeAria: '新規テープを作成',
       emptyTitle: '最初のミックステープを作成しましょう',
+      noMatches: '条件に合うミックステープはありません',
       search: 'ミックステープを検索',
+      sourceFilter: 'ソースで絞り込み',
+      allSources: 'すべてのソース',
+      unknownSource: 'ソースなし',
+      sourceCount: (count) => `${count} SOURCES`,
       sort: 'ミックステープを並べ替え',
       sortManual: '手動順',
       sortUpdated: '最近更新',
@@ -717,7 +732,12 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       newTape: 'New Tape',
       newTapeAria: 'Create new tape',
       emptyTitle: 'Create your first mixtape',
+      noMatches: 'No mixtapes match these filters',
       search: 'Search mixtapes',
+      sourceFilter: 'Filter by source',
+      allSources: 'All sources',
+      unknownSource: 'No source',
+      sourceCount: (count) => `${count} ${count === 1 ? 'SOURCE' : 'SOURCES'}`,
       sort: 'Sort mixtapes',
       sortManual: 'Manual order',
       sortUpdated: 'Recently updated',
