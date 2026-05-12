@@ -1886,6 +1886,54 @@ test('copySegmentToMixtape and moveSegmentToMixtape transfer clips between mixta
   assert.equal(nextTarget.segments[1].id, 'clip-b');
 });
 
+test('duplicateSelectedSegment copies a clip inside the selected mixtape with a fresh id', async () => {
+  const { STORAGE_KEY } = await import('../.tmp-tests/src/shared/storage.js');
+  const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
+  const first = makeSegment({ id: 'clip-a', title: 'Duplicate me', startSeconds: 10, endSeconds: 12 });
+  const second = makeSegment({ id: 'clip-b', title: 'Keep me', startSeconds: 20, endSeconds: 24 });
+  const sequence = makeSequence({
+    id: 'selected-sequence',
+    name: 'Selected',
+    segments: [first, second]
+  });
+  const storage = installChromeStorage({
+    [STORAGE_KEY]: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    }
+  });
+  const store = new SnackTapeAppStore();
+  store.state = {
+    route: 'capture',
+    store: {
+      sequences: [sequence],
+      selectedSequenceId: sequence.id
+    },
+    settings: baseSettings(),
+    pageInfo: null,
+    videoState: null,
+    playbackState: null,
+    playbackDisplay: null,
+    draftIn: null,
+    capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    loading: false
+  };
+
+  await store.duplicateSelectedSegment(first.id);
+
+  const nextSegments = storage[STORAGE_KEY].sequences[0].segments;
+  assert.deepEqual(nextSegments.map((segment) => segment.title), ['Duplicate me', 'Duplicate me', 'Keep me']);
+  assert.notEqual(nextSegments[1].id, first.id);
+  assert.equal(nextSegments[1].startSeconds, 10);
+  assert.equal(nextSegments[1].endSeconds, 12);
+  assert.equal(store.getState().store.selectedSequenceId, sequence.id);
+});
+
 test('updateSettings normalizes settings before publishing visible state', async () => {
   const { SETTINGS_KEY } = await import('../.tmp-tests/src/state/storage.js');
   const { SnackTapeAppStore } = await import('../.tmp-tests/src/state/store.js');
