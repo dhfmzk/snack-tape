@@ -48,9 +48,11 @@ export function makeAppState(overrides = {}) {
     ...stateOverrides
   } = overrides;
   const resolvedSequences = sequences ?? store?.sequences ?? [];
-  const resolvedStore = store ?? {
+  const resolvedSelectedSequenceId = selectedSequenceId ?? store?.selectedSequenceId ?? resolvedSequences[0]?.id ?? null;
+  const resolvedStore = store === null ? null : {
+    ...(store ?? {}),
     sequences: resolvedSequences,
-    selectedSequenceId: selectedSequenceId ?? resolvedSequences[0]?.id ?? null
+    selectedSequenceId: resolvedSelectedSequenceId
   };
 
   return {
@@ -61,6 +63,7 @@ export function makeAppState(overrides = {}) {
     videoState: null,
     playbackState: null,
     playbackDisplay: null,
+    playbackNotice: null,
     draftIn: null,
     capturePulseId: null,
     queueEdit: null,
