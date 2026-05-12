@@ -251,6 +251,28 @@ button { color: inherit; }
   pointer-events: none;
 }
 
+.thumb-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--accent2);
+  background: linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.28));
+  opacity: 0.86;
+  pointer-events: none;
+}
+
+.thumb-placeholder-mark {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.8px;
+}
+
 .thumb-duration {
   position: absolute;
   right: 4px;
