@@ -369,6 +369,18 @@ test('Home manual sort exposes mixtape order controls only in manual mode', asyn
   });
 
   assert.equal(findAllByAriaLabel(sortedPage, '첫 테이프 아래로 이동').length, 0);
+
+  const unwiredPage = Home({
+    state: {
+      ...homeState([first, second]),
+      homeSort: 'manual'
+    },
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+
+  assert.equal(findAllByAriaLabel(unwiredPage, '첫 테이프 아래로 이동').length, 0);
 });
 
 test('Home merge control targets another mixtape', async () => {

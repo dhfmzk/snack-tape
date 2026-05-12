@@ -588,7 +588,7 @@ export function Home({
   const homeSearch = state.homeSearch ?? '';
   const homeSort = state.homeSort ?? 'manual';
   const filteredSequences = visibleSequences(sequences, homeSearch, homeSort);
-  const canReorder = homeSort === 'manual' && homeSearch.trim().length === 0;
+  const canReorder = Boolean(onMoveMixtape) && homeSort === 'manual' && homeSearch.trim().length === 0;
 
   return el(
     'div',
@@ -620,7 +620,7 @@ export function Home({
           sequences,
           index,
           canReorder,
-          sequences.findIndex((item) => item.id === sequence.id),
+          index,
           onOpenSequence,
           onPlaySequence,
           onEditSequence,
