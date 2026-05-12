@@ -1674,6 +1674,17 @@ export class SnackTapeAppStore {
     }));
   }
 
+  async clearCaptureDraft(): Promise<void> {
+    if (this.state.draftIn === null) {
+      return;
+    }
+
+    const previousState = this.state;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
+    this.setState({ draftIn: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft(videoId));
+  }
+
   async captureOutAndSave(): Promise<void> {
     const sequence = this.selectedSequence();
     const inSec = this.state.draftIn;
