@@ -350,20 +350,24 @@ test('Capture edit tab opens a segment action menu instead of deleting from the 
     onIn: () => {},
     onOut: () => calls.push(['add']),
     onBeginSegmentEdit: (segmentId) => calls.push(['edit', segmentId]),
+    onDuplicateSegment: (segmentId) => calls.push(['duplicate', segmentId]),
     onDeleteSegment: (segmentId) => calls.push(['delete', segmentId])
   });
 
   findByAriaLabel(page, 'OUT 마커 찍고 추가').click();
   findByAriaLabel(page, '선택된 클립 메뉴').click();
   findByAriaLabel(page, '선택된 클립 구간 편집').click();
+  findByAriaLabel(page, '선택된 클립 복제').click();
   findByAriaLabel(page, '선택된 클립 삭제').click();
 
   assert.match(textOf(page), /OUT \+ 추가/);
   assert.match(textOf(page), /구간 편집/);
+  assert.match(textOf(page), /복제/);
   assert.match(textOf(page), /삭제/);
   assert.deepEqual(calls, [
     ['add'],
     ['edit', 'second-clip'],
+    ['duplicate', 'second-clip'],
     ['delete', 'second-clip']
   ]);
 });
@@ -551,7 +555,7 @@ test('Capture segment action menus expose expanded state and menu item roles', a
 
   assert.equal(menuButton.attributes['aria-haspopup'], 'menu');
   assert.equal(menuButton.attributes['aria-expanded'], 'false');
-  assert.equal(menuItems.length, 4);
+  assert.equal(menuItems.length, 5);
 });
 
 test('Capture edit tab wires every enabled button', async () => {
