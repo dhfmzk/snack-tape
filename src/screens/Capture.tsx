@@ -407,6 +407,7 @@ function SegmentEditControls(
       el('input', {
         type: 'text',
         value: segment.note ?? '',
+        placeholder: i18n.capture.notePlaceholder,
         ariaLabel: i18n.capture.noteInput(segment.title),
         dataset: { persistKey: `segment-note:${segment.id}` },
         onChange: (event) => onSetSegmentNote?.(segment.id, (event.target as HTMLInputElement).value),

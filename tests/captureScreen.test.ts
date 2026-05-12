@@ -493,6 +493,7 @@ test('Capture edit tab exposes compact note editing while editing a segment', as
   });
   const note = findByAriaLabel(page, '선택된 클립 노트');
 
+  assert.equal(note.attributes.placeholder, '짧은 메모');
   note.value = '  remember this  ';
   note.change();
 

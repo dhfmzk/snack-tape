@@ -56,6 +56,28 @@ test('storage fallback names are language-neutral generated values', async () =>
   assert.equal(normalizedStore.sequences[0].name, 'Mixtape 1');
 });
 
+test('normalizeSegment trims note text and drops whitespace-only notes', async () => {
+  const { normalizeSegment } = await import('../src/shared/storage.js');
+
+  const withNote = normalizeSegment({
+    videoId: 'abc123XYZ_1',
+    title: 'Clip with note',
+    startSeconds: 10,
+    endSeconds: 20,
+    note: '  keep this  '
+  });
+  const withoutNote = normalizeSegment({
+    videoId: 'abc123XYZ_1',
+    title: 'Clip without note',
+    startSeconds: 30,
+    endSeconds: 40,
+    note: '   '
+  });
+
+  assert.equal(withNote.note, 'keep this');
+  assert.equal(withoutNote.note, undefined);
+});
+
 test('normalizeStore returns a default single-sequence store for non-object input', async () => {
   const { normalizeStore } = await import('../src/shared/storage.js');
 
