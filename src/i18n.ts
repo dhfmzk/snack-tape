@@ -187,12 +187,28 @@ export type I18n = {
     exportCsv: string;
     import: string;
     importHelp: string;
+    importPreviewTitle: string;
+    importPreviewSummary: (mixtapeCount: number, clipCount: number) => string;
+    importPreviewDuplicates: (nameCount: number, rangeCount: number) => string;
+    replaceImport: string;
+    mergeImport: string;
+    cancelImport: string;
+    diagnostics: string;
+    diagnosticsHelp: string;
+    diagnosticsCopied: string;
+    diagnosticsUnavailable: string;
+    resetSettings: string;
+    resetSettingsHelp: string;
+    resetSettingsConfirm: string;
     deleteAllClips: string;
     deleteAllClipsHelp: string;
     deleteAllClipsConfirm: (clipCount: number) => string;
     exportReady: (format: string) => string;
-    importReady: (mixtapeCount: number) => string;
+    importPreviewReady: (mixtapeCount: number) => string;
+    importReplaceDone: (mixtapeCount: number) => string;
+    importMergeDone: (mixtapeCount: number) => string;
     importFailed: string;
+    resetSettingsDone: string;
     deleteAllDone: string;
   };
   detail: {
@@ -391,13 +407,29 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportJson: 'JSON',
       exportCsv: 'CSV',
       import: '가져오기',
-      importHelp: 'JSON 백업 파일로 교체',
+      importHelp: 'JSON 백업 파일을 미리보고 가져옵니다.',
+      importPreviewTitle: '가져오기 미리보기',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}개 믹스테이프 · ${clipCount}개 클립`,
+      importPreviewDuplicates: (nameCount, rangeCount) => `이름 중복 ${nameCount}개 · 구간 중복 ${rangeCount}개`,
+      replaceImport: '교체',
+      mergeImport: '병합',
+      cancelImport: '취소',
+      diagnostics: '진단 정보 복사',
+      diagnosticsHelp: '현재 화면, 재생, 저장소 요약을 복사합니다.',
+      diagnosticsCopied: '진단 정보를 클립보드에 복사했습니다.',
+      diagnosticsUnavailable: '클립보드에 접근할 수 없습니다.',
+      resetSettings: '설정 초기화',
+      resetSettingsHelp: '믹스테이프와 저장된 구간은 유지합니다.',
+      resetSettingsConfirm: '앱 설정만 기본값으로 되돌릴까요? 믹스테이프와 저장된 구간은 삭제되지 않습니다.',
       deleteAllClips: '모든 클립 삭제',
       deleteAllClipsHelp: '믹스테이프와 저장된 구간을 비웁니다.',
       deleteAllClipsConfirm: (clipCount) => `저장된 클립 ${clipCount}개와 모든 믹스테이프를 삭제할까요?`,
       exportReady: (format) => `${format.toUpperCase()} 내보내기를 준비했습니다.`,
-      importReady: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 가져왔습니다.`,
+      importPreviewReady: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 미리 확인했습니다.`,
+      importReplaceDone: (mixtapeCount) => `${mixtapeCount}개 믹스테이프로 교체했습니다.`,
+      importMergeDone: (mixtapeCount) => `${mixtapeCount}개 믹스테이프를 병합했습니다.`,
       importFailed: '가져올 수 없는 JSON 파일입니다.',
+      resetSettingsDone: '설정을 기본값으로 초기화했습니다.',
       deleteAllDone: '모든 클립을 삭제했습니다.',
     },
     detail: {
@@ -594,13 +626,29 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportJson: 'JSON',
       exportCsv: 'CSV',
       import: 'インポート',
-      importHelp: 'JSONバックアップで置き換え',
+      importHelp: 'JSONバックアップをプレビューして取り込みます。',
+      importPreviewTitle: 'インポートプレビュー',
+      importPreviewSummary: (mixtapeCount, clipCount) => `${mixtapeCount}件のミックステープ · ${clipCount}件のクリップ`,
+      importPreviewDuplicates: (nameCount, rangeCount) => `名前の重複 ${nameCount}件 · 範囲の重複 ${rangeCount}件`,
+      replaceImport: '置き換え',
+      mergeImport: '結合',
+      cancelImport: 'キャンセル',
+      diagnostics: '診断情報をコピー',
+      diagnosticsHelp: '現在の画面、再生、保存データの概要をコピーします。',
+      diagnosticsCopied: '診断情報をクリップボードにコピーしました。',
+      diagnosticsUnavailable: 'クリップボードにアクセスできません。',
+      resetSettings: '設定をリセット',
+      resetSettingsHelp: 'ミックステープと保存済み範囲は残します。',
+      resetSettingsConfirm: 'アプリ設定だけを初期値に戻しますか？ミックステープと保存済み範囲は削除されません。',
       deleteAllClips: 'すべてのクリップを削除',
       deleteAllClipsHelp: 'ミックステープと保存済み範囲を空にします。',
       deleteAllClipsConfirm: (clipCount) => `保存済みクリップ${clipCount}件とすべてのミックステープを削除しますか？`,
       exportReady: (format) => `${format.toUpperCase()}のエクスポートを準備しました。`,
-      importReady: (mixtapeCount) => `${mixtapeCount}件のミックステープをインポートしました。`,
+      importPreviewReady: (mixtapeCount) => `${mixtapeCount}件のミックステープをプレビューしました。`,
+      importReplaceDone: (mixtapeCount) => `${mixtapeCount}件のミックステープで置き換えました。`,
+      importMergeDone: (mixtapeCount) => `${mixtapeCount}件のミックステープを結合しました。`,
       importFailed: 'インポートできないJSONファイルです。',
+      resetSettingsDone: '設定を初期値に戻しました。',
       deleteAllDone: 'すべてのクリップを削除しました。',
     },
     detail: {
@@ -797,13 +845,31 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       exportJson: 'JSON',
       exportCsv: 'CSV',
       import: 'Import',
-      importHelp: 'Replace from a JSON backup',
+      importHelp: 'Preview and import a JSON backup',
+      importPreviewTitle: 'Import preview',
+      importPreviewSummary: (mixtapeCount, clipCount) =>
+        `${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'} · ${clipCount} clip${clipCount === 1 ? '' : 's'}`,
+      importPreviewDuplicates: (nameCount, rangeCount) =>
+        `${nameCount} duplicate name${nameCount === 1 ? '' : 's'} · ${rangeCount} duplicate range${rangeCount === 1 ? '' : 's'}`,
+      replaceImport: 'Replace',
+      mergeImport: 'Merge',
+      cancelImport: 'Cancel',
+      diagnostics: 'Copy diagnostics',
+      diagnosticsHelp: 'Copy route, playback, and storage summaries.',
+      diagnosticsCopied: 'Diagnostics copied to clipboard.',
+      diagnosticsUnavailable: 'Clipboard access is unavailable.',
+      resetSettings: 'Reset settings',
+      resetSettingsHelp: 'Keeps mixtapes and saved ranges.',
+      resetSettingsConfirm: 'Reset app settings to defaults? Mixtapes and saved ranges will not be deleted.',
       deleteAllClips: 'Delete all clips',
       deleteAllClipsHelp: 'Clear mixtapes and saved ranges.',
       deleteAllClipsConfirm: (clipCount) => `Delete ${clipCount} saved clip${clipCount === 1 ? '' : 's'} and all mixtapes?`,
       exportReady: (format) => `${format.toUpperCase()} export is ready.`,
-      importReady: (mixtapeCount) => `Imported ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importPreviewReady: (mixtapeCount) => `Previewed ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importReplaceDone: (mixtapeCount) => `Replaced with ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
+      importMergeDone: (mixtapeCount) => `Merged ${mixtapeCount} mixtape${mixtapeCount === 1 ? '' : 's'}.`,
       importFailed: 'This JSON file cannot be imported.',
+      resetSettingsDone: 'Reset settings to defaults.',
       deleteAllDone: 'Deleted all clips.',
     },
     detail: {

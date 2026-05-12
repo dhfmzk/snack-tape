@@ -158,6 +158,7 @@ function baseState(sequences, settings = baseSettings()) {
     renameEdit: null,
     captureNotice: null,
     settingsNotice: null,
+    pendingImport: null,
     loading: false
   };
 }
@@ -244,7 +245,7 @@ test('App Settings route persists language, accent, toggles, and default save ta
   assert.deepEqual(storage[SETTINGS_KEY], store.getState().settings);
 });
 
-test('App Settings route wires export, import, and delete-all data actions', async () => {
+test('App Settings route wires export, import preview, replace, and delete-all data actions', async () => {
   const dom = installDomShim();
   const { STORAGE_KEY, PLAYBACK_STATE_KEY, SEGMENT_DRAFT_KEY } = await import('../src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../src/state/storage.js');
@@ -292,9 +293,17 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   dom.createdInputs[0].change();
   await settle();
 
+  assert.equal(store.getState().store.sequences[0].id, current.id);
+  assert.equal(storage[STORAGE_KEY].sequences[0].id, current.id);
+  assert.equal(store.getState().pendingImport.store.sequences[0].id, imported.id);
+
+  findButtonByText(App(store.getState(), store), /교체/).click();
+  await settle();
+
   assert.equal(store.getState().store.sequences[0].id, imported.id);
   assert.equal(storage[STORAGE_KEY].sequences[0].id, imported.id);
   assert.equal(storage[SETTINGS_KEY].defaultMixtapeId, undefined);
+  assert.equal(store.getState().pendingImport, null);
 
   findButtonByText(App(store.getState(), store), /모든 클립 삭제/).click();
   await settle();
@@ -303,6 +312,39 @@ test('App Settings route wires export, import, and delete-all data actions', asy
   assert.deepEqual(storage[STORAGE_KEY].sequences, []);
   assert.equal(storage[PLAYBACK_STATE_KEY], undefined);
   assert.equal(storage[SEGMENT_DRAFT_KEY], undefined);
+});
+
+test('App Settings route wires diagnostics and settings reset actions', async () => {
+  installDomShim();
+  window.confirm = () => true;
+  const writes = [];
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      clipboard: {
+        writeText: async (text) => writes.push(text)
+      }
+    }
+  });
+  const { SETTINGS_KEY, DEFAULT_SETTINGS } = await import('../src/state/storage.js');
+  const { App } = await import('../src/App.js');
+  const { SnackTapeAppStore } = await import('../src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-settings-actions', name: 'Settings Tape', segments: [makeSegment()] });
+  const customSettings = baseSettings({ accentKey: 'sky', language: 'en', autoNext: false, defaultMixtapeId: sequence.id });
+  const storage = installChrome({ [SETTINGS_KEY]: customSettings });
+  const store = new SnackTapeAppStore();
+  store.state = baseState([sequence], customSettings);
+
+  findButtonByText(App(store.getState(), store), /Copy diagnostics/).click();
+  await settle();
+  findButtonByText(App(store.getState(), store), /Reset settings/).click();
+  await settle();
+
+  assert.equal(writes.length, 1);
+  assert.equal(JSON.parse(writes[0]).store.selectedMixtape.name, 'Settings Tape');
+  assert.deepEqual(store.getState().settings, DEFAULT_SETTINGS);
+  assert.deepEqual(storage[SETTINGS_KEY], DEFAULT_SETTINGS);
+  assert.equal(store.getState().store.sequences[0].id, sequence.id);
 });
 
 test('App Settings route leaves data intact when delete-all confirmation is cancelled', async () => {

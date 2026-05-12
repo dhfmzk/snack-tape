@@ -82,6 +82,12 @@ function baseState(accentKey = 'coral') {
     playbackDisplay: null,
     draftIn: null,
     capturePulseId: null,
+    queueEdit: null,
+    segmentEdit: null,
+    renameEdit: null,
+    captureNotice: null,
+    settingsNotice: null,
+    pendingImport: null,
     loading: false
   };
 }
@@ -135,7 +141,7 @@ test('Settings renders the full handoff settings template in palette order', asy
   assert.match(text, /JSON/);
   assert.match(text, /CSV/);
   assert.match(text, /가져오기/);
-  assert.match(text, /JSON 백업 파일로 교체/);
+  assert.match(text, /JSON 백업 파일을 미리보고 가져옵니다\./);
   assert.match(text, /모든 클립 삭제/);
   assert.match(text, /믹스테이프와 저장된 구간을 비웁니다\./);
   assert.match(text, /SNACKTAPE v0\.1\.0 · MV3 SIDE PANEL/);
@@ -197,7 +203,7 @@ test('Settings wires default save target selection to persisted setting patches'
   assert.deepEqual(selected, ['sequence-2']);
 });
 
-test('Settings wires data actions to export, import, and delete callbacks', async () => {
+test('Settings wires data actions to export, import, diagnostics, reset, and delete callbacks', async () => {
   installDomShim();
   const { Settings } = await import('../src/screens/Settings.js');
   const calls = [];
@@ -207,6 +213,8 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
     onAccent: () => {},
     onExport: (format) => calls.push(['export', format]),
     onImport: () => calls.push(['import']),
+    onDiagnostics: () => calls.push(['diagnostics']),
+    onResetSettings: () => calls.push(['reset']),
     onDeleteAll: () => calls.push(['delete'])
   });
   const dataSection = page.children[5];
@@ -216,13 +224,59 @@ test('Settings wires data actions to export, import, and delete callbacks', asyn
   exportButtons[1].click();
   dataSection.children[2].click();
   dataSection.children[3].click();
+  dataSection.children[4].click();
+  dataSection.children[5].click();
 
   assert.deepEqual(calls, [
     ['export', 'json'],
     ['export', 'csv'],
     ['import'],
+    ['diagnostics'],
+    ['reset'],
     ['delete']
   ]);
+});
+
+test('Settings renders import preview actions when a pending import exists', async () => {
+  installDomShim();
+  const { Settings } = await import('../src/screens/Settings.js');
+  const calls = [];
+  const state = baseState();
+  state.pendingImport = {
+    store: {
+      selectedSequenceId: 'imported',
+      sequences: [
+        { id: 'imported', name: 'Imported Tape', segments: [{ id: 'clip', title: 'Clip' }] },
+      ]
+    },
+    summary: {
+      mixtapeCount: 1,
+      clipCount: 4,
+      duplicateNameCount: 1,
+      duplicateRangeCount: 2
+    }
+  };
+
+  const page = Settings({
+    state,
+    onAccent: () => {},
+    onReplaceImport: () => calls.push('replace'),
+    onMergeImport: () => calls.push('merge'),
+    onCancelImport: () => calls.push('cancel')
+  });
+  const text = textOf(page);
+
+  assert.match(text, /가져오기 미리보기/);
+  assert.match(text, /1개 믹스테이프 · 4개 클립/);
+  assert.match(text, /이름 중복 1개 · 구간 중복 2개/);
+
+  const dataSection = page.children[5];
+  const preview = dataSection.children[3];
+  preview.children[1].children[0].click();
+  preview.children[1].children[1].click();
+  preview.children[1].children[2].click();
+
+  assert.deepEqual(calls, ['replace', 'merge', 'cancel']);
 });
 
 test('Settings wires language dropdown to persisted setting patches', async () => {
