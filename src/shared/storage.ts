@@ -207,9 +207,10 @@ function storageGetBytesInUse(area: chrome.storage.StorageArea, keys: string[] |
   if (typeof maybeArea.getBytesInUse !== 'function') {
     return Promise.resolve(null);
   }
+  const getBytesInUse = maybeArea.getBytesInUse.bind(maybeArea);
 
   return new Promise((resolve) => {
-    maybeArea.getBytesInUse(keys, (bytesInUse) => {
+    getBytesInUse(keys, (bytesInUse) => {
       const error = chrome.runtime.lastError;
       if (error || !Number.isFinite(bytesInUse)) {
         resolve(null);

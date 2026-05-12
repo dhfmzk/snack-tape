@@ -97,7 +97,7 @@ function findByClass(node, className) {
 }
 
 function textOf(node) {
-  return [node.textContent, node.innerHTML, ...(node.children ?? []).map(textOf)].join('');
+  return [node.textContent ?? '', ...(node.children ?? []).map(textOf)].join('');
 }
 
 test('Thumb renders YouTube thumbnails over a branded fallback on load error', async () => {
@@ -110,6 +110,7 @@ test('Thumb renders YouTube thumbnails over a branded fallback on load error', a
 
   assert.equal(thumb.dataset.thumbState, 'remote');
   assert.ok(placeholder);
+  assert.equal(placeholder.attributes['aria-hidden'], 'true');
   assert.match(textOf(placeholder), /ST/);
   assert.equal(image.src, youtubeThumbUrl('abc123XYZ_1'));
   assert.equal(image.alt, '');

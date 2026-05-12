@@ -22,14 +22,14 @@ export function Thumb({ themeKey, videoId, variant = 0, duration = null, classNa
 
   const imageUrl = youtubeThumbUrl(videoId);
   thumb.dataset.thumbState = imageUrl ? 'remote' : 'placeholder';
-  thumb.append(
-    el(
-      'span',
-      { className: 'thumb-placeholder', role: 'presentation' },
-      Glyph('tape', 18),
-      el('span', { className: 'thumb-placeholder-mark', text: 'ST' })
-    )
+  const placeholder = el(
+    'span',
+    { className: 'thumb-placeholder', role: 'presentation' },
+    Glyph('tape', 18),
+    el('span', { className: 'thumb-placeholder-mark', text: 'ST' })
   );
+  placeholder.setAttribute('aria-hidden', 'true');
+  thumb.append(placeholder);
 
   if (imageUrl) {
     let image: HTMLImageElement;
