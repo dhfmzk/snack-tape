@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeSegment, makeSequence } from './helpers.mjs';
+import { makeAppState, makeSegment, makeSequence } from './helpers.mjs';
 
 class FakeNode {
   constructor(text = '') {
@@ -98,32 +98,14 @@ function textOf(node) {
 }
 
 function homeState(sequences) {
-  return {
+  return makeAppState({
     route: 'home',
-    store: {
-      sequences,
-      selectedSequenceId: sequences[0]?.id ?? null
-    },
+    sequences,
     settings: {
-      accentKey: 'peach',
-      autoNext: true,
-      fadeOut: true,
-      shuffleByDefault: false,
       shortcutIn: 'I',
-      shortcutOut: 'O',
-      autoTitleFromCaptions: true
+      shortcutOut: 'O'
     },
-    pageInfo: null,
-    videoState: null,
-    playbackState: null,
-    playbackDisplay: null,
-    draftIn: null,
-    capturePulseId: null,
-    queueEdit: null,
-    segmentEdit: null,
-    renameEdit: null,
-    loading: false
-  };
+  });
 }
 
 test('Home mixtape list scrolls instead of shrinking cards when many mixtapes exist', async () => {

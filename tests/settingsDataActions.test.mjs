@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeSegment, makeSequence } from './helpers.mjs';
+import { makeAppState, makeSegment, makeSequence, makeSettings } from './helpers.mjs';
 
 function installChrome(initial = {}, options = {}) {
   const data = { ...initial };
@@ -70,40 +70,18 @@ function installDownloadDom() {
 }
 
 function baseSettings(overrides = {}) {
-  return {
-    accentKey: 'peach',
-    language: 'ko',
-    autoNext: true,
-    fadeOut: true,
-    shuffleByDefault: false,
-    shortcutIn: 'Alt+I',
-    shortcutOut: 'Alt+O',
-    autoTitleFromCaptions: true,
-    ...overrides
-  };
+  return makeSettings(overrides);
 }
 
 function baseState(sequence, settings = baseSettings()) {
-  return {
+  return makeAppState({
     route: 'settings',
     store: {
       sequences: [sequence],
       selectedSequenceId: sequence.id
     },
-    settings,
-    pageInfo: null,
-    videoState: null,
-    playbackState: null,
-    playbackDisplay: null,
-    draftIn: null,
-    capturePulseId: null,
-    queueEdit: null,
-    segmentEdit: null,
-    renameEdit: null,
-    captureNotice: null,
-    settingsNotice: null,
-    loading: false
-  };
+    settings
+  });
 }
 
 test('setDefaultMixtape persists an existing mixtape as the default save target', async () => {
