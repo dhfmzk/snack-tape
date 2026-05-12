@@ -21,6 +21,7 @@
     "src/shared/**/*.ts",
     "src/state/**/*.ts",
     "src/theme/**/*.ts",
-    "src/types/**/*.d.ts"
+    "src/types/**/*.d.ts",
+    "tests/**/*.ts"
   ]
 }

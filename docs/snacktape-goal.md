@@ -49,7 +49,7 @@ The product concept is: a personal video mixtape made from favorite moments.
 
 ## Completion Criteria
 
-- `npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json` and `node --test tests/*.test.mjs` pass.
+- `npx --yes --package typescript@5.9.3 tsc -p tsconfig.test.json` and `node --test .tmp-tests/tests/*.test.js` pass.
 - `npx --yes --package typescript@5.9.3 tsc --noEmit -p tsconfig.json` and `node scripts/build.mjs` pass.
 - `dist/manifest.json` and every file referenced by the manifest exist.
 - The side panel Edit tab can capture YouTube ranges and add segments.
