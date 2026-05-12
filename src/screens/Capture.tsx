@@ -11,12 +11,15 @@ type Props = {
   i18n?: I18n;
   onIn: () => void;
   onOut: () => void;
+  onSaveDraft?: () => void;
+  onClearDraft?: () => void;
   onNudgeDraft?: (deltaSeconds: number) => void;
   onTargetSequence?: (sequenceId: string) => void;
   onBeginSegmentEdit?: (segmentId: string) => void;
   onCancelSegmentEdit?: () => void;
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void;
   onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void;
+  onSetSegmentNote?: (segmentId: string, note: string) => void;
   onDeleteSegment?: (segmentId: string) => void;
   onCopySegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
   onMoveSegmentToMixtape?: (segmentId: string, targetSequenceId: string) => void;
@@ -290,6 +293,7 @@ function SegmentEditControls(
   segment: Segment,
   onNudgeSegment?: (segmentId: string, edge: SegmentEditEdge, deltaSeconds: number) => void,
   onSetSegmentTimecode?: (segmentId: string, edge: SegmentEditEdge, timecode: string) => void,
+  onSetSegmentNote?: (segmentId: string, note: string) => void,
   onCancelSegmentEdit?: () => void
 ): HTMLElement {
   const controls: Array<{ label: string; delta: number }> = [
@@ -388,7 +392,35 @@ function SegmentEditControls(
       })
     ),
     row(i18n.capture.start, 'start', formatEditableTimecode(segment.startSeconds)),
-    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : '')
+    row(i18n.capture.end, 'end', segment.endSeconds !== null ? formatEditableTimecode(segment.endSeconds) : ''),
+    el(
+      'label',
+      { style: { display: 'grid', gap: '5px' } },
+      el('span', {
+        text: i18n.capture.note,
+        style: {
+          color: 'var(--mute)',
+          fontSize: '10px',
+          fontWeight: '700',
+        },
+      }),
+      el('input', {
+        type: 'text',
+        value: segment.note ?? '',
+        ariaLabel: i18n.capture.noteInput(segment.title),
+        dataset: { persistKey: `segment-note:${segment.id}` },
+        onChange: (event) => onSetSegmentNote?.(segment.id, (event.target as HTMLInputElement).value),
+        style: {
+          height: '28px',
+          padding: '0 8px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface3)',
+          color: 'var(--text)',
+          borderRadius: '6px',
+          fontSize: '11px',
+        },
+      })
+    )
   );
 }
 
@@ -672,12 +704,15 @@ export function Capture(props: Props): HTMLElement {
     state,
     onIn,
     onOut,
+    onSaveDraft,
+    onClearDraft,
     onNudgeDraft,
     onTargetSequence,
     onBeginSegmentEdit,
     onCancelSegmentEdit,
     onNudgeSegment,
     onSetSegmentTimecode,
+    onSetSegmentNote,
     onDeleteSegment,
     onCopySegmentToMixtape,
     onMoveSegmentToMixtape,
@@ -699,9 +734,12 @@ export function Capture(props: Props): HTMLElement {
   const sequences = state.store?.sequences ?? [];
   const transferTargets = sequence ? sequences.filter((item) => item.id !== sequence.id) : [];
   const draftText = state.draftIn === null ? '—:—' : formatTimecode(state.draftIn);
+  const draftOutText = state.draftOut === null || state.draftOut === undefined ? '—:—' : formatTimecode(state.draftOut);
   const canNudgeDraft = state.draftIn !== null;
   const hasDraftIn = state.draftIn !== null;
+  const hasDraftOut = state.draftOut !== null && state.draftOut !== undefined;
   const canCaptureOut = usable && hasDraftIn;
+  const canSaveDraft = Boolean(sequence && hasDraftIn && hasDraftOut);
   const nudgeButtons = [
     { label: '-1s', delta: -1 },
     { label: '-1f', delta: -1 / 30 },
@@ -923,7 +961,7 @@ export function Capture(props: Props): HTMLElement {
           })
         ),
         el('span', {
-          text: usable ? (hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
+          text: usable ? (hasDraftOut ? draftOutText : hasDraftIn ? i18n.capture.now : i18n.capture.inFirst) : formatTimecode(currentTime),
           style: {
             fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
             fontSize: '14px',
@@ -934,7 +972,7 @@ export function Capture(props: Props): HTMLElement {
     ),
     el(
       'div',
-      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px' } },
+      { style: { padding: '0 14px 14px', display: 'flex', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' } },
       ...nudgeButtons.map(({ label, delta }) =>
         el('button', {
           text: label,
@@ -955,7 +993,45 @@ export function Capture(props: Props): HTMLElement {
             fontSize: '10.5px',
           },
         })
-      )
+      ),
+      el('button', {
+        text: i18n.capture.clearDraft,
+        disabled: !hasDraftIn,
+        onClick: () => onClearDraft?.(),
+        ariaLabel: i18n.capture.clearDraftAria,
+        style: {
+          minWidth: '58px',
+          height: '26px',
+          padding: '0 10px',
+          border: '1px solid var(--hairline2)',
+          background: 'var(--surface2)',
+          color: 'var(--text2)',
+          borderRadius: '6px',
+          cursor: hasDraftIn ? 'pointer' : 'not-allowed',
+          opacity: hasDraftIn ? '1' : '0.45',
+          fontSize: '10.5px',
+          fontWeight: '700',
+        },
+      }),
+      el('button', {
+        text: i18n.capture.saveDraft,
+        disabled: !canSaveDraft,
+        onClick: () => onSaveDraft?.(),
+        ariaLabel: i18n.capture.saveDraftAria,
+        style: {
+          minWidth: '58px',
+          height: '26px',
+          padding: '0 10px',
+          border: canSaveDraft ? '1px solid var(--accent)' : '1px solid var(--hairline2)',
+          background: canSaveDraft ? 'var(--accent)' : 'var(--surface2)',
+          color: canSaveDraft ? 'var(--accent-ink)' : 'var(--mute)',
+          borderRadius: '6px',
+          cursor: canSaveDraft ? 'pointer' : 'not-allowed',
+          opacity: hasDraftIn ? '1' : '0.45',
+          fontSize: '10.5px',
+          fontWeight: '800',
+        },
+      })
     ),
     el(
       'div',
@@ -1019,60 +1095,94 @@ export function Capture(props: Props): HTMLElement {
           },
           el(
             'div',
-            { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' } },
-            el('span', {
-              text: segment.title,
-              style: {
-                flex: '1',
-                minWidth: '0',
-                color: 'var(--text)',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-            }),
-            SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
+            { style: { display: 'flex', alignItems: 'flex-start', gap: '9px' } },
+            thumbStyle(Thumb({ themeKey: state.settings.accentKey, videoId: segment.videoId, duration: segment.endSeconds !== null ? segment.endSeconds - segment.startSeconds : null, className: 'capture-row-thumb' }), 46, 34),
+            el(
+              'div',
+              { style: { flex: '1', minWidth: '0' } },
+              el(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '5px' } },
+                el('span', {
+                  text: segment.title,
+                  style: {
+                    flex: '1',
+                    minWidth: '0',
+                    color: 'var(--text)',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  },
+                }),
+                SegmentActionMenu(i18n, segment, transferTargets, onBeginSegmentEdit, onDeleteSegment, onCopySegmentToMixtape, onMoveSegmentToMixtape)
+              ),
+              segment.channel
+                ? el('div', {
+                    text: `${i18n.capture.source} · ${segment.channel}`,
+                    style: {
+                      color: 'var(--mute)',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      marginBottom: '5px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    },
+                  })
+                : null,
+              el(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                el('span', {
+                  text: formatTimecode(segment.startSeconds),
+                  style: {
+                    padding: '2px 6px',
+                    background: 'var(--surface3)',
+                    color: 'var(--text2)',
+                    borderRadius: '3px',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '10px',
+                  },
+                }),
+                el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
+                el('span', {
+                  text: segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
+                  style: {
+                    padding: '2px 6px',
+                    background: 'var(--surface3)',
+                    color: 'var(--text2)',
+                    borderRadius: '3px',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '10px',
+                  },
+                }),
+                el('span', {
+                  text: `+${clipDuration(segment)}`,
+                  style: {
+                    marginLeft: 'auto',
+                    color: 'var(--accent)',
+                    fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '9.5px',
+                    fontWeight: '600',
+                  },
+                })
+              ),
+              segment.note
+                ? el('div', {
+                    text: `${i18n.capture.note} · ${segment.note}`,
+                    style: {
+                      color: 'var(--text2)',
+                      fontSize: '10.5px',
+                      lineHeight: '1.35',
+                      marginTop: '6px',
+                    },
+                  })
+                : null
+            )
           ),
-          el(
-            'div',
-            { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-            el('span', {
-              text: formatTimecode(segment.startSeconds),
-              style: {
-                padding: '2px 6px',
-                background: 'var(--surface3)',
-                color: 'var(--text2)',
-                borderRadius: '3px',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '10px',
-              },
-            }),
-            el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
-            el('span', {
-              text: segment.endSeconds !== null ? formatTimecode(segment.endSeconds) : i18n.common.end,
-              style: {
-                padding: '2px 6px',
-                background: 'var(--surface3)',
-                color: 'var(--text2)',
-                borderRadius: '3px',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '10px',
-              },
-            }),
-            el('span', {
-              text: `+${clipDuration(segment)}`,
-              style: {
-                marginLeft: 'auto',
-                color: 'var(--accent)',
-                fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                fontSize: '9.5px',
-                fontWeight: '600',
-              },
-            })
-          ),
-          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onCancelSegmentEdit) : null
+          isEditingSegment ? SegmentEditControls(i18n, segment, onNudgeSegment, onSetSegmentTimecode, onSetSegmentNote, onCancelSegmentEdit) : null
         )
           );
         }
@@ -1102,7 +1212,10 @@ export function Capture(props: Props): HTMLElement {
             el(
               'div',
               { style: { flex: '1' } },
-              el('span', { text: i18n.capture.currentlyCapturing, style: { color: 'var(--text)', fontSize: '11.5px', fontWeight: '600' } }),
+              el('span', {
+                text: hasDraftOut ? i18n.capture.previewReady : i18n.capture.currentlyCapturing,
+                style: { color: 'var(--text)', fontSize: '11.5px', fontWeight: '600' },
+              }),
               el(
                 'div',
                 { style: { display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' } },
@@ -1116,9 +1229,9 @@ export function Capture(props: Props): HTMLElement {
                 }),
                 el('span', { style: { color: 'var(--mute2)' } }, Glyph('chevR', 9)),
                 el('span', {
-                  text: '—:—',
+                  text: draftOutText,
                   style: {
-                    color: 'var(--mute2)',
+                    color: hasDraftOut ? 'var(--accent)' : 'var(--mute2)',
                     fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                     fontSize: '10px',
                   },

@@ -78,14 +78,23 @@ export type I18n = {
     end: string;
     captureInAria: string;
     captureOutAria: string;
+    saveDraftAria: string;
+    clearDraftAria: string;
     inButton: string;
     outButton: string;
+    saveDraft: string;
+    clearDraft: string;
     mark: string;
     now: string;
     inFirst: string;
+    previewReady: string;
     adjust: (label: string) => string;
     sessionSaved: (count: number) => string;
     currentlyCapturing: string;
+    source: string;
+    note: string;
+    notePlaceholder: string;
+    noteInput: (title: string) => string;
     noticeOpenYoutubeVideo: string;
     noticeNoSaveTarget: string;
     noticeInFirst: string;
@@ -298,15 +307,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       start: '시작',
       end: '끝',
       captureInAria: 'IN 마커 찍기',
-      captureOutAria: 'OUT 마커 찍고 추가',
+      captureOutAria: 'OUT 마커 찍기',
+      saveDraftAria: '미리보기 구간 저장',
+      clearDraftAria: '현재 캡처 지우기',
       inButton: 'IN · I',
-      outButton: 'OUT + 추가 · O',
+      outButton: 'OUT · O',
+      saveDraft: '저장',
+      clearDraft: '지우기',
       mark: '찍기',
       now: '지금',
       inFirst: 'IN 먼저',
+      previewReady: '미리보기',
       adjust: (label) => `${label} 조정`,
       sessionSaved: (count) => `이번 세션 · ${count}개 저장됨`,
       currentlyCapturing: '현재 캡처 중',
+      source: '출처',
+      note: '노트',
+      notePlaceholder: '짧은 메모',
+      noteInput: (title) => `${title} 노트`,
       noticeOpenYoutubeVideo: 'YouTube 영상에서 열어주세요.',
       noticeNoSaveTarget: '저장할 믹스테이프를 선택하세요.',
       noticeInFirst: 'IN 먼저 찍어주세요.',
@@ -517,15 +535,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       start: '開始',
       end: '終了',
       captureInAria: 'INマーカーを設定',
-      captureOutAria: 'OUTマーカーを設定して追加',
+      captureOutAria: 'OUTマーカーを設定',
+      saveDraftAria: 'プレビュー範囲を保存',
+      clearDraftAria: '現在のキャプチャをクリア',
       inButton: 'IN · I',
-      outButton: 'OUT + 追加 · O',
+      outButton: 'OUT · O',
+      saveDraft: '保存',
+      clearDraft: 'クリア',
       mark: 'マーク',
       now: '今',
       inFirst: '先にIN',
+      previewReady: 'プレビュー',
       adjust: (label) => `${label}を調整`,
       sessionSaved: (count) => `このセッション · ${count}件保存済み`,
       currentlyCapturing: '現在キャプチャ中',
+      source: 'ソース',
+      note: 'メモ',
+      notePlaceholder: '短いメモ',
+      noteInput: (title) => `${title}のメモ`,
       noticeOpenYoutubeVideo: '先にYouTube動画を開いてください。',
       noticeNoSaveTarget: '保存先のミックステープを選択してください。',
       noticeInFirst: '先にINを設定してください。',
@@ -736,15 +763,24 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       start: 'Start',
       end: 'End',
       captureInAria: 'Mark IN',
-      captureOutAria: 'Mark OUT and add',
+      captureOutAria: 'Mark OUT',
+      saveDraftAria: 'Save preview range',
+      clearDraftAria: 'Clear current capture',
       inButton: 'IN · I',
-      outButton: 'OUT + Add · O',
+      outButton: 'OUT · O',
+      saveDraft: 'Save',
+      clearDraft: 'Clear',
       mark: 'Mark',
       now: 'Now',
       inFirst: 'IN first',
+      previewReady: 'Preview',
       adjust: (label) => `Adjust ${label}`,
       sessionSaved: (count) => `This session · ${count} saved`,
       currentlyCapturing: 'Capturing now',
+      source: 'Source',
+      note: 'Note',
+      notePlaceholder: 'Short note',
+      noteInput: (title) => `${title} note`,
       noticeOpenYoutubeVideo: 'Open a YouTube video first.',
       noticeNoSaveTarget: 'Choose a save mixtape.',
       noticeInFirst: 'Mark IN first.',

@@ -97,6 +97,7 @@ export function normalizeSegment(input: unknown, index = 0): Segment | null {
     videoId,
     originalUrl: text(input.originalUrl, `https://www.youtube.com/watch?v=${videoId}`),
     title: title || generatedSegmentTitle(videoId),
+    channel: typeof input.channel === 'string' && input.channel.trim() ? input.channel.trim() : undefined,
     startSeconds: seconds(input.startSeconds, 0),
     endSeconds: endSeconds(input.endSeconds),
     note: typeof input.note === 'string' ? input.note : undefined,

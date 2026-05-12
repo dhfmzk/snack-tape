@@ -6,6 +6,7 @@ export type Segment = {
   videoId: string;
   originalUrl: string;
   title: string;
+  channel?: string;
   startSeconds: number;
   endSeconds: number | null;
   note?: string;

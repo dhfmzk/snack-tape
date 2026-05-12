@@ -90,7 +90,7 @@ export function formatSeconds(seconds: number): string {
 export function formatTimecode(seconds: number): string {
   const normalized = Math.max(0, seconds);
   const wholeSeconds = Math.floor(normalized);
-  const hundredths = Math.floor((normalized - wholeSeconds) * 100);
+  const hundredths = Math.min(99, Math.floor((normalized - wholeSeconds) * 100 + 1e-6));
   const hours = Math.floor(wholeSeconds / 3600);
   const minutes = Math.floor((wholeSeconds % 3600) / 60);
   const rest = wholeSeconds % 60;
