@@ -45,7 +45,7 @@ export function normalizeSettings(input: unknown): Settings {
     return { ...DEFAULT_SETTINGS };
   }
 
-  return {
+  const settings: Settings = {
     accentKey: isThemeKey(input.accentKey) ? input.accentKey : DEFAULT_SETTINGS.accentKey,
     language: isLanguage(input.language) ? input.language : DEFAULT_SETTINGS.language,
     autoNext: bool(input.autoNext, DEFAULT_SETTINGS.autoNext),
@@ -53,9 +53,14 @@ export function normalizeSettings(input: unknown): Settings {
     shuffleByDefault: bool(input.shuffleByDefault, DEFAULT_SETTINGS.shuffleByDefault),
     shortcutIn: DEFAULT_SETTINGS.shortcutIn,
     shortcutOut: DEFAULT_SETTINGS.shortcutOut,
-    defaultMixtapeId: typeof input.defaultMixtapeId === 'string' ? input.defaultMixtapeId : undefined,
     autoTitleFromCaptions: bool(input.autoTitleFromCaptions, DEFAULT_SETTINGS.autoTitleFromCaptions),
   };
+
+  if (typeof input.defaultMixtapeId === 'string') {
+    settings.defaultMixtapeId = input.defaultMixtapeId;
+  }
+
+  return settings;
 }
 
 function storageGet(key: string): Promise<unknown> {

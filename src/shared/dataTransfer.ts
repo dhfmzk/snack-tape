@@ -1,7 +1,13 @@
-import { normalizeImportedStore } from './storage.js';
-import type { Segment, SnackTapeStore } from './types.js';
+import { createId, normalizeImportedStore } from './storage.js';
+import type { Segment, Sequence, SnackTapeStore } from './types.js';
 
 export type ExportFormat = 'json' | 'csv';
+export type ImportSummary = {
+  mixtapeCount: number;
+  clipCount: number;
+  duplicateNameCount: number;
+  duplicateRangeCount: number;
+};
 
 type ExportPayload = {
   app: 'SnackTape';
@@ -77,4 +83,85 @@ export function parseImportedStoreJson(text: string): SnackTapeStore | null {
   }
 
   return normalizeImportedStore(payload);
+}
+
+function segmentRangeKey(segment: Segment): string {
+  return `${segment.videoId}:${segment.startSeconds}:${segment.endSeconds ?? 'end'}`;
+}
+
+function uniqueName(baseName: string, usedNames: Set<string>): string {
+  if (!usedNames.has(baseName)) {
+    usedNames.add(baseName);
+    return baseName;
+  }
+
+  const importedName = `${baseName} Imported`;
+  if (!usedNames.has(importedName)) {
+    usedNames.add(importedName);
+    return importedName;
+  }
+
+  for (let index = 2; index < usedNames.size + 10; index += 1) {
+    const candidate = `${importedName} ${index}`;
+    if (!usedNames.has(candidate)) {
+      usedNames.add(candidate);
+      return candidate;
+    }
+  }
+
+  const fallback = `${importedName} ${Date.now()}`;
+  usedNames.add(fallback);
+  return fallback;
+}
+
+function uniqueId(baseId: string, usedIds: Set<string>, prefix: string): string {
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
+
+  let candidate = createId(prefix);
+  while (usedIds.has(candidate)) {
+    candidate = createId(prefix);
+  }
+  usedIds.add(candidate);
+  return candidate;
+}
+
+export function summarizeImport(current: SnackTapeStore, imported: SnackTapeStore): ImportSummary {
+  const currentNames = new Set(current.sequences.map((sequence) => sequence.name));
+  const currentRanges = new Set(current.sequences.flatMap((sequence) => sequence.segments.map(segmentRangeKey)));
+  const importedSegments = imported.sequences.flatMap((sequence) => sequence.segments);
+
+  return {
+    mixtapeCount: imported.sequences.length,
+    clipCount: importedSegments.length,
+    duplicateNameCount: imported.sequences.filter((sequence) => currentNames.has(sequence.name)).length,
+    duplicateRangeCount: importedSegments.filter((segment) => currentRanges.has(segmentRangeKey(segment))).length,
+  };
+}
+
+export function mergeImportedStore(current: SnackTapeStore, imported: SnackTapeStore): SnackTapeStore {
+  const usedSequenceIds = new Set(current.sequences.map((sequence) => sequence.id));
+  const usedSegmentIds = new Set(current.sequences.flatMap((sequence) => sequence.segments.map((segment) => segment.id)));
+  const usedNames = new Set(current.sequences.map((sequence) => sequence.name));
+  const importedSequences: Sequence[] = imported.sequences.map((sequence) => {
+    const id = uniqueId(sequence.id, usedSequenceIds, 'sequence');
+    const name = uniqueName(sequence.name, usedNames);
+    const segments = sequence.segments.map((segment) => ({
+      ...segment,
+      id: uniqueId(segment.id, usedSegmentIds, 'clip'),
+    }));
+    return {
+      ...sequence,
+      id,
+      name,
+      segments,
+    };
+  });
+
+  return {
+    sequences: [...current.sequences, ...importedSequences],
+    selectedSequenceId: current.selectedSequenceId ?? importedSequences[0]?.id ?? null,
+  };
 }

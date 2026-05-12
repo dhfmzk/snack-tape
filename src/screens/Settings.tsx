@@ -1,4 +1,4 @@
-import { el } from '../components/dom.js';
+import { el, type Child } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, isLanguage, type I18n, type Language } from '../i18n.js';
 import type { AppState } from '../state/store.js';
@@ -15,6 +15,11 @@ type Props = {
   onDefaultSaveTarget?: (sequenceId: string) => void;
   onExport?: (format: ExportFormat) => void;
   onImport?: () => void;
+  onReplaceImport?: () => void;
+  onMergeImport?: () => void;
+  onCancelImport?: () => void;
+  onResetSettings?: () => void;
+  onDiagnostics?: () => void;
   onDeleteAll?: () => void;
 };
 
@@ -241,7 +246,75 @@ function SettingsNotice(state: AppState): HTMLElement | null {
   });
 }
 
-function Section(title: string, ...children: HTMLElement[]): HTMLElement {
+function ImportPreview(
+  state: AppState,
+  i18n: I18n,
+  onReplaceImport?: () => void,
+  onMergeImport?: () => void,
+  onCancelImport?: () => void
+): HTMLElement | null {
+  const pendingImport = state.pendingImport;
+  if (!pendingImport) {
+    return null;
+  }
+
+  const { summary } = pendingImport;
+  return el(
+    'div',
+    {
+      style: {
+        margin: '8px 0 10px',
+        padding: '10px',
+        border: '1px solid var(--hairline2)',
+        background: 'var(--surface)',
+        borderRadius: '8px',
+        display: 'grid',
+        gap: '8px',
+      },
+    },
+    el(
+      'div',
+      { style: { minWidth: '0' } },
+      el('div', {
+        text: i18n.settings.importPreviewTitle,
+        style: {
+          color: 'var(--text)',
+          fontSize: '12px',
+          fontWeight: '700',
+          marginBottom: '3px',
+        },
+      }),
+      el('div', {
+        text: i18n.settings.importPreviewSummary(summary.mixtapeCount, summary.clipCount),
+        style: {
+          color: 'var(--text2)',
+          fontSize: '10.5px',
+          lineHeight: '1.4',
+        },
+      }),
+      summary.duplicateNameCount > 0 || summary.duplicateRangeCount > 0
+        ? el('div', {
+            text: i18n.settings.importPreviewDuplicates(summary.duplicateNameCount, summary.duplicateRangeCount),
+            style: {
+              color: 'var(--mute)',
+              fontSize: '10.5px',
+              lineHeight: '1.4',
+              marginTop: '2px',
+            },
+          })
+        : null
+    ),
+    el(
+      'div',
+      { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+      PillButton(i18n.settings.replaceImport, onReplaceImport),
+      PillButton(i18n.settings.mergeImport, onMergeImport),
+      PillButton(i18n.settings.cancelImport, onCancelImport)
+    )
+  );
+}
+
+function Section(title: string, ...children: Child[]): HTMLElement {
   return el(
     'div',
     { style: { marginBottom: '22px' } },
@@ -349,6 +422,11 @@ export function Settings({
   onDefaultSaveTarget,
   onExport,
   onImport,
+  onReplaceImport,
+  onMergeImport,
+  onCancelImport,
+  onResetSettings,
+  onDiagnostics,
   onDeleteAll,
 }: Props): HTMLElement {
   const currentKey = state.settings.accentKey;
@@ -534,6 +612,9 @@ export function Settings({
         ),
       }),
       SettingsRow(i18n, { label: i18n.settings.import, sub: i18n.settings.importHelp, chev: true, onClick: onImport }),
+      ImportPreview(state, i18n, onReplaceImport, onMergeImport, onCancelImport),
+      SettingsRow(i18n, { label: i18n.settings.diagnostics, sub: i18n.settings.diagnosticsHelp, chev: true, onClick: onDiagnostics }),
+      SettingsRow(i18n, { label: i18n.settings.resetSettings, sub: i18n.settings.resetSettingsHelp, onClick: onResetSettings }),
       SettingsRow(i18n, { label: i18n.settings.deleteAllClips, sub: i18n.settings.deleteAllClipsHelp, danger: true, onClick: onDeleteAll })
     ),
     el(
