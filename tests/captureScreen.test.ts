@@ -169,6 +169,7 @@ function baseState() {
     playbackState: null,
     playbackDisplay: null,
     draftIn: null,
+    draftOut: null,
     capturePulseId: null,
     queueEdit: null,
     loading: false
@@ -340,6 +341,34 @@ test('Capture edit tab shows every segment in the selected mixtape', async () =>
   assert.equal(segmentLists.length, 1);
 });
 
+test('Capture edit tab shows visual source context and saved notes for rows', async () => {
+  installDomShim();
+  const { Capture } = await import('../src/screens/Capture.js');
+  const segment = makeSegment({
+    id: 'visual-clip',
+    title: '시각 정보 클립',
+    channel: 'Source Channel',
+    note: 'quiet part',
+  });
+
+  const page = Capture({
+    state: {
+      ...baseState(),
+      store: {
+        sequences: [makeSequence({ id: 'visual-sequence', name: '시각 테이프', segments: [segment] })],
+        selectedSequenceId: 'visual-sequence'
+      }
+    },
+    onIn: () => {},
+    onOut: () => {}
+  });
+  const thumbs = findAll(page, (node) => node.className?.includes?.('capture-row-thumb'));
+
+  assert.equal(thumbs.length, 1);
+  assert.match(textOf(page), /Source Channel/);
+  assert.match(textOf(page), /quiet part/);
+});
+
 test('Capture edit tab opens a segment action menu instead of deleting from the more button', async () => {
   installDomShim();
   const { Capture } = await import('../src/screens/Capture.js');
@@ -353,12 +382,12 @@ test('Capture edit tab opens a segment action menu instead of deleting from the 
     onDeleteSegment: (segmentId) => calls.push(['delete', segmentId])
   });
 
-  findByAriaLabel(page, 'OUT 마커 찍고 추가').click();
+  findByAriaLabel(page, 'OUT 마커 찍기').click();
   findByAriaLabel(page, '선택된 클립 메뉴').click();
   findByAriaLabel(page, '선택된 클립 구간 편집').click();
   findByAriaLabel(page, '선택된 클립 삭제').click();
 
-  assert.match(textOf(page), /OUT \+ 추가/);
+  assert.match(textOf(page), /OUT · O/);
   assert.match(textOf(page), /구간 편집/);
   assert.match(textOf(page), /삭제/);
   assert.deepEqual(calls, [
@@ -449,6 +478,27 @@ test('Capture edit tab exposes segment range edit controls when a segment is sel
     ['nudge', 'second-clip', 'end', 1],
     ['done']
   ]);
+});
+
+test('Capture edit tab exposes compact note editing while editing a segment', async () => {
+  installDomShim();
+  const { Capture } = await import('../src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ segmentEdit: { segmentId: 'second-clip' } }),
+    onIn: () => {},
+    onOut: () => {},
+    onSetSegmentNote: (segmentId, note) => calls.push([segmentId, note])
+  });
+  const note = findByAriaLabel(page, '선택된 클립 노트');
+
+  assert.equal(note.attributes.placeholder, '짧은 메모');
+  note.value = '  remember this  ';
+  note.change();
+
+  assert.match(textOf(page), /노트/);
+  assert.deepEqual(calls, [['second-clip', '  remember this  ']]);
 });
 
 test('Capture edit tab commits exact segment timecode inputs and resets them with Escape', async () => {
@@ -592,6 +642,29 @@ test('Capture edit tab wires draft nudge controls to frame and second deltas', a
   assert.deepEqual(calls, [-1, -1 / 30, 1 / 30, 1]);
 });
 
+test('Capture OUT preview exposes explicit save and clear actions', async () => {
+  installDomShim();
+  const { Capture } = await import('../src/screens/Capture.js');
+  const calls = [];
+
+  const page = Capture({
+    state: usableState({ draftIn: 42, draftOut: 45.9 }),
+    onIn: () => calls.push(['in']),
+    onOut: () => calls.push(['out']),
+    onSaveDraft: () => calls.push(['save']),
+    onClearDraft: () => calls.push(['clear'])
+  });
+
+  findByAriaLabel(page, 'OUT 마커 찍기').click();
+  findByAriaLabel(page, '미리보기 구간 저장').click();
+  findByAriaLabel(page, '현재 캡처 지우기').click();
+
+  assert.match(textOf(page), /00:42\.00/);
+  assert.match(textOf(page), /00:45\.90/);
+  assert.match(textOf(page), /저장/);
+  assert.deepEqual(calls, [['out'], ['save'], ['clear']]);
+});
+
 test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-visibility colors', async () => {
   installDomShim();
   const { Capture } = await import('../src/screens/Capture.js');
@@ -602,7 +675,7 @@ test('Capture IN and OUT buttons use theme accent contrast instead of fixed low-
     onOut: () => {}
   });
   const inButton = findByAriaLabel(page, 'IN 마커 찍기');
-  const outButton = findByAriaLabel(page, 'OUT 마커 찍고 추가');
+  const outButton = findByAriaLabel(page, 'OUT 마커 찍기');
 
   assert.match(inButton.style.border, /var\(--accent\)/);
   assert.equal(inButton.style.background, 'var(--accent-soft)');
@@ -623,7 +696,7 @@ test('Capture OUT button is not primary until an IN marker exists', async () => 
     onOut: () => {}
   });
   const inButton = findByAriaLabel(page, 'IN 마커 찍기');
-  const outButton = findByAriaLabel(page, 'OUT 마커 찍고 추가');
+  const outButton = findByAriaLabel(page, 'OUT 마커 찍기');
 
   assert.equal(inButton.disabled, false);
   assert.equal(inButton.style.background, 'var(--accent-soft)');

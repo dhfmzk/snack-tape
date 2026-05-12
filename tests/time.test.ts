@@ -63,6 +63,7 @@ test('formatSeconds truncates fractional seconds', () => {
 test('formatTimecode includes hundredths for sub-minute durations', () => {
   assert.equal(formatTimecode(0), '00:00.00');
   assert.equal(formatTimecode(5.25), '00:05.25');
+  assert.equal(formatTimecode(45.9), '00:45.90');
   assert.equal(formatTimecode(70.5), '01:10.50');
 });
 

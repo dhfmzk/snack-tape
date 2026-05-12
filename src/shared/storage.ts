@@ -91,15 +91,17 @@ export function normalizeSegment(input: unknown, index = 0): Segment | null {
 
   const timestampValue = now();
   const title = text(input.title, generatedSegmentTitle(videoId));
+  const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim() : undefined;
 
   const segment: Segment = {
     id: text(input.id, createId('segment')),
     videoId,
     originalUrl: text(input.originalUrl, `https://www.youtube.com/watch?v=${videoId}`),
     title: title || generatedSegmentTitle(videoId),
+    channel: typeof input.channel === 'string' && input.channel.trim() ? input.channel.trim() : undefined,
     startSeconds: seconds(input.startSeconds, 0),
     endSeconds: endSeconds(input.endSeconds),
-    note: typeof input.note === 'string' ? input.note : undefined,
+    note,
     createdAt: timestamp(input.createdAt, timestampValue + index),
     updatedAt: timestamp(input.updatedAt, timestampValue + index)
   };

@@ -89,6 +89,7 @@ export type AppState = {
   playbackDisplay: PlaybackDisplayState | null;
   playbackNotice: PlaybackNotice | null;
   draftIn: number | null;
+  draftOut: number | null;
   capturePulseId: string | null;
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
@@ -276,6 +277,7 @@ export class SnackTapeAppStore {
       playbackDisplay: null,
       playbackNotice: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -940,6 +942,53 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async setSegmentNote(segmentId: string, note: string): Promise<void> {
+    const currentStore = this.state.store;
+    const sequence = this.selectedSequence();
+    if (!currentStore || !sequence) {
+      return;
+    }
+
+    const previousState = this.state;
+    const timestamp = Date.now();
+    const trimmedNote = note.trim();
+    let changed = false;
+    const segments = sequence.segments.map((segment) => {
+      if (segment.id !== segmentId) {
+        return segment;
+      }
+
+      const nextNote = trimmedNote || undefined;
+      if ((segment.note ?? undefined) === nextNote) {
+        return segment;
+      }
+
+      changed = true;
+      return { ...segment, note: nextNote, updatedAt: timestamp };
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments,
+      updatedAt: timestamp,
+    };
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+
+    this.setState({ store, captureNotice: null });
+    const persisted = await this.persistOrRollback(previousState, 'capture', () => saveStore(store));
+    if (!persisted) {
+      return;
+    }
+    await this.refreshPlayback();
+  }
+
   async deleteSegmentFromSelected(segmentId: string): Promise<void> {
     const currentStore = this.state.store;
     const sequence = this.selectedSequence();
@@ -1292,14 +1341,14 @@ export class SnackTapeAppStore {
   }
 
   async restoreDraft(): Promise<void> {
-    const videoId = this.state.pageInfo?.videoId;
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
     if (!videoId) {
-      this.setState({ draftIn: null });
+      this.setState({ draftIn: null, draftOut: null });
       return;
     }
 
     const draft = await loadSegmentDraft(videoId);
-    this.setState({ draftIn: draft?.startSeconds ?? null });
+    this.setState({ draftIn: draft?.startSeconds ?? null, draftOut: draft?.endSeconds ?? null });
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
@@ -1377,6 +1426,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1514,6 +1564,7 @@ export class SnackTapeAppStore {
       playbackState: null,
       playbackDisplay: null,
       draftIn: null,
+      draftOut: null,
       capturePulseId: null,
       queueEdit: null,
       segmentEdit: null,
@@ -1568,7 +1619,7 @@ export class SnackTapeAppStore {
   private async saveDraftIn(pageInfo: CaptureReadyPageInfo): Promise<void> {
     const previousState = this.state;
     const inSec = preciseTime(pageInfo.currentTime);
-    this.setState({ draftIn: inSec, captureNotice: null });
+    this.setState({ draftIn: inSec, draftOut: null, captureNotice: null });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId: pageInfo.videoId,
       startSeconds: inSec,
@@ -1593,14 +1644,149 @@ export class SnackTapeAppStore {
     }
 
     const previousState = this.state;
-    const nextIn = preciseTime(Math.max(0, draftIn + deltaSeconds));
-    this.setState({ draftIn: nextIn });
+    const draftOut = this.state.draftOut;
+    const nextIn = draftOut === null ? preciseTime(Math.max(0, draftIn + deltaSeconds)) : draftIn;
+    const nextOut = draftOut === null
+      ? null
+      : preciseTime(Math.max(nextIn + MIN_CAPTURE_DURATION_SECONDS, draftOut + deltaSeconds));
+    this.setState({ draftIn: nextIn, draftOut: nextOut });
     await this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
       videoId,
       startSeconds: nextIn,
-      endSeconds: null,
+      endSeconds: nextOut,
       updatedAt: Date.now(),
     }));
+  }
+
+  async captureOutPreview(): Promise<boolean> {
+    const inSec = this.state.draftIn;
+    const i18n = createI18n(this.state.settings.language).capture;
+
+    if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
+      return false;
+    }
+    if (!Number.isFinite(inSec)) {
+      this.setCaptureError(i18n.noticeInvalidSegment);
+      return false;
+    }
+
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    await this.refreshVideo();
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return false;
+    }
+
+    const outSec = preciseTime(pageInfo.currentTime);
+    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const previousState = this.state;
+
+    this.setState({ draftIn: inSec, draftOut: endSec, captureNotice: null });
+    return this.persistOrRollback(previousState, 'capture', () => saveSegmentDraft({
+      videoId: pageInfo.videoId,
+      startSeconds: inSec,
+      endSeconds: endSec,
+      updatedAt: Date.now(),
+    }));
+  }
+
+  async saveCaptureDraft(): Promise<void> {
+    const sequence = this.selectedSequence();
+    const inSec = this.state.draftIn;
+    const outSec = this.state.draftOut;
+    const i18n = createI18n(this.state.settings.language).capture;
+
+    if (!sequence) {
+      this.setCaptureError(i18n.noticeNoSaveTarget);
+      return;
+    }
+
+    if (inSec === null) {
+      this.setCaptureError(i18n.noticeInFirst);
+      return;
+    }
+
+    if (outSec === null) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return;
+    }
+    if (!Number.isFinite(inSec) || !Number.isFinite(outSec)) {
+      this.setCaptureError(i18n.noticeInvalidSegment);
+      return;
+    }
+
+    const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
+    if (!cachedInfo) {
+      await this.refreshVideo();
+    }
+    const pageInfo = captureReadyPageInfo(this.state.pageInfo) ?? cachedInfo;
+    if (!pageInfo) {
+      this.setCaptureError(i18n.noticeTimeUnavailable);
+      return;
+    }
+
+    await this.saveCapturedRange(sequence, pageInfo, inSec, outSec, this.state);
+  }
+
+  private async saveCapturedRange(
+    sequence: Sequence,
+    pageInfo: CaptureReadyPageInfo,
+    inSec: number,
+    outSec: number,
+    previousState: AppState
+  ): Promise<void> {
+    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    const timestamp = Date.now();
+    const segment: Segment = {
+      id: createId('clip'),
+      videoId: pageInfo.videoId,
+      originalUrl: pageInfo.url,
+      title: this.captureTitle(pageInfo),
+      channel: this.captureChannel(pageInfo),
+      startSeconds: inSec,
+      endSeconds: endSec,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    const errors = validateSegment(segment);
+    if (errors.length > 0) {
+      this.setCaptureError(createI18n(this.state.settings.language).capture.noticeInvalidSegment);
+      return;
+    }
+
+    const updatedSequence: Sequence = {
+      ...sequence,
+      segments: [...sequence.segments, segment],
+      updatedAt: timestamp,
+    };
+
+    const currentStore = this.state.store;
+    if (!currentStore) {
+      return;
+    }
+
+    const nextStore: SnackTapeStore = {
+      ...currentStore,
+      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
+    };
+
+    this.setState({ store: nextStore, draftIn: null, draftOut: null, capturePulseId: segment.id, captureNotice: null });
+    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
+      await saveStore(nextStore);
+      await clearSegmentDraft(pageInfo.videoId);
+    });
+    if (!persisted) {
+      return;
+    }
+    await this.refreshStore();
+    window.setTimeout(() => {
+      if (this.state.capturePulseId === segment.id) {
+        this.setState({ capturePulseId: null });
+      }
+    }, 2000);
   }
 
   async captureOutAndSave(): Promise<void> {
@@ -1617,6 +1803,10 @@ export class SnackTapeAppStore {
       this.setCaptureError(i18n.noticeInFirst);
       return;
     }
+    if (!Number.isFinite(inSec)) {
+      this.setCaptureError(i18n.noticeInvalidSegment);
+      return;
+    }
 
     const cachedInfo = captureReadyPageInfo(this.state.pageInfo);
     await this.refreshVideo();
@@ -1627,57 +1817,14 @@ export class SnackTapeAppStore {
     }
 
     const outSec = preciseTime(pageInfo.currentTime);
-    const endSec = outSec <= inSec ? preciseTime(inSec + MIN_CAPTURE_DURATION_SECONDS) : outSec;
+    await this.saveCapturedRange(sequence, pageInfo, inSec, outSec, this.state);
+  }
 
-    const timestamp = Date.now();
-    const segment: Segment = {
-      id: createId('clip'),
-      videoId: pageInfo.videoId,
-      originalUrl: pageInfo.url,
-      title: this.captureTitle(pageInfo),
-      startSeconds: inSec,
-      endSeconds: endSec,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-
-    const errors = validateSegment(segment);
-    if (errors.length > 0) {
-      this.setCaptureError(i18n.noticeInvalidSegment);
-      return;
-    }
-
-    const updatedSequence: Sequence = {
-      ...sequence,
-      segments: [...sequence.segments, segment],
-      updatedAt: timestamp,
-    };
-
-    const currentStore = this.state.store;
-    if (!currentStore) {
-      return;
-    }
+  async clearCaptureDraft(): Promise<void> {
     const previousState = this.state;
-
-    const nextStore: SnackTapeStore = {
-      ...currentStore,
-      sequences: currentStore.sequences.map((item) => (item.id === updatedSequence.id ? updatedSequence : item)),
-    };
-
-    this.setState({ store: nextStore, draftIn: null, capturePulseId: segment.id, captureNotice: null });
-    const persisted = await this.persistOrRollback(previousState, 'capture', async () => {
-      await saveStore(nextStore);
-      await clearSegmentDraft(pageInfo.videoId);
-    });
-    if (!persisted) {
-      return;
-    }
-    await this.refreshStore();
-    window.setTimeout(() => {
-      if (this.state.capturePulseId === segment.id) {
-        this.setState({ capturePulseId: null });
-      }
-    }, 2000);
+    const videoId = this.state.pageInfo?.videoId ?? undefined;
+    this.setState({ draftIn: null, draftOut: null, captureNotice: null });
+    await this.persistOrRollback(previousState, 'capture', () => clearSegmentDraft(videoId));
   }
 
   private captureTitle(pageInfo: CaptureReadyPageInfo): string {
@@ -1687,6 +1834,11 @@ export class SnackTapeAppStore {
 
     const videoTitle = this.state.videoState?.videoId === pageInfo.videoId ? this.state.videoState.title.trim() : '';
     return videoTitle || pageInfo.title.trim() || `YouTube ${pageInfo.videoId}`;
+  }
+
+  private captureChannel(pageInfo: CaptureReadyPageInfo): string | undefined {
+    const channel = this.state.videoState?.videoId === pageInfo.videoId ? this.state.videoState.channel.trim() : '';
+    return channel || undefined;
   }
 
   private setCaptureError(message: string): void {
