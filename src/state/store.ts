@@ -553,6 +553,27 @@ export class SnackTapeAppStore {
     await this.refreshPlayback();
   }
 
+  async moveMixtape(sequenceId: string, direction: 'up' | 'down'): Promise<void> {
+    const currentStore = this.state.store;
+    if (!currentStore) {
+      return;
+    }
+
+    const currentIndex = currentStore.sequences.findIndex((sequence) => sequence.id === sequenceId);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= currentStore.sequences.length) {
+      return;
+    }
+
+    const previousState = this.state;
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: moveItem(currentStore.sequences, currentIndex, targetIndex),
+    };
+    this.setState({ store });
+    await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
+  }
+
   async openMixtape(sequenceId: string): Promise<void> {
     const currentStore = this.state.store;
     const sequence = currentStore?.sequences.find((item) => item.id === sequenceId);
