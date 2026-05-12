@@ -28,6 +28,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local planning scratchpads
+docs/snacktape-audit-backlog.md
+
 # Project-local package manager choice
 package-lock.json
 
