@@ -4,7 +4,7 @@ import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
 import type { Sequence } from '../shared/types.js';
-import type { AppState, HomeSort, HomeSourceFilter } from '../state/store.js';
+import { HOME_SOURCE_FILTER_ALL, HOME_SOURCE_FILTER_UNKNOWN, type AppState, type HomeSort, type HomeSourceFilter } from '../state/store.js';
 
 type Props = {
   state: AppState;
@@ -23,8 +23,6 @@ type Props = {
 };
 
 type Style = Partial<CSSStyleDeclaration>;
-const ALL_SOURCES = '__all_sources__';
-const UNKNOWN_SOURCE = '__unknown_source__';
 
 type SourceOption = {
   value: HomeSourceFilter;
@@ -183,14 +181,18 @@ function sourceOptions(i18n: I18n, sequences: Sequence[]): SourceOption[] {
   }
 
   return [
-    { value: ALL_SOURCES, label: i18n.home.allSources },
+    { value: HOME_SOURCE_FILTER_ALL, label: i18n.home.allSources },
     ...[...sources].sort((left, right) => left.localeCompare(right)).map((source) => ({ value: sourceValue(source), label: source })),
-    ...(hasUnknownSource ? [{ value: UNKNOWN_SOURCE, label: i18n.home.unknownSource }] : []),
+    ...(hasUnknownSource ? [{ value: HOME_SOURCE_FILTER_UNKNOWN, label: i18n.home.unknownSource }] : []),
   ];
 }
 
 function effectiveSourceFilter(sourceFilter: HomeSourceFilter, options: SourceOption[]): HomeSourceFilter {
-  return options.some((option) => option.value === sourceFilter) ? sourceFilter : ALL_SOURCES;
+  return options.some((option) => option.value === sourceFilter) ? sourceFilter : HOME_SOURCE_FILTER_ALL;
+}
+
+function sourceFilterPersistKey(options: SourceOption[]): string {
+  return `home-source-filter:${JSON.stringify(options.map((option) => [option.value, option.label]))}`;
 }
 
 function sourceSummary(i18n: I18n, sequence: Sequence): string | null {
@@ -250,7 +252,7 @@ function MixtapeControls(
       {
         ariaLabel: i18n.home.sourceFilter,
         value: sourceFilter,
-        dataset: { persistKey: 'home-source-filter' },
+        dataset: { persistKey: sourceFilterPersistKey(sourceOptions) },
         onChange: (event) => onHomeSourceFilter?.((event.target as HTMLSelectElement).value),
         style: {
           ...controlShellStyle(),
@@ -592,10 +594,10 @@ function sequenceMatches(sequence: Sequence, query: string): boolean {
 }
 
 function sequenceMatchesSource(sequence: Sequence, sourceFilter: HomeSourceFilter): boolean {
-  if (sourceFilter === ALL_SOURCES) {
+  if (sourceFilter === HOME_SOURCE_FILTER_ALL) {
     return true;
   }
-  if (sourceFilter === UNKNOWN_SOURCE) {
+  if (sourceFilter === HOME_SOURCE_FILTER_UNKNOWN) {
     return sequenceHasUnknownSource(sequence);
   }
 
@@ -637,7 +639,7 @@ export function Home({
   const sequences = state.store?.sequences ?? [];
   const homeSearch = state.homeSearch ?? '';
   const sourceFilterOptions = sourceOptions(i18n, sequences);
-  const homeSourceFilter = effectiveSourceFilter(state.homeSourceFilter ?? ALL_SOURCES, sourceFilterOptions);
+  const homeSourceFilter = effectiveSourceFilter(state.homeSourceFilter ?? HOME_SOURCE_FILTER_ALL, sourceFilterOptions);
   const homeSort = state.homeSort ?? 'manual';
   const filteredSequences = visibleSequences(sequences, homeSearch, homeSourceFilter, homeSort);
   const listChildren = sequences.length === 0

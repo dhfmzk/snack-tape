@@ -29,6 +29,8 @@ import { getActiveVideoState, getPlaybackPageInfo, sendRuntimeMessage, type Acti
 
 export type AppRoute = 'home' | 'capture' | 'playback' | 'settings' | 'detail';
 export type HomeSort = 'manual' | 'updated' | 'name' | 'clipCount';
+export const HOME_SOURCE_FILTER_ALL = '__all_sources__';
+export const HOME_SOURCE_FILTER_UNKNOWN = '__unknown_source__';
 export type HomeSourceFilter = string;
 
 export type QueueEditState = {
@@ -288,7 +290,7 @@ export class SnackTapeAppStore {
       settingsNotice: null,
       pendingImport: null,
       homeSearch: '',
-      homeSourceFilter: '__all_sources__',
+      homeSourceFilter: HOME_SOURCE_FILTER_ALL,
       homeSort: 'manual',
       loading: true,
     };

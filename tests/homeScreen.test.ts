@@ -1,6 +1,7 @@
 // @ts-nocheck
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { HOME_SOURCE_FILTER_ALL, HOME_SOURCE_FILTER_UNKNOWN } from '../src/state/store.js';
 import { makeSegment, makeSequence } from './helpers.js';
 
 class FakeNode {
@@ -123,7 +124,7 @@ function homeState(sequences) {
     queueEdit: null,
     segmentEdit: null,
     renameEdit: null,
-    homeSourceFilter: '__all_sources__',
+    homeSourceFilter: HOME_SOURCE_FILTER_ALL,
     loading: false
   };
 }
@@ -366,10 +367,10 @@ test('Home source filter narrows mixtapes by saved clip channel', async () => {
   assert.match(text, /출처 없음/);
   assert.equal(source.value, 'channel:Whisper Room');
 
-  source.value = '__unknown_source__';
+  source.value = HOME_SOURCE_FILTER_UNKNOWN;
   source.change();
 
-  assert.deepEqual(calls, ['__unknown_source__']);
+  assert.deepEqual(calls, [HOME_SOURCE_FILTER_UNKNOWN]);
 });
 
 test('Home falls back to all sources when the selected source no longer exists', async () => {
@@ -395,7 +396,44 @@ test('Home falls back to all sources when the selected source no longer exists',
   const source = findAllByAriaLabel(page, '출처 필터')[0];
 
   assert.match(textOf(page), /Alpha Tape/);
-  assert.equal(source.value, '__all_sources__');
+  assert.equal(source.value, HOME_SOURCE_FILTER_ALL);
+});
+
+test('Home source filter persist key changes when available sources change', async () => {
+  installDomShim();
+  const { Home } = await import('../src/screens/Home.js');
+
+  const firstPage = Home({
+    state: homeState([
+      makeSequence({
+        id: 'whisper',
+        name: 'Whisper Tape',
+        segments: [makeSegment({ id: 'whisper-clip', channel: 'Whisper Room' })]
+      })
+    ]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+  const nextPage = Home({
+    state: homeState([
+      makeSequence({
+        id: 'piano',
+        name: 'Piano Tape',
+        segments: [makeSegment({ id: 'piano-clip', channel: 'Piano Desk' })]
+      })
+    ]),
+    onCreate: () => {},
+    onOpenSequence: () => {},
+    onPlaySequence: () => {}
+  });
+
+  const firstSource = findAllByAriaLabel(firstPage, '출처 필터')[0];
+  const nextSource = findAllByAriaLabel(nextPage, '출처 필터')[0];
+
+  assert.match(firstSource.dataset.persistKey, /channel:Whisper Room/);
+  assert.match(nextSource.dataset.persistKey, /channel:Piano Desk/);
+  assert.notEqual(firstSource.dataset.persistKey, nextSource.dataset.persistKey);
 });
 
 test('Home search matches saved source channels as library metadata', async () => {
