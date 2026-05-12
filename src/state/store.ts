@@ -1,6 +1,16 @@
 import { describePlaybackState, playbackStateAfterSequenceEdit, type PlaybackDisplayState } from '../shared/playback.js';
 import { moveItem, removeSegmentFromSequence } from '../shared/reorder.js';
-import { createExportFilename, parseImportedStoreJson, serializeStoreCsv, serializeStoreJson, type ExportFilenameContext, type ExportFormat } from '../shared/dataTransfer.js';
+import {
+  createExportFilename,
+  mergeImportedStore,
+  parseImportedStoreJson,
+  serializeStoreCsv,
+  serializeStoreJson,
+  summarizeImport,
+  type ExportFilenameContext,
+  type ExportFormat,
+  type ImportPreviewSummary,
+} from '../shared/dataTransfer.js';
 import {
   clearPlaybackState,
   clearSegmentDraft,
@@ -48,6 +58,11 @@ export type SettingsNotice = {
   message: string;
 };
 
+export type PendingImport = {
+  store: SnackTapeStore;
+  summary: ImportPreviewSummary;
+};
+
 export type PlaybackRecoveryAction =
   | {
       type: 'start';
@@ -81,6 +96,7 @@ export type AppState = {
   queueEdit: QueueEditState | null;
   segmentEdit: SegmentEditState | null;
   renameEdit: RenameEditState | null;
+  pendingImport: PendingImport | null;
   captureNotice: CaptureNotice | null;
   settingsNotice: SettingsNotice | null;
   homeSearch: string;
@@ -286,6 +302,7 @@ export class SnackTapeAppStore {
       queueEdit: null,
       segmentEdit: null,
       renameEdit: null,
+      pendingImport: null,
       captureNotice: null,
       settingsNotice: null,
       homeSearch: '',
@@ -534,6 +551,27 @@ export class SnackTapeAppStore {
       return;
     }
     await this.refreshPlayback();
+  }
+
+  async moveMixtape(sequenceId: string, direction: 'up' | 'down'): Promise<void> {
+    const currentStore = this.state.store;
+    if (!currentStore) {
+      return;
+    }
+
+    const currentIndex = currentStore.sequences.findIndex((sequence) => sequence.id === sequenceId);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= currentStore.sequences.length) {
+      return;
+    }
+
+    const previousState = this.state;
+    const store: SnackTapeStore = {
+      ...currentStore,
+      sequences: moveItem(currentStore.sequences, currentIndex, targetIndex),
+    };
+    this.setState({ store });
+    await this.persistOrRollback(previousState, this.noticeTargetForRoute(previousState.route), () => saveStore(store));
   }
 
   async openMixtape(sequenceId: string): Promise<void> {
@@ -1331,6 +1369,16 @@ export class SnackTapeAppStore {
     await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
   }
 
+  async resetSettings(): Promise<void> {
+    const previousState = this.state;
+    const settings = normalizeSettings(DEFAULT_SETTINGS);
+    this.setState({
+      settings,
+      settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.resetSettingsDone },
+    });
+    await this.persistOrRollback(previousState, 'settings', () => saveSettings(settings));
+  }
+
   async setAccentKey(accentKey: Settings['accentKey']): Promise<void> {
     await this.updateSettings({ accentKey });
   }
@@ -1359,10 +1407,30 @@ export class SnackTapeAppStore {
     const i18n = createI18n(this.state.settings.language).settings;
     const store = parseImportedStoreJson(await file.text());
     if (!store) {
+      this.setState({ pendingImport: null });
       this.setSettingsError(i18n.importFailed);
       return;
     }
 
+    const summary = summarizeImport(this.state.store ?? { sequences: [], selectedSequenceId: null }, store);
+    this.setState({
+      pendingImport: { store, summary },
+      settingsNotice: { kind: 'info', message: i18n.importPreviewReady(summary.tapeCount, summary.clipCount) },
+    });
+  }
+
+  cancelImportPreview(): void {
+    this.setState({ pendingImport: null, settingsNotice: null });
+  }
+
+  async replaceWithPendingImport(): Promise<void> {
+    const pendingImport = this.state.pendingImport;
+    if (!pendingImport) {
+      return;
+    }
+
+    const i18n = createI18n(this.state.settings.language).settings;
+    const store = pendingImport.store;
     const previousState = this.state;
     const previousSettings = this.state.settings;
     const settings = store.sequences.some((sequence) => sequence.id === previousSettings.defaultMixtapeId)
@@ -1380,8 +1448,12 @@ export class SnackTapeAppStore {
       queueEdit: null,
       segmentEdit: null,
       renameEdit: null,
+      pendingImport: null,
       settingsNotice: { kind: 'info', message: i18n.importReady(store.sequences.length) },
     });
+    if (previousState.store) {
+      this.downloadTextFile(`snacktape-pre-import-backup-${Date.now()}.json`, 'application/json', serializeStoreJson(previousState.store));
+    }
     await this.persistOrRollback(previousState, 'settings', async () => {
       await saveStore(store);
       if (settingsChanged) {
@@ -1390,6 +1462,22 @@ export class SnackTapeAppStore {
       await clearPlaybackState();
       await clearSegmentDraft();
     });
+  }
+
+  async mergePendingImport(): Promise<void> {
+    const pendingImport = this.state.pendingImport;
+    if (!pendingImport) {
+      return;
+    }
+
+    const previousState = this.state;
+    const store = mergeImportedStore(this.state.store ?? { sequences: [], selectedSequenceId: null }, pendingImport.store);
+    this.setState({
+      store,
+      pendingImport: null,
+      settingsNotice: { kind: 'info', message: createI18n(this.state.settings.language).settings.importMerged(pendingImport.store.sequences.length) },
+    });
+    await this.persistOrRollback(previousState, 'settings', () => saveStore(store));
   }
 
   async deleteAllData(): Promise<void> {
@@ -1410,6 +1498,7 @@ export class SnackTapeAppStore {
       queueEdit: null,
       segmentEdit: null,
       renameEdit: null,
+      pendingImport: null,
       settingsNotice: { kind: 'info', message: createI18n(settings.language).settings.deleteAllDone },
     });
     await this.persistOrRollback(previousState, 'settings', async () => {

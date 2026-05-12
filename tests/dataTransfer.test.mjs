@@ -111,6 +111,85 @@ test('createExportPayload includes app name, version, exportedAt and store', asy
   assert.equal(payload.store, store);
 });
 
+test('summarizeImport counts imported tapes, clips, duplicate names, and duplicate ranges', async () => {
+  const { summarizeImport } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const currentSegment = makeSegment({
+    id: 'clip-current',
+    videoId: 'video-a',
+    startSeconds: 10,
+    endSeconds: 15
+  });
+  const importedDuplicateRange = makeSegment({
+    id: 'clip-import-duplicate-range',
+    videoId: 'video-a',
+    startSeconds: 10,
+    endSeconds: 15
+  });
+  const importedUniqueRange = makeSegment({
+    id: 'clip-import-unique-range',
+    videoId: 'video-b',
+    startSeconds: 20,
+    endSeconds: 25
+  });
+  const current = {
+    sequences: [makeSequence({ id: 'seq-current', name: 'Sleep Tape', segments: [currentSegment] })],
+    selectedSequenceId: 'seq-current'
+  };
+  const imported = {
+    sequences: [
+      makeSequence({ id: 'seq-import-1', name: 'Sleep Tape', segments: [importedDuplicateRange] }),
+      makeSequence({ id: 'seq-import-2', name: 'Fresh Tape', segments: [importedUniqueRange] })
+    ],
+    selectedSequenceId: 'seq-import-1'
+  };
+
+  assert.deepEqual(summarizeImport(current, imported), {
+    tapeCount: 2,
+    clipCount: 2,
+    duplicateNameCount: 1,
+    duplicateRangeCount: 1
+  });
+});
+
+test('mergeImportedStore keeps current data and renames imported conflicts', async () => {
+  const { mergeImportedStore } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const currentSegment = makeSegment({ id: 'clip-shared', title: 'Current clip' });
+  const importedSegment = makeSegment({ id: 'clip-shared', title: 'Imported clip' });
+  const current = {
+    sequences: [makeSequence({ id: 'seq-shared', name: 'Focus Tape', segments: [currentSegment] })],
+    selectedSequenceId: 'seq-shared'
+  };
+  const imported = {
+    sequences: [makeSequence({ id: 'seq-shared', name: 'Focus Tape', segments: [importedSegment] })],
+    selectedSequenceId: 'seq-shared'
+  };
+
+  const merged = mergeImportedStore(current, imported);
+
+  assert.equal(merged.selectedSequenceId, 'seq-shared');
+  assert.equal(merged.sequences.length, 2);
+  assert.equal(merged.sequences[0].id, 'seq-shared');
+  assert.equal(merged.sequences[0].name, 'Focus Tape');
+  assert.notEqual(merged.sequences[1].id, 'seq-shared');
+  assert.match(merged.sequences[1].name, /^Focus Tape \(Imported 2\)$/);
+  assert.notEqual(merged.sequences[1].segments[0].id, 'clip-shared');
+  assert.equal(merged.sequences[1].segments[0].title, 'Imported clip');
+});
+
+test('mergeImportedStore preserves the imported selection when merging into an empty library', async () => {
+  const { mergeImportedStore } = await import('../.tmp-tests/src/shared/dataTransfer.js');
+  const first = makeSequence({ id: 'seq-first', name: 'First Imported', segments: [] });
+  const selected = makeSequence({ id: 'seq-selected', name: '', segments: [] });
+
+  const merged = mergeImportedStore(
+    { sequences: [], selectedSequenceId: null },
+    { sequences: [first, selected], selectedSequenceId: selected.id }
+  );
+
+  assert.equal(merged.selectedSequenceId, selected.id);
+  assert.equal(merged.sequences[1].name, 'Imported Mixtape');
+});
+
 test('createExportFilename differentiates exports inside the same minute', async () => {
   const { createExportFilename } = await import('../.tmp-tests/src/shared/dataTransfer.js');
   const store = {
