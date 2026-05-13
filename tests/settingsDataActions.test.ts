@@ -162,7 +162,7 @@ test('updateSettings restores previous settings when persistence fails', async (
   assert.equal(store.getState().settings.language, 'ko');
   assert.equal(data[SETTINGS_KEY].accentKey, 'peach');
   assert.equal(store.getState().settingsNotice.kind, 'error');
-  assert.match(store.getState().settingsNotice.message, /quota exceeded/);
+  assert.equal(store.getState().settingsNotice.message, '저장하지 못했습니다. Chrome 저장소를 확인한 뒤 다시 시도해주세요.');
 });
 
 test('exportData downloads JSON and CSV backups from the current store', async () => {
@@ -411,6 +411,62 @@ test('importDataFile reports invalid JSON and clears a stale pending preview', a
   assert.equal(store.getState().store.sequences[0].id, sequence.id);
   assert.equal(store.getState().pendingImport, null);
   assert.equal(store.getState().settingsNotice.kind, 'error');
+});
+
+test('importDataFile handles unreadable files without leaving stale previews', async () => {
+  const { SnackTapeAppStore } = await import('../src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-unreadable-import', segments: [] });
+  const staleImport = makeSequence({ id: 'sequence-stale-unreadable', segments: [] });
+  installChrome();
+  const store = new SnackTapeAppStore();
+  store.state = {
+    ...baseState(sequence, baseSettings({ language: 'en' })),
+    pendingImport: {
+      store: {
+        sequences: [staleImport],
+        selectedSequenceId: staleImport.id
+      },
+      summary: {
+        mixtapeCount: 1,
+        clipCount: 0,
+        duplicateNameCount: 0,
+        duplicateRangeCount: 0
+      }
+    }
+  };
+
+  await store.importDataFile({
+    text: async () => {
+      throw new Error('read failed');
+    }
+  });
+
+  assert.equal(store.getState().pendingImport, null);
+  assert.equal(store.getState().store.sequences[0].id, sequence.id);
+  assert.equal(store.getState().settingsNotice.kind, 'error');
+  assert.equal(store.getState().settingsNotice.message, 'This JSON file cannot be imported.');
+});
+
+test('settings persistence errors stay localized instead of leaking raw storage text', async () => {
+  const { SETTINGS_KEY } = await import('../src/state/storage.js');
+  const { SnackTapeAppStore } = await import('../src/state/store.js');
+  const sequence = makeSequence({ id: 'sequence-settings-localized-fail', segments: [] });
+  const previousSettings = baseSettings({ accentKey: 'peach', language: 'en' });
+  installChrome({
+    [SETTINGS_KEY]: previousSettings
+  }, {
+    failSetKeys: [SETTINGS_KEY],
+    failMessage: '저장소 실패'
+  });
+  const store = new SnackTapeAppStore();
+  store.state = baseState(sequence, previousSettings);
+
+  await store.updateSettings({ accentKey: 'sky' });
+
+  assert.equal(store.getState().settings.accentKey, 'peach');
+  assert.equal(store.getState().settingsNotice.kind, 'error');
+  assert.equal(store.getState().settingsNotice.message, 'Could not save. Check Chrome storage and try again.');
+  assert.doesNotMatch(store.getState().settingsNotice.message, /저장소 실패/);
 });
 
 test('deleteAllData clears mixtapes, playback, drafts, and stale default target', async () => {

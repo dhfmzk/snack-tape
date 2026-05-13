@@ -18,6 +18,7 @@ export type I18n = {
     openYoutubeVideo: string;
     copyName: (name: string) => string;
     saveFailed: (message: string) => string;
+    storageError: string;
     end: string;
   };
   tabs: {
@@ -253,6 +254,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       openYoutubeVideo: 'YouTube 영상에서 열어주세요',
       copyName: (name) => `${name} 복사본`,
       saveFailed: (message) => `저장하지 못했습니다.${message ? ` ${message}` : ''}`,
+      storageError: 'Chrome 저장소를 확인한 뒤 다시 시도해주세요.',
       end: 'END',
     },
     tabs: {
@@ -486,6 +488,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       openYoutubeVideo: 'YouTube動画を開いてください',
       copyName: (name) => `${name} コピー`,
       saveFailed: (message) => `保存できませんでした。${message ? ` ${message}` : ''}`,
+      storageError: 'Chromeストレージを確認してからもう一度お試しください。',
       end: 'END',
     },
     tabs: {
@@ -719,6 +722,7 @@ const TRANSLATIONS: Record<Language, Omit<I18n, 'language'>> = {
       openYoutubeVideo: 'Open a YouTube video',
       copyName: (name) => `${name} Copy`,
       saveFailed: (message) => `Could not save.${message ? ` ${message}` : ''}`,
+      storageError: 'Check Chrome storage and try again.',
       end: 'END',
     },
     tabs: {
