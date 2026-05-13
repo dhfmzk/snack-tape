@@ -42,7 +42,8 @@ test('README stays concise and documents developer-mode loading', async () => {
   assert.match(readme, /dist\//);
   assert.match(readme, /GitHub Release Install/);
   assert.match(readme, /snacktape-v\*\.zip/);
-  assert.match(readme, /package:release/);
+  assert.match(readme, /release:zip/);
+  assert.doesNotMatch(readme, /package:release/);
   assert.doesNotMatch(readme, /Manual QA Checklist|How to Use|Install and Build/);
 });
 
