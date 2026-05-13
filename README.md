@@ -42,7 +42,7 @@ Keeping the same folder path helps Chrome keep the unpacked extension identity s
 
 For maintainers, `npm run package:release` builds the extension, runs the dist smoke check, and writes a zip asset to `release/snacktape-v*.zip`.
 
-Upload that zip file to a GitHub Release. The archive is structured so `manifest.json` is at the root after extraction.
+Upload that zip file to a GitHub Release. The archive is structured so `manifest.json` is at the root after extraction. The package script uses Node APIs only, so it does not require a system `zip` command.
 
 ## License
 

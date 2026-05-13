@@ -21,7 +21,9 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
 
   const releaseScript = await readFile('scripts/package-release.mjs', 'utf8');
   assert.match(releaseScript, /snacktape-v\$\{packageJson\.version\}\.zip/);
-  assert.match(releaseScript, /cwd: 'dist'/);
+  assert.match(releaseScript, /createZipArchive\(DIST_DIR, archivePath\)/);
+  assert.match(releaseScript, /writeFile\(archivePath/);
+  assert.doesNotMatch(releaseScript, /node:child_process|run\('zip'|spawn\(/);
 });
 
 test('GitHub Actions CI runs the full project check', async () => {
