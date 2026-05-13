@@ -7,10 +7,6 @@ const requiredFiles = [
   'dist/content.js',
   'dist/sidepanel.html',
   'dist/sidepanel.css',
-  'dist/icons/icon-16.png',
-  'dist/icons/icon-32.png',
-  'dist/icons/icon-48.png',
-  'dist/icons/icon-128.png',
   'dist/_locales/en/messages.json',
   'dist/_locales/ja/messages.json',
   'dist/_locales/ko/messages.json'
