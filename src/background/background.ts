@@ -11,7 +11,7 @@ import {
   saveSegmentDraft,
   saveStore
 } from '../shared/storage.js';
-import { createI18n } from '../i18n.js';
+import { createI18n, type I18n } from '../i18n.js';
 import type { PageInfo, PlaybackMode, PlaybackStartResult, PlaybackState, Segment, Sequence, SnackTapeMessage, SnackTapeResponse, VideoState } from '../shared/types.js';
 import { validateSegment, validateSequence } from '../shared/validation.js';
 import { parseYouTubeVideoId } from '../shared/youtube.js';
@@ -22,6 +22,8 @@ const MESSAGE_RETRY_DELAY_MS = 350;
 const COMMAND_NAMES = ['capture-in', 'capture-out', 'play-pause', 'next-clip'] as const;
 type CommandName = (typeof COMMAND_NAMES)[number];
 const MIN_CAPTURE_DURATION_SECONDS = 1 / 30;
+type PlaybackI18n = I18n['playback'];
+type CaptureI18n = I18n['capture'];
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,52 +157,39 @@ function startedAtForSegmentTime(segment: Segment, absoluteSeconds: number): num
   return Date.now() - Math.round(elapsed * 1000);
 }
 
-async function appI18n() {
-  const settings = await loadSettings();
-  return createI18n(settings.language);
-}
-
-async function playbackI18n() {
-  return (await appI18n()).playback;
-}
-
-async function captureI18n() {
-  return (await appI18n()).capture;
-}
-
-async function playbackContext(): Promise<{ state: PlaybackState & { tabId: number }; sequence: Sequence; segment: Segment }> {
+async function playbackContext(i18n: PlaybackI18n): Promise<{ state: PlaybackState & { tabId: number }; sequence: Sequence; segment: Segment }> {
   const state = await loadPlaybackState();
   if (!state?.tabId) {
-    throw new Error((await playbackI18n()).noPlaybackTab);
+    throw new Error(i18n.noPlaybackTab);
   }
 
   const store = await loadStore();
   const sequence = getSequence(store.sequences, state.sequenceId);
   const segment = currentPlaybackSegment(sequence, state);
   if (!segment) {
-    throw new Error((await playbackI18n()).currentSegmentMissing);
+    throw new Error(i18n.currentSegmentMissing);
   }
 
   return { state: state as PlaybackState & { tabId: number }, sequence, segment };
 }
 
-async function assertPlaybackTabMatches(state: PlaybackState & { tabId: number }, segment: Segment): Promise<PageInfo> {
-  const response = await sendMessageWithRetries<PageInfo>(state.tabId, { type: 'GET_PAGE_INFO' });
+async function assertPlaybackTabMatches(state: PlaybackState & { tabId: number }, segment: Segment, i18n: PlaybackI18n): Promise<PageInfo> {
+  const response = await sendMessageWithRetries<PageInfo>(state.tabId, { type: 'GET_PAGE_INFO' }, i18n.contentRequestFailed);
   const pageInfo = response.data;
   if (!pageInfo?.isYouTubeVideoPage || pageInfo.videoId !== segment.videoId) {
-    throw new Error((await playbackI18n()).connectionLost);
+    throw new Error(i18n.connectionLost);
   }
 
   return pageInfo;
 }
 
-async function readCurrentPlaybackTime(state: PlaybackState & { tabId: number }, segment: Segment, pageInfo?: PageInfo): Promise<number> {
+async function readCurrentPlaybackTime(state: PlaybackState & { tabId: number }, segment: Segment, i18n: PlaybackI18n, pageInfo?: PageInfo): Promise<number> {
   if (typeof pageInfo?.currentTime === 'number' && Number.isFinite(pageInfo.currentTime)) {
     return clampToSegment(pageInfo.currentTime, segment);
   }
 
   {
-    const response = await sendMessageWithRetries<number | null>(state.tabId, { type: 'GET_CURRENT_TIME' });
+    const response = await sendMessageWithRetries<number | null>(state.tabId, { type: 'GET_CURRENT_TIME' }, i18n.contentRequestFailed);
     if (typeof response.data === 'number' && Number.isFinite(response.data)) {
       return clampToSegment(response.data, segment);
     }
@@ -314,7 +303,7 @@ function waitForTabComplete(tabId: number, timeoutMs = 15000): Promise<void> {
   });
 }
 
-async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessage): Promise<SnackTapeResponse<T>> {
+async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessage, failureMessage: string): Promise<SnackTapeResponse<T>> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_MESSAGE_RETRIES; attempt += 1) {
@@ -338,26 +327,28 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
   }
 
   void lastError;
-  throw new Error((await playbackI18n()).contentRequestFailed);
+  throw new Error(failureMessage);
 }
 
-async function readActiveVideoForCapture(): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
+async function readActiveVideoForCapture(i18n: CaptureI18n): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
   const tab = await getActiveTab();
   if (!tab.id || !tab.url || !parseYouTubeVideoId(tab.url)) {
-    throw new Error((await captureI18n()).noticeOpenYoutubeVideo);
+    throw new Error(i18n.noticeOpenYoutubeVideo);
   }
 
-  const response = await sendMessageWithRetries<VideoState>(tab.id, { type: 'getVideoState' });
+  const response = await sendMessageWithRetries<VideoState>(tab.id, { type: 'getVideoState' }, i18n.noticeTimeUnavailable);
   const videoState = response.data;
   if (!videoState?.videoId || !Number.isFinite(videoState.currentTime)) {
-    throw new Error((await captureI18n()).noticeTimeUnavailable);
+    throw new Error(i18n.noticeTimeUnavailable);
   }
 
   return { tab, videoState };
 }
 
 export async function captureInFromCommand(): Promise<void> {
-  const { videoState } = await readActiveVideoForCapture();
+  const settings = await loadSettings();
+  const i18n = createI18n(settings.language).capture;
+  const { videoState } = await readActiveVideoForCapture(i18n);
   await saveSegmentDraft({
     videoId: videoState.videoId!,
     startSeconds: videoState.currentTime,
@@ -367,16 +358,18 @@ export async function captureInFromCommand(): Promise<void> {
 }
 
 export async function captureOutFromCommand(): Promise<void> {
-  const { tab, videoState } = await readActiveVideoForCapture();
+  const settings = await loadSettings();
+  const i18n = createI18n(settings.language).capture;
+  const { tab, videoState } = await readActiveVideoForCapture(i18n);
   const draft = await loadSegmentDraft(videoState.videoId!);
   if (!draft || draft.startSeconds === null) {
-    throw new Error((await captureI18n()).noticeInFirst);
+    throw new Error(i18n.noticeInFirst);
   }
 
-  const [store, settings] = await Promise.all([loadStore(), loadSettings()]);
+  const store = await loadStore();
   const sequence = selectCaptureSequence(store.sequences, store.selectedSequenceId, settings.defaultMixtapeId);
   if (!sequence) {
-    throw new Error(createI18n(settings.language).capture.noticeNoSaveTarget);
+    throw new Error(i18n.noticeNoSaveTarget);
   }
 
   const timestamp = Date.now();
@@ -398,7 +391,7 @@ export async function captureOutFromCommand(): Promise<void> {
   const errors = validateSegment(segment);
   if (errors.length > 0) {
     console.warn('SnackTape could not save command-captured segment.', errors[0]);
-    throw new Error(createI18n(settings.language).capture.noticeInvalidSegment);
+    throw new Error(i18n.noticeInvalidSegment);
   }
 
   const updatedSequence: Sequence = {
@@ -511,6 +504,7 @@ export async function playSegment(
 
   try {
     const settings = await loadSettings();
+    const i18n = createI18n(settings.language).playback;
     const response = await sendMessageWithRetries<PlaybackStartResult>(tabId, {
       type: 'PLAY_SEGMENT',
       segment,
@@ -519,7 +513,7 @@ export async function playSegment(
       fadeOutSeconds: FADE_OUT_SECONDS,
       language: settings.language,
       accentKey: settings.accentKey
-    });
+    }, i18n.contentRequestFailed);
     const startedTime = typeof response.data?.currentTime === 'number' && Number.isFinite(response.data.currentTime)
       ? response.data.currentTime
       : segment.startSeconds;
@@ -608,11 +602,13 @@ export async function markPlaybackStarted(playbackToken: string, currentTime?: n
 }
 
 export async function seekPlayback(seconds: number): Promise<void> {
-  const { state, segment } = await playbackContext();
-  await assertPlaybackTabMatches(state, segment);
+  const settings = await loadSettings();
+  const i18n = createI18n(settings.language).playback;
+  const { state, segment } = await playbackContext(i18n);
+  await assertPlaybackTabMatches(state, segment, i18n);
   const targetSeconds = clampToSegment(seconds, segment);
 
-  await sendMessageWithRetries(state.tabId, { type: 'seek', sec: targetSeconds });
+  await sendMessageWithRetries(state.tabId, { type: 'seek', sec: targetSeconds }, i18n.contentRequestFailed);
   await savePlaybackState({
     ...state,
     currentTime: targetSeconds,
@@ -622,14 +618,16 @@ export async function seekPlayback(seconds: number): Promise<void> {
 }
 
 export async function pausePlayback(): Promise<void> {
-  const { state, segment } = await playbackContext();
+  const settings = await loadSettings();
+  const i18n = createI18n(settings.language).playback;
+  const { state, segment } = await playbackContext(i18n);
   if (state.status === 'paused') {
     return;
   }
 
-  const pageInfo = await assertPlaybackTabMatches(state, segment);
-  const currentTime = await readCurrentPlaybackTime(state, segment, pageInfo);
-  await sendMessageWithRetries(state.tabId, { type: 'pause' });
+  const pageInfo = await assertPlaybackTabMatches(state, segment, i18n);
+  const currentTime = await readCurrentPlaybackTime(state, segment, i18n, pageInfo);
+  await sendMessageWithRetries(state.tabId, { type: 'pause' }, i18n.contentRequestFailed);
   await savePlaybackState({
     ...state,
     status: 'paused',
@@ -640,19 +638,20 @@ export async function pausePlayback(): Promise<void> {
 }
 
 export async function resumePlayback(): Promise<void> {
-  const { state, segment } = await playbackContext();
+  const settings = await loadSettings();
+  const i18n = createI18n(settings.language).playback;
+  const { state, segment } = await playbackContext(i18n);
   if (state.status === 'playing') {
     return;
   }
 
-  const pageInfo = await assertPlaybackTabMatches(state, segment);
-  const currentTime = await readCurrentPlaybackTime(state, segment, pageInfo);
-  const settings = await loadSettings();
+  const pageInfo = await assertPlaybackTabMatches(state, segment, i18n);
+  const currentTime = await readCurrentPlaybackTime(state, segment, i18n, pageInfo);
   const response = await sendMessageWithRetries<PlaybackStartResult>(state.tabId, {
     type: 'play',
     language: settings.language,
     accentKey: settings.accentKey
-  });
+  }, i18n.contentRequestFailed);
   const resumedTime = typeof response.data?.currentTime === 'number' && Number.isFinite(response.data.currentTime)
     ? clampToSegment(response.data.currentTime, segment)
     : currentTime;

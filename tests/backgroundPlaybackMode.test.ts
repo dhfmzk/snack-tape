@@ -16,9 +16,11 @@ function installChrome(initial = {}, options = {}) {
   const createdTabs = [];
   const updatedListeners = [];
   const commandListeners = [];
+  const storageGetKeys = [];
 
   const area = {
     get(key, callback) {
+      storageGetKeys.push(key);
       callback({ [key]: data[key] });
     },
     set(value, callback) {
@@ -112,6 +114,7 @@ function installChrome(initial = {}, options = {}) {
   data.createdTabs = createdTabs;
   data.commandListeners = commandListeners;
   data.activeTab = activeTab;
+  data.storageGetKeys = storageGetKeys;
   return data;
 }
 
@@ -770,6 +773,7 @@ test('background capture command saves IN when the side panel is not receiving c
 
 test('background capture command saves OUT into the selected mixtape when the side panel is closed', async () => {
   const { STORAGE_KEY, SEGMENT_DRAFT_KEY } = await import('../src/shared/storage.js');
+  const { SETTINGS_KEY } = await import('../src/state/storage.js');
   const sequence = makeSequence({ id: 'sequence-command-capture', segments: [] });
   const data = installChrome(
     {
@@ -814,6 +818,7 @@ test('background capture command saves OUT into the selected mixtape when the si
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].startSeconds, 12);
   assert.equal(data[STORAGE_KEY].sequences[0].segments[0].endSeconds, 15);
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
+  assert.equal(data.storageGetKeys.filter((key) => key === SETTINGS_KEY).length, 1);
 });
 
 test('background capture command errors use the configured Japanese UI language', async () => {
