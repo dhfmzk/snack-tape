@@ -7,6 +7,10 @@ const requiredFiles = [
   'dist/content.js',
   'dist/sidepanel.html',
   'dist/sidepanel.css',
+  'dist/icons/icon-16.png',
+  'dist/icons/icon-32.png',
+  'dist/icons/icon-48.png',
+  'dist/icons/icon-128.png',
   'dist/_locales/en/messages.json',
   'dist/_locales/ja/messages.json',
   'dist/_locales/ko/messages.json'
@@ -26,6 +30,8 @@ for (const file of requiredFiles) {
 
 const manifest = JSON.parse(await readFile('dist/manifest.json', 'utf8'));
 const expectedPaths = [
+  ...Object.values(manifest.icons ?? {}),
+  ...Object.values(manifest.action?.default_icon ?? {}),
   manifest.background?.service_worker,
   manifest.side_panel?.default_path,
   ...(manifest.content_scripts ?? []).flatMap((script) => script.js ?? [])

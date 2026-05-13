@@ -47,6 +47,7 @@ await run(npx, [
 await Promise.all([
   cp('src/sidepanel/sidepanel.html', 'dist/sidepanel.html'),
   cp('src/sidepanel/sidepanel.css', 'dist/sidepanel.css'),
+  cp('public/icons', 'dist/icons', { recursive: true, force: true }),
   cp('public/_locales', 'dist/_locales', { recursive: true, force: true })
 ]);
 

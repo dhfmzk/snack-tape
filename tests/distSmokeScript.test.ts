@@ -15,6 +15,7 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   assert.match(smokeScript, /dist\/main\.js/);
   assert.match(smokeScript, /dist\/background\.js/);
   assert.match(smokeScript, /dist\/content\.js/);
+  assert.match(smokeScript, /dist\/icons\/icon-128\.png/);
 });
 
 test('GitHub Actions CI runs the full project check', async () => {
