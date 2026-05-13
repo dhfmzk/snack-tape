@@ -9,19 +9,6 @@ function clamp(value) {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
-function mix(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function mixColor(a, b, t) {
-  return [
-    mix(a[0], b[0], t),
-    mix(a[1], b[1], t),
-    mix(a[2], b[2], t),
-    mix(a[3], b[3], t)
-  ];
-}
-
 function over(base, layer) {
   const alpha = layer[3] + base[3] * (1 - layer[3]);
   if (alpha <= 0) {
@@ -54,46 +41,20 @@ function triangle(x, y, ax, ay, bx, by, cx, cy) {
   return s >= 0 && t >= 0 && u >= 0;
 }
 
-function backgroundColor(x, y) {
-  const t = Math.max(0, Math.min(1, (x * 0.55 + y * 0.45) / 128));
-  const coral = [255, 143, 130, 1];
-  const peach = [255, 176, 132, 1];
-  const butter = [247, 217, 129, 1];
-  return t < 0.62
-    ? mixColor(coral, peach, t / 0.62)
-    : mixColor(peach, butter, (t - 0.62) / 0.38);
-}
-
 function sampleIcon(x, y) {
   let color = [0, 0, 0, 0];
   if (roundedRect(x, y, 0, 0, 128, 128, 28)) {
-    color = over(color, backgroundColor(x, y));
+    color = over(color, [255, 143, 130, 1]);
   }
 
-  if (roundedRect(x, y, 24, 46, 80, 55, 14)) {
-    color = over(color, [74, 23, 20, 0.13]);
-  }
-  if (roundedRect(x, y, 27, 49, 74, 50, 12)) {
-    color = over(color, [74, 23, 20, 0.08]);
-  }
-
-  if (roundedRect(x, y, 24, 38, 80, 55, 14)) {
+  if (roundedRect(x, y, 24, 40, 80, 48, 13)) {
     color = over(color, [255, 248, 243, 1]);
   }
-  if (roundedRect(x, y, 35, 52, 58, 19, 9.5)) {
-    color = over(color, [26, 17, 18, 0.92]);
+  if (circle(x, y, 48, 62, 8) || circle(x, y, 80, 62, 8)) {
+    color = over(color, [26, 17, 18, 1]);
   }
-  if (circle(x, y, 48, 61.5, 7) || circle(x, y, 80, 61.5, 7)) {
-    color = over(color, [255, 248, 243, 1]);
-  }
-  if (circle(x, y, 48, 61.5, 3) || circle(x, y, 80, 61.5, 3)) {
-    color = over(color, [26, 17, 18, 0.88]);
-  }
-  if (roundedRect(x, y, 40, 81, 30, 5, 2.5)) {
-    color = over(color, [26, 17, 18, 0.86]);
-  }
-  if (triangle(x, y, 78, 78.5, 93, 86, 78, 93.5)) {
-    color = over(color, [26, 17, 18, 0.9]);
+  if (triangle(x, y, 58, 76, 76, 84, 58, 92)) {
+    color = over(color, [26, 17, 18, 1]);
   }
 
   return color;
