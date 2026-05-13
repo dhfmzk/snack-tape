@@ -70,3 +70,21 @@ test('manifest metadata uses Chrome locale messages with English default locale'
   assert.deepEqual(Object.keys(koreanLocale).sort(), Object.keys(englishLocale).sort());
   assert.match(japaneseLocale.appDescription.message, /YouTube/);
 });
+
+test('manifest wires extension icons for Chrome and the action button', async () => {
+  const manifest = JSON.parse(await readFile('manifest.json', 'utf8'));
+
+  assert.deepEqual(manifest.icons, {
+    16: 'icons/icon-16.png',
+    32: 'icons/icon-32.png',
+    48: 'icons/icon-48.png',
+    128: 'icons/icon-128.png'
+  });
+  assert.deepEqual(manifest.action.default_icon, manifest.icons);
+
+  for (const iconPath of Object.values(manifest.icons)) {
+    const icon = await stat(`public/${iconPath}`);
+    assert.equal(icon.isFile(), true);
+    assert.equal(icon.size > 0, true);
+  }
+});

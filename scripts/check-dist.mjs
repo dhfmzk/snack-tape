@@ -26,6 +26,8 @@ for (const file of requiredFiles) {
 
 const manifest = JSON.parse(await readFile('dist/manifest.json', 'utf8'));
 const expectedPaths = [
+  ...Object.values(manifest.icons ?? {}),
+  ...Object.values(manifest.action?.default_icon ?? {}),
   manifest.background?.service_worker,
   manifest.side_panel?.default_path,
   ...(manifest.content_scripts ?? []).flatMap((script) => script.js ?? [])
