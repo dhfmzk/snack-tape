@@ -168,6 +168,7 @@ test('Home action menu opens with Enter and closes with Escape', async () => {
   assert.equal(details.open, false);
   assert.equal(menuButton.keydown('Enter').defaultPrevented, true);
   assert.equal(details.open, true);
+  assert.equal(menuButton.attributes['aria-expanded'], undefined);
   assert.equal(menuButton.keydown('Escape').defaultPrevented, true);
   assert.equal(details.open, false);
 });
@@ -210,6 +211,7 @@ test('Capture segment menu opens with Space and closes with Escape', async () =>
   assert.equal(details.open, false);
   assert.equal(menuButton.keydown(' ').defaultPrevented, true);
   assert.equal(details.open, true);
+  assert.equal(menuButton.attributes['aria-expanded'], undefined);
   assert.equal(menuButton.keydown('Escape').defaultPrevented, true);
   assert.equal(details.open, false);
 });

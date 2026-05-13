@@ -587,7 +587,7 @@ test('Capture edit tab renders zero-second OUT values as saved times, not END', 
   assert.doesNotMatch(text, /END/);
 });
 
-test('Capture segment action menus expose expanded state and menu item roles', async () => {
+test('Capture segment action menus rely on native disclosure state and expose menu item roles', async () => {
   installDomShim();
   const { Capture } = await import('../src/screens/Capture.js');
 
@@ -600,7 +600,7 @@ test('Capture segment action menus expose expanded state and menu item roles', a
   const menuItems = findAll(page, (node) => node.attributes?.role === 'menuitem');
 
   assert.equal(menuButton.attributes['aria-haspopup'], 'menu');
-  assert.equal(menuButton.attributes['aria-expanded'], 'false');
+  assert.equal(menuButton.attributes['aria-expanded'], undefined);
   assert.equal(menuItems.length, 4);
 });
 

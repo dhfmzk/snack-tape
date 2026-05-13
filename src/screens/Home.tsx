@@ -309,7 +309,6 @@ function MixtapeActionMenu(
       {
         ariaLabel: i18n.home.menu(sequence.name),
         ariaHasPopup: 'menu',
-        ariaExpanded: 'false',
         onKeyDown: toggleDisclosureMenuOnKeyDown,
         style: {
           height: '34px',

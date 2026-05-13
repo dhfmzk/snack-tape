@@ -156,7 +156,6 @@ function SegmentActionMenu(
       {
         ariaLabel: i18n.capture.segmentMenu(segment.title),
         ariaHasPopup: 'menu',
-        ariaExpanded: 'false',
         onKeyDown: toggleDisclosureMenuOnKeyDown,
         style: {
           ...btnIconStyle(),

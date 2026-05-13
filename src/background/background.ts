@@ -397,6 +397,7 @@ export async function captureOutFromCommand(): Promise<void> {
   };
   const errors = validateSegment(segment);
   if (errors.length > 0) {
+    console.warn('SnackTape could not save command-captured segment.', errors[0]);
     throw new Error(createI18n(settings.language).capture.noticeInvalidSegment);
   }
 

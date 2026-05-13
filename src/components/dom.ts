@@ -136,7 +136,6 @@ export function toggleDisclosureMenuOnKeyDown(event: KeyboardEvent): void {
     disclosure.removeAttribute('open');
   }
   disclosure.open = nextOpen;
-  trigger.setAttribute('aria-expanded', String(nextOpen));
 }
 
 type ActiveFormSnapshot = {
