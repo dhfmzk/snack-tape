@@ -26,6 +26,24 @@ This repository targets the Chrome side panel experience defined in `manifest.js
 4. Click `Load unpacked` and select the generated `dist/` directory.
 5. After source changes, run `npm run build` again and click `Reload` on the extension card.
 
+## GitHub Release Install
+
+SnackTape is distributed through GitHub Releases, not the Chrome Web Store.
+
+1. Download the latest `snacktape-v*.zip` asset from the Releases page.
+2. Unzip it into a stable local folder, such as `~/Applications/SnackTape`.
+3. Open `chrome://extensions` in Chrome and enable `Developer mode`.
+4. Click `Load unpacked` and select the unzipped folder that contains `manifest.json`.
+5. To upgrade, replace the files in the same folder and click `Reload` on the extension card.
+
+Keeping the same folder path helps Chrome keep the unpacked extension identity stable between releases.
+
+## Release Build
+
+For maintainers, `npm run package:release` builds the extension, runs the dist smoke check, and writes a zip asset to `release/snacktape-v*.zip`.
+
+Upload that zip file to a GitHub Release. The archive is structured so `manifest.json` is at the root after extraction. The package script uses Node APIs only, so it does not require a system `zip` command.
+
 ## License
 
 MIT

@@ -40,6 +40,9 @@ test('README stays concise and documents developer-mode loading', async () => {
   assert.match(readme, /chrome:\/\/extensions/);
   assert.match(readme, /Load unpacked/);
   assert.match(readme, /dist\//);
+  assert.match(readme, /GitHub Release Install/);
+  assert.match(readme, /snacktape-v\*\.zip/);
+  assert.match(readme, /package:release/);
   assert.doesNotMatch(readme, /Manual QA Checklist|How to Use|Install and Build/);
 });
 
