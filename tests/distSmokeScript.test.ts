@@ -9,7 +9,8 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   assert.equal(packageJson.scripts['smoke:dist'], 'node scripts/check-dist.mjs');
   assert.equal(packageJson.scripts['smoke:chrome'], undefined);
   assert.match(packageJson.scripts.build, /npm run smoke:dist/);
-  assert.equal(packageJson.scripts['package:release'], 'npm run build && node scripts/package-release.mjs');
+  assert.equal(packageJson.scripts['release:zip'], 'npm run build && node scripts/create-release-zip.mjs');
+  assert.equal(packageJson.scripts['package:release'], undefined);
 
   const smokeScript = await readFile('scripts/check-dist.mjs', 'utf8');
   assert.match(smokeScript, /dist\/manifest\.json/);
@@ -19,7 +20,7 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   assert.match(smokeScript, /manifest\.icons/);
   assert.match(smokeScript, /manifest\.action\?\.default_icon/);
 
-  const releaseScript = await readFile('scripts/package-release.mjs', 'utf8');
+  const releaseScript = await readFile('scripts/create-release-zip.mjs', 'utf8');
   assert.match(releaseScript, /snacktape-v\$\{packageJson\.version\}\.zip/);
   assert.match(releaseScript, /createZipArchive\(DIST_DIR, archivePath\)/);
   assert.match(releaseScript, /writeFile\(archivePath/);
