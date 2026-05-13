@@ -2,6 +2,9 @@ import { createId, normalizeImportedStore } from './storage.js';
 import type { Segment, Sequence, SnackTapeStore } from './types.js';
 
 export type ExportFormat = 'json' | 'csv';
+export const EXPORT_APP_NAME = 'SnackTape';
+export const EXPORT_SCHEMA_VERSION = 1;
+
 export type ImportSummary = {
   mixtapeCount: number;
   clipCount: number;
@@ -10,14 +13,16 @@ export type ImportSummary = {
 };
 
 type ExportPayload = {
-  app: 'SnackTape';
-  version: 1;
+  app: typeof EXPORT_APP_NAME;
+  version: typeof EXPORT_SCHEMA_VERSION;
   exportedAt: string;
   store: SnackTapeStore;
 };
 
 function csvCell(value: unknown): string {
-  const text = String(value ?? '');
+  const text = typeof value === 'string' && /^[=+\-@]/.test(value)
+    ? `'${value}`
+    : String(value ?? '');
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -32,8 +37,8 @@ function segmentRows(store: SnackTapeStore): Array<{ sequenceName: string; segme
 
 export function createExportPayload(store: SnackTapeStore, exportedAt = new Date().toISOString()): ExportPayload {
   return {
-    app: 'SnackTape',
-    version: 1,
+    app: EXPORT_APP_NAME,
+    version: EXPORT_SCHEMA_VERSION,
     exportedAt,
     store,
   };
@@ -81,7 +86,12 @@ export function parseImportedStoreJson(text: string): SnackTapeStore | null {
   }
 
   if (payload && typeof payload === 'object' && !Array.isArray(payload) && 'store' in payload) {
-    return normalizeImportedStore((payload as { store?: unknown }).store);
+    const wrapper = payload as { app?: unknown; version?: unknown; store?: unknown };
+    if (wrapper.app !== EXPORT_APP_NAME || wrapper.version !== EXPORT_SCHEMA_VERSION) {
+      return null;
+    }
+
+    return normalizeImportedStore(wrapper.store);
   }
 
   return normalizeImportedStore(payload);

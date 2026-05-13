@@ -322,12 +322,8 @@ export class SnackTapeAppStore {
   }
 
   private persistenceErrorMessage(error: unknown, state: AppState): string {
-    const message = error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : '';
-    return createI18n(state.settings?.language).common.saveFailed(message);
+    const i18n = createI18n(state.settings?.language);
+    return i18n.common.saveFailed(i18n.common.storageError);
   }
 
   private restoreAfterPersistenceError(previousState: AppState, target: PersistenceNoticeTarget, error: unknown): void {
@@ -1393,7 +1389,18 @@ export class SnackTapeAppStore {
 
   async importDataFile(file: Pick<File, 'text'>): Promise<void> {
     const i18n = createI18n(this.state.settings.language).settings;
-    const store = parseImportedStoreJson(await file.text());
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      this.setState({
+        pendingImport: null,
+        settingsNotice: { kind: 'error', message: i18n.importFailed },
+      });
+      return;
+    }
+
+    const store = parseImportedStoreJson(text);
     if (!store) {
       this.setState({
         pendingImport: null,

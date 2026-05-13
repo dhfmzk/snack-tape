@@ -692,7 +692,7 @@ test('captureOutAndSave restores the draft and clip stack when store persistence
   assert.equal(store.getState().draftIn, 42);
   assert.equal(store.getState().capturePulseId, null);
   assert.equal(store.getState().captureNotice.kind, 'error');
-  assert.match(store.getState().captureNotice.message, /quota exceeded/);
+  assert.equal(store.getState().captureNotice.message, '저장하지 못했습니다. Chrome 저장소를 확인한 뒤 다시 시도해주세요.');
   assert.equal(storage[STORAGE_KEY].sequences[0].segments.length, 0);
 });
 

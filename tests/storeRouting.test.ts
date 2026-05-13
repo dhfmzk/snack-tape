@@ -132,7 +132,7 @@ test('createMixtape rolls back visible state when store persistence fails', asyn
   assert.equal(store.getState().store.sequences.length, 1);
   assert.equal(store.getState().store.selectedSequenceId, sequence.id);
   assert.equal(store.getState().settingsNotice.kind, 'error');
-  assert.match(store.getState().settingsNotice.message, /quota exceeded/);
+  assert.equal(store.getState().settingsNotice.message, '저장하지 못했습니다. Chrome 저장소를 확인한 뒤 다시 시도해주세요.');
 });
 
 test('createMixtape uses the next unused visible number after deletions', async () => {
@@ -1401,7 +1401,7 @@ test('renameMixtape restores the previous name when store persistence fails', as
   assert.equal(store.getState().store.sequences[0].name, '이전 이름');
   assert.deepEqual(store.getState().renameEdit, { sequenceId: sequence.id });
   assert.equal(store.getState().captureNotice.kind, 'error');
-  assert.match(store.getState().captureNotice.message, /quota exceeded/);
+  assert.equal(store.getState().captureNotice.message, '저장하지 못했습니다. Chrome 저장소를 확인한 뒤 다시 시도해주세요.');
 });
 
 test('deleteMixtape removes the selected mixtape and clears its playback state', async () => {

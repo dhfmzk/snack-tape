@@ -50,6 +50,32 @@ test('serializeStoreCsv includes the note column in the header', async () => {
   assert.match(csv, /My note/);
 });
 
+test('serializeStoreCsv neutralizes spreadsheet formula cells', async () => {
+  const { serializeStoreCsv } = await import('../src/shared/dataTransfer.js');
+  const csv = serializeStoreCsv({
+    sequences: [
+      makeSequence({
+        id: 'seq-formula',
+        name: '=Tape',
+        segments: [
+          makeSegment({
+            id: 'clip-formula',
+            title: '=HYPERLINK("https://example.com")',
+            channel: '+channel',
+            note: '@note'
+          })
+        ]
+      })
+    ],
+    selectedSequenceId: 'seq-formula'
+  });
+
+  assert.match(csv, /'=Tape/);
+  assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.com""\)"/);
+  assert.match(csv, /'\+channel/);
+  assert.match(csv, /'@note/);
+});
+
 test('serializeStoreCsv exports an empty body for a store with no segments', async () => {
   const { serializeStoreCsv } = await import('../src/shared/dataTransfer.js');
   const csv = serializeStoreCsv({ sequences: [], selectedSequenceId: null });
@@ -101,6 +127,28 @@ test('parseImportedStoreJson parses a plain store object without an export wrapp
   assert.equal(parsed.sequences[0].id, 'seq-plain');
 });
 
+test('parseImportedStoreJson rejects incompatible export wrappers', async () => {
+  const { parseImportedStoreJson } = await import('../src/shared/dataTransfer.js');
+  const sequence = makeSequence({ id: 'seq-wrapped' });
+  const store = {
+    sequences: [sequence],
+    selectedSequenceId: sequence.id
+  };
+
+  assert.equal(parseImportedStoreJson(JSON.stringify({
+    app: 'OtherApp',
+    version: 1,
+    exportedAt: '2026-05-13T00:00:00.000Z',
+    store
+  })), null);
+  assert.equal(parseImportedStoreJson(JSON.stringify({
+    app: 'SnackTape',
+    version: 999,
+    exportedAt: '2026-05-13T00:00:00.000Z',
+    store
+  })), null);
+});
+
 test('createExportPayload includes app name, version, exportedAt and store', async () => {
   const { createExportPayload } = await import('../src/shared/dataTransfer.js');
   const store = { sequences: [], selectedSequenceId: null };
@@ -111,4 +159,3 @@ test('createExportPayload includes app name, version, exportedAt and store', asy
   assert.equal(payload.exportedAt, '2024-01-01T00:00:00.000Z');
   assert.equal(payload.store, store);
 });
-
