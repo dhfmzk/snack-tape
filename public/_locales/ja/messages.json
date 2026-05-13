@@ -1,0 +1,20 @@
+{
+  "appName": {
+    "message": "SnackTape"
+  },
+  "appDescription": {
+    "message": "YouTubeの範囲を保存し、ミックステープのように再生"
+  },
+  "commandCaptureIn": {
+    "message": "INマーカー"
+  },
+  "commandCaptureOut": {
+    "message": "OUTマーカー + 保存"
+  },
+  "commandPlayPause": {
+    "message": "再生/一時停止"
+  },
+  "commandNextClip": {
+    "message": "次のクリップ"
+  }
+}

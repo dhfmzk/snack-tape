@@ -7,6 +7,7 @@ test('build runs a dist smoke check for Chrome load-unpacked files', async () =>
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
 
   assert.equal(packageJson.scripts['smoke:dist'], 'node scripts/check-dist.mjs');
+  assert.equal(packageJson.scripts['smoke:chrome'], undefined);
   assert.match(packageJson.scripts.build, /npm run smoke:dist/);
 
   const smokeScript = await readFile('scripts/check-dist.mjs', 'utf8');
@@ -23,4 +24,5 @@ test('GitHub Actions CI runs the full project check', async () => {
   assert.match(workflow, /push:/);
   assert.match(workflow, /npm install --no-package-lock --no-audit --no-fund/);
   assert.match(workflow, /npm run check/);
+  assert.doesNotMatch(workflow, /smoke:chrome/);
 });
