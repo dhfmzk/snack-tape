@@ -155,22 +155,30 @@ function startedAtForSegmentTime(segment: Segment, absoluteSeconds: number): num
   return Date.now() - Math.round(elapsed * 1000);
 }
 
-async function playbackI18n() {
+async function appI18n() {
   const settings = await loadSettings();
   return createI18n(settings.language);
+}
+
+async function playbackI18n() {
+  return (await appI18n()).playback;
+}
+
+async function captureI18n() {
+  return (await appI18n()).capture;
 }
 
 async function playbackContext(): Promise<{ state: PlaybackState & { tabId: number }; sequence: Sequence; segment: Segment }> {
   const state = await loadPlaybackState();
   if (!state?.tabId) {
-    throw new Error((await playbackI18n()).playback.noPlaybackTab);
+    throw new Error((await playbackI18n()).noPlaybackTab);
   }
 
   const store = await loadStore();
   const sequence = getSequence(store.sequences, state.sequenceId);
   const segment = currentPlaybackSegment(sequence, state);
   if (!segment) {
-    throw new Error((await playbackI18n()).playback.currentSegmentMissing);
+    throw new Error((await playbackI18n()).currentSegmentMissing);
   }
 
   return { state: state as PlaybackState & { tabId: number }, sequence, segment };
@@ -180,7 +188,7 @@ async function assertPlaybackTabMatches(state: PlaybackState & { tabId: number }
   const response = await sendMessageWithRetries<PageInfo>(state.tabId, { type: 'GET_PAGE_INFO' });
   const pageInfo = response.data;
   if (!pageInfo?.isYouTubeVideoPage || pageInfo.videoId !== segment.videoId) {
-    throw new Error((await playbackI18n()).playback.connectionLost);
+    throw new Error((await playbackI18n()).connectionLost);
   }
 
   return pageInfo;
@@ -330,19 +338,19 @@ async function sendMessageWithRetries<T>(tabId: number, message: SnackTapeMessag
   }
 
   void lastError;
-  throw new Error((await playbackI18n()).playback.contentRequestFailed);
+  throw new Error((await playbackI18n()).contentRequestFailed);
 }
 
 async function readActiveVideoForCapture(): Promise<{ tab: chrome.tabs.Tab; videoState: VideoState }> {
   const tab = await getActiveTab();
   if (!tab.id || !tab.url || !parseYouTubeVideoId(tab.url)) {
-    throw new Error('YouTube 영상을 열어주세요.');
+    throw new Error((await captureI18n()).noticeOpenYoutubeVideo);
   }
 
   const response = await sendMessageWithRetries<VideoState>(tab.id, { type: 'getVideoState' });
   const videoState = response.data;
   if (!videoState?.videoId || !Number.isFinite(videoState.currentTime)) {
-    throw new Error('영상 시간을 읽을 수 없습니다.');
+    throw new Error((await captureI18n()).noticeTimeUnavailable);
   }
 
   return { tab, videoState };
@@ -362,13 +370,13 @@ export async function captureOutFromCommand(): Promise<void> {
   const { tab, videoState } = await readActiveVideoForCapture();
   const draft = await loadSegmentDraft(videoState.videoId!);
   if (!draft || draft.startSeconds === null) {
-    throw new Error('IN 먼저 찍어주세요.');
+    throw new Error((await captureI18n()).noticeInFirst);
   }
 
   const [store, settings] = await Promise.all([loadStore(), loadSettings()]);
   const sequence = selectCaptureSequence(store.sequences, store.selectedSequenceId, settings.defaultMixtapeId);
   if (!sequence) {
-    throw new Error('저장할 믹스테이프를 선택하세요.');
+    throw new Error(createI18n(settings.language).capture.noticeNoSaveTarget);
   }
 
   const timestamp = Date.now();
@@ -389,7 +397,7 @@ export async function captureOutFromCommand(): Promise<void> {
   };
   const errors = validateSegment(segment);
   if (errors.length > 0) {
-    throw new Error(errors[0]);
+    throw new Error(createI18n(settings.language).capture.noticeInvalidSegment);
   }
 
   const updatedSequence: Sequence = {

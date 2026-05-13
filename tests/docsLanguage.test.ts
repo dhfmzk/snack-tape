@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 const DOC_PATHS = [
   'README.md',
+  'docs/manual-qa.md',
   'docs/snacktape-goal.md'
 ];
 

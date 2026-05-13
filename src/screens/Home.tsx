@@ -1,5 +1,5 @@
 import { Thumb } from '../components/Thumb.js';
-import { el } from '../components/dom.js';
+import { el, toggleDisclosureMenuOnKeyDown } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatSeconds } from '../shared/time.js';
@@ -309,6 +309,8 @@ function MixtapeActionMenu(
       {
         ariaLabel: i18n.home.menu(sequence.name),
         ariaHasPopup: 'menu',
+        ariaExpanded: 'false',
+        onKeyDown: toggleDisclosureMenuOnKeyDown,
         style: {
           height: '34px',
           width: '34px',

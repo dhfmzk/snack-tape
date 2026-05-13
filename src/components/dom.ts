@@ -109,6 +109,36 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+export function toggleDisclosureMenuOnKeyDown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar' && event.key !== 'Escape') {
+    return;
+  }
+
+  const trigger = (event.currentTarget ?? event.target) as HTMLElement | null;
+  const disclosure = typeof trigger?.closest === 'function'
+    ? trigger.closest('details') as HTMLDetailsElement | null
+    : null;
+  if (!trigger || !disclosure) {
+    return;
+  }
+
+  if (event.key === 'Escape' && !disclosure.open) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation?.();
+
+  const nextOpen = event.key === 'Escape' ? false : !disclosure.open;
+  if (nextOpen) {
+    disclosure.setAttribute('open', '');
+  } else {
+    disclosure.removeAttribute('open');
+  }
+  disclosure.open = nextOpen;
+  trigger.setAttribute('aria-expanded', String(nextOpen));
+}
+
 type ActiveFormSnapshot = {
   element: HTMLElement;
   persistKey: string;

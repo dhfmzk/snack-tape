@@ -1,5 +1,5 @@
 import { Thumb } from '../components/Thumb.js';
-import { el } from '../components/dom.js';
+import { el, toggleDisclosureMenuOnKeyDown } from '../components/dom.js';
 import { Glyph } from '../components/Glyph.js';
 import { createI18n, type I18n } from '../i18n.js';
 import { formatEditableTimecode, formatTimecode } from '../shared/time.js';
@@ -157,6 +157,7 @@ function SegmentActionMenu(
         ariaLabel: i18n.capture.segmentMenu(segment.title),
         ariaHasPopup: 'menu',
         ariaExpanded: 'false',
+        onKeyDown: toggleDisclosureMenuOnKeyDown,
         style: {
           ...btnIconStyle(),
           listStyle: 'none',

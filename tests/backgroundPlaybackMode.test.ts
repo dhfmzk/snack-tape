@@ -816,6 +816,51 @@ test('background capture command saves OUT into the selected mixtape when the si
   assert.equal(data[SEGMENT_DRAFT_KEY], undefined);
 });
 
+test('background capture command errors use the configured Japanese UI language', async () => {
+  const { SETTINGS_KEY } = await import('../src/state/storage.js');
+  installChrome(
+    { [SETTINGS_KEY]: settings({ language: 'ja' }) },
+    {
+      activeTab: {
+        id: 9,
+        active: true,
+        url: 'https://example.com/'
+      }
+    }
+  );
+  const { captureInFromCommand } = await import('../src/background/background.js?command-capture-ja-error');
+
+  await assert.rejects(() => captureInFromCommand(), /YouTube動画を開いてください/);
+});
+
+test('background capture OUT command errors use the configured English UI language', async () => {
+  const { SETTINGS_KEY } = await import('../src/state/storage.js');
+  installChrome(
+    { [SETTINGS_KEY]: settings({ language: 'en' }) },
+    {
+      sendMessageResponse(message) {
+        if (message.type === 'getVideoState') {
+          return {
+            ok: true,
+            data: {
+              videoId: 'video-1',
+              title: 'Command Video',
+              channel: 'Channel',
+              currentTime: 15,
+              duration: 90,
+              paused: false
+            }
+          };
+        }
+        return { ok: true };
+      }
+    }
+  );
+  const { captureOutFromCommand } = await import('../src/background/background.js?command-capture-en-error');
+
+  await assert.rejects(() => captureOutFromCommand(), /Mark IN first/);
+});
+
 test('background play-pause command starts the selected mixtape when the side panel is closed', async () => {
   const { STORAGE_KEY, PLAYBACK_STATE_KEY } = await import('../src/shared/storage.js');
   const { SETTINGS_KEY } = await import('../src/state/storage.js');

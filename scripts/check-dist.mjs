@@ -8,6 +8,7 @@ const requiredFiles = [
   'dist/sidepanel.html',
   'dist/sidepanel.css',
   'dist/_locales/en/messages.json',
+  'dist/_locales/ja/messages.json',
   'dist/_locales/ko/messages.json'
 ];
 

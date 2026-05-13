@@ -50,16 +50,23 @@ test('legacy editor source is removed from the MV3 side-panel app', async () => 
 });
 
 test('manifest metadata uses Chrome locale messages with English default locale', async () => {
-  const [manifestText, englishLocaleText] = await Promise.all([
+  const [manifestText, englishLocaleText, koreanLocaleText, japaneseLocaleText] = await Promise.all([
     readFile('manifest.json', 'utf8'),
     readFile('public/_locales/en/messages.json', 'utf8'),
+    readFile('public/_locales/ko/messages.json', 'utf8'),
+    readFile('public/_locales/ja/messages.json', 'utf8'),
   ]);
   const manifest = JSON.parse(manifestText);
   const englishLocale = JSON.parse(englishLocaleText);
+  const koreanLocale = JSON.parse(koreanLocaleText);
+  const japaneseLocale = JSON.parse(japaneseLocaleText);
 
   assert.equal(manifest.default_locale, 'en');
   assert.equal(manifest.name, '__MSG_appName__');
   assert.equal(manifest.description, '__MSG_appDescription__');
   assert.equal(englishLocale.appName.message, 'SnackTape');
   assert.match(englishLocale.appDescription.message, /YouTube ranges/);
+  assert.deepEqual(Object.keys(japaneseLocale).sort(), Object.keys(englishLocale).sort());
+  assert.deepEqual(Object.keys(koreanLocale).sort(), Object.keys(englishLocale).sort());
+  assert.match(japaneseLocale.appDescription.message, /YouTube/);
 });
