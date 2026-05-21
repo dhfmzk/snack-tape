@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('build runs a dist smoke check for Chrome load-unpacked files', async () => {
+test('release scripts run version verification and dist smoke checks', async () => {
   const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
 
   assert.equal(packageJson.scripts['release:verify'], 'node scripts/check-release-versions.mjs');
